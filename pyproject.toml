@@ -1,0 +1,8 @@
+[project]
+name = "tiktoken"
+dependencies = ["blobfile>=2", "regex>=2022.1.18"]
+dynamic = ["version"]
+
+[build-system]
+requires = ["setuptools", "wheel", "setuptools-rust"]
+
