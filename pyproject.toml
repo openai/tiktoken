@@ -2,7 +2,30 @@
 name = "tiktoken"
 dependencies = ["blobfile>=2", "regex>=2022.1.18"]
 dynamic = ["version"]
+requires-python = ">=3.9"
 
 [build-system]
-requires = ["setuptools", "wheel", "setuptools-rust"]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61", "wheel", "setuptools-rust>=1.3"]
+
+[tool.cibuildwheel]
+build-frontend = "build"
+build-verbosity = 1
+
+linux.before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+linux.environment = { PATH = "$PATH:$HOME/.cargo/bin" }
+macos.before-all = "rustup target add aarch64-apple-darwin"
+
+skip = [
+  "*-manylinux_i686",
+  "*-musllinux_i686",
+  "*-win32",
+]
+macos.archs = ["x86_64", "arm64"]
+# When cross-compiling on Intel, it is not possible to test arm64 wheels.
+# Warnings will be silenced with following CIBW_TEST_SKIP
+test-skip = "*-macosx_arm64"
+
+before-test = "pip install pytest"
+test-command = "pytest {project}/tests"
 

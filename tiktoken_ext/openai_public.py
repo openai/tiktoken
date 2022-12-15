@@ -21,6 +21,28 @@ def gpt2():
     }
 
 
+def r50k_base():
+    mergeable_ranks = load_tiktoken_bpe("az://openaipublic/encodings/r50k_base.tiktoken")
+    return {
+        "name": "r50k_base",
+        "explicit_n_vocab": 50257,
+        "pat_str": r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
+        "mergeable_ranks": mergeable_ranks,
+        "special_tokens": {ENDOFTEXT: 50256},
+    }
+
+
+def p50k_base():
+    mergeable_ranks = load_tiktoken_bpe("az://openaipublic/encodings/p50k_base.tiktoken")
+    return {
+        "name": "p50k_base",
+        "explicit_n_vocab": 50281,
+        "pat_str": r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
+        "mergeable_ranks": mergeable_ranks,
+        "special_tokens": {ENDOFTEXT: 50256},
+    }
+
+
 def cl100k_base():
     mergeable_ranks = load_tiktoken_bpe("az://openaipublic/encodings/cl100k_base.tiktoken")
     special_tokens = {
@@ -38,4 +60,9 @@ def cl100k_base():
     }
 
 
-ENCODING_CONSTRUCTORS = {"gpt2": gpt2, "cl100k_base": cl100k_base}
+ENCODING_CONSTRUCTORS = {
+    "gpt2": gpt2,
+    "r50k_base": r50k_base,
+    "p50k_base": p50k_base,
+    "cl100k_base": cl100k_base,
+}

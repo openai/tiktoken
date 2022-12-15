@@ -18,7 +18,7 @@ The tokeniser API is documented in `tiktoken/core.py`.
 
 ## Performance
 
-`tiktoken` is between 3-6x faster than huggingface's tokeniser:
+`tiktoken` is between 3-6x faster than a comparable open source tokeniser:
 
 ![image](./perf.svg)
 

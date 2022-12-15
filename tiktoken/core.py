@@ -153,6 +153,8 @@ class Encoding:
 
         See `encode` for more details on `allowed_special` and `disallowed_special`.
 
+        This API should itself be considered unstable.
+
         ```
         >>> enc.encode_with_unstable("hello fanta")
         ([31373], [(277, 4910), (5113, 265), ..., (8842,)])
