@@ -1,11 +1,12 @@
 # ⏳ tiktoken
 
-tiktoken is a fast tokeniser.
+tiktoken is a fast [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
+OpenAI's models.
 
 ```python
 import tiktoken
 enc = tiktoken.get_encoding("gpt2")
-print(enc.encode("hello world"))
+assert enc.decode(enc.encode("hello world")) == "hello world"
 ```
 
 The open source version of `tiktoken` can be installed from PyPI:
