@@ -34,6 +34,6 @@ def benchmark_batch(documents: list[str]) -> None:
     start = time.perf_counter_ns()
     hf_enc(documents)
     end = time.perf_counter_ns()
-    print(f"huggingface \t{num_bytes / (end - start) * 1e9} bytes / s")
+    print(f"Hugging Face \t{num_bytes / (end - start) * 1e9} bytes / s")
 
 
