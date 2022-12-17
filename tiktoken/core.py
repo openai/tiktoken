@@ -68,7 +68,7 @@ class Encoding:
         and `disallowed_special` parameters. In particular:
         - Setting `disallowed_special` to () will prevent this function from raising errors and
           cause all text corresponding to special tokens to be encoded as natural text.
-        - Setting `allowed_special` to "all" will allow cause this function to treat all text
+        - Setting `allowed_special` to "all" will cause this function to treat all text
           corresponding to special tokens to be encoded as special tokens.
 
         ```
