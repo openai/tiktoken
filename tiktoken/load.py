@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import uuid
+from typing import Dict 
 
 import blobfile
 
@@ -41,7 +42,7 @@ def read_file_cached(blobpath: str) -> bytes:
 
 def data_gym_to_mergeable_bpe_ranks(
     vocab_bpe_file: str, encoder_json_file: str
-) -> dict[bytes, int]:
+) -> Dict[bytes, int]:
     # NB: do not add caching to this function
     rank_to_intbyte = [b for b in range(2**8) if chr(b).isprintable() and chr(b) != " "]
 
@@ -82,13 +83,13 @@ def data_gym_to_mergeable_bpe_ranks(
     return bpe_ranks
 
 
-def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> None:
+def dump_tiktoken_bpe(bpe_ranks: Dict[bytes, int], tiktoken_bpe_file: str) -> None:
     with blobfile.BlobFile(tiktoken_bpe_file, "wb") as f:
         for token, rank in sorted(bpe_ranks.items(), key=lambda x: x[1]):
             f.write(base64.b64encode(token) + b" " + str(rank).encode() + b"\n")
 
 
-def load_tiktoken_bpe(tiktoken_bpe_file: str) -> dict[bytes, int]:
+def load_tiktoken_bpe(tiktoken_bpe_file: str) -> Dict[bytes, int]:
     # NB: do not add caching to this function
     contents = read_file_cached(tiktoken_bpe_file)
     return {

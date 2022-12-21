@@ -6,10 +6,11 @@ from typing import Any, Callable, Optional
 import tiktoken_ext
 
 from tiktoken.core import Encoding
+from typing import Dict, List
 
 _lock = threading.RLock()
-ENCODINGS: dict[str, Encoding] = {}
-ENCODING_CONSTRUCTORS: Optional[dict[str, Callable[[], dict[str, Any]]]] = None
+ENCODINGS: Dict[str, Encoding] = {}
+ENCODING_CONSTRUCTORS: Optional[Dict[str, Callable[[], Dict[str, Any]]]] = None
 
 
 def _find_constructors() -> None:
@@ -63,7 +64,7 @@ def get_encoding(encoding_name: str) -> Encoding:
         return enc
 
 
-def list_encoding_names() -> list[str]:
+def list_encoding_names() -> List[str]:
     with _lock:
         if ENCODING_CONSTRUCTORS is None:
             _find_constructors()

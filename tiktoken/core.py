@@ -6,6 +6,7 @@ import regex
 
 from tiktoken import _tiktoken
 
+from typing import Dict, List, Tuple, Set, FrozenSet
 
 class Encoding:
     def __init__(
@@ -13,8 +14,8 @@ class Encoding:
         name: str,
         *,
         pat_str: str,
-        mergeable_ranks: dict[bytes, int],
-        special_tokens: dict[str, int],
+        mergeable_ranks: Dict[bytes, int],
+        special_tokens: Dict[str, int],
         explicit_n_vocab: Optional[int] = None,
     ):
         self.name = name
@@ -39,7 +40,7 @@ class Encoding:
     # Encoding
     # ====================
 
-    def encode_ordinary(self, text: str) -> list[int]:
+    def encode_ordinary(self, text: str) -> List[int]:
         """Encodes a string into tokens, ignoring special tokens.
 
         This is equivalent to `encode(text, disallowed_special=())` (but slightly faster).
@@ -56,7 +57,7 @@ class Encoding:
         *,
         allowed_special: Union[Literal["all"], AbstractSet[str]] = set(),  # noqa: B006
         disallowed_special: Union[Literal["all"], Collection[str]] = "all",
-    ) -> list[int]:
+    ) -> List[int]:
         """Encodes a string into tokens.
 
         Special tokens are artificial tokens used to unlock capabilities from a model,
@@ -96,7 +97,7 @@ class Encoding:
 
         return self._core_bpe.encode(text, allowed_special)
 
-    def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
+    def encode_ordinary_batch(self, text: List[str], *, num_threads: int = 8) -> List[List[int]]:
         """Encodes a list of strings into tokens, in parallel, ignoring special tokens.
 
         This is equivalent to `encode_batch(text, disallowed_special=())` (but slightly faster).
@@ -112,12 +113,12 @@ class Encoding:
 
     def encode_batch(
         self,
-        text: list[str],
+        text: List[str],
         *,
         num_threads: int = 8,
         allowed_special: Union[Literal["all"], AbstractSet[str]] = set(),  # noqa: B006
         disallowed_special: Union[Literal["all"], Collection[str]] = "all",
-    ) -> list[list[int]]:
+    ) -> List[List[int]]:
         """Encodes a list of strings into tokens, in parallel.
 
         See `encode` for more details on `allowed_special` and `disallowed_special`.
@@ -146,7 +147,7 @@ class Encoding:
         *,
         allowed_special: Union[Literal["all"], AbstractSet[str]] = set(),  # noqa: B006
         disallowed_special: Union[Literal["all"], Collection[str]] = "all",
-    ) -> tuple[list[int], list[list[int]]]:
+    ) -> Tuple[List[int], List[List[int]]]:
         """Encodes a string into stable tokens and possible completion sequences.
 
         Note that the stable tokens will only represent a substring of `text`.
@@ -197,7 +198,7 @@ class Encoding:
     # Decoding
     # ====================
 
-    def decode_bytes(self, tokens: list[int]) -> bytes:
+    def decode_bytes(self, tokens: List[int]) -> bytes:
         """Decodes a list of tokens into bytes.
 
         ```
@@ -207,7 +208,7 @@ class Encoding:
         """
         return self._core_bpe.decode_bytes(tokens)
 
-    def decode(self, tokens: list[int], errors: str = "replace") -> str:
+    def decode(self, tokens: List[int], errors: str = "replace") -> str:
         """Decodes a list of tokens into a string.
 
         WARNING: the default behaviour of this function is lossy, since decoded bytes are not
@@ -235,7 +236,7 @@ class Encoding:
         """
         return self._core_bpe.decode_single_token_bytes(token)
 
-    def decode_tokens_bytes(self, tokens: list[int]) -> list[bytes]:
+    def decode_tokens_bytes(self, tokens: List[int]) -> List[bytes]:
         """Decodes a list of tokens into a list of bytes.
 
         Useful for visualising tokenisation.
@@ -248,7 +249,7 @@ class Encoding:
     # Miscellaneous
     # ====================
 
-    def token_byte_values(self) -> list[bytes]:
+    def token_byte_values(self) -> List[bytes]:
         """Returns the list of all token byte values."""
         return self._core_bpe.token_byte_values()
 
@@ -257,7 +258,7 @@ class Encoding:
         return self._special_tokens["<|endoftext|>"]
 
     @functools.cached_property
-    def special_tokens_set(self) -> set[str]:
+    def special_tokens_set(self) -> Set[str]:
         return set(self._special_tokens.keys())
 
     @property
@@ -269,7 +270,7 @@ class Encoding:
     # Private
     # ====================
 
-    def _encode_single_piece(self, text_or_bytes: Union[str, bytes]) -> list[int]:
+    def _encode_single_piece(self, text_or_bytes: Union[str, bytes]) -> List[int]:
         """Encodes text corresponding to bytes without a regex split.
 
         NOTE: this will not encode any special tokens.
@@ -283,7 +284,7 @@ class Encoding:
             text_or_bytes = text_or_bytes.encode("utf-8")
         return self._core_bpe.encode_single_piece(text_or_bytes)
 
-    def _encode_only_native_bpe(self, text: str) -> list[str]:
+    def _encode_only_native_bpe(self, text: str) -> List[str]:
         """Encodes a string into tokens, but do regex splitting in Python."""
         _unused_pat = regex.compile(self._pat_str)
         ret = []
@@ -291,12 +292,12 @@ class Encoding:
             ret.extend(self._core_bpe.encode_single_piece(piece))
         return ret
 
-    def _encode_bytes(self, text: bytes) -> list[int]:
+    def _encode_bytes(self, text: bytes) -> List[int]:
         return self._core_bpe._encode_bytes(text)
 
 
 @functools.lru_cache(maxsize=128)
-def _special_token_regex(tokens: frozenset[str]) -> "regex.Pattern[str]":
+def _special_token_regex(tokens: FrozenSet[str]) -> "regex.Pattern[str]":
     inner = "|".join(regex.escape(token) for token in tokens)
     return regex.compile(f"({inner})")
 
