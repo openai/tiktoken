@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import hashlib
 import json
@@ -5,6 +7,15 @@ import os
 import uuid
 
 import blobfile
+import requests
+
+
+def read_file(blobpath: str) -> bytes:
+    if not blobpath.startswith("http://") and not blobpath.startswith("https://"):
+        with blobfile.BlobFile(blobpath, "rb") as f:
+            return f.read()
+    # avoiding blobfile for public files helps avoid auth issues, like MFA prompts
+    return requests.get(blobpath).content
 
 
 def read_file_cached(blobpath: str) -> bytes:
@@ -17,8 +28,7 @@ def read_file_cached(blobpath: str) -> bytes:
 
     if cache_dir == "":
         # disable caching
-        with blobfile.BlobFile(blobpath, "rb") as f:
-            return f.read()
+        return read_file(blobpath)
 
     cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
 
@@ -27,8 +37,7 @@ def read_file_cached(blobpath: str) -> bytes:
         with open(cache_path, "rb") as f:
             return f.read()
 
-    with blobfile.BlobFile(blobpath, "rb") as f:
-        contents = f.read()
+    contents = read_file(blobpath)
 
     os.makedirs(cache_dir, exist_ok=True)
     tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"

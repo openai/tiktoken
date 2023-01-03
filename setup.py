@@ -4,7 +4,7 @@ from setuptools_rust import Binding, RustExtension
 public = True
 
 if public:
-    version = "0.1.1"
+    version = "0.1.2"
 
 setup(
     name="tiktoken",
@@ -18,6 +18,7 @@ setup(
             debug=False,
         )
     ],
+    package_data={"tiktoken": ["py.typed"]},
     packages=["tiktoken", "tiktoken_ext"],
     zip_safe=False,
 )

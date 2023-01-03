@@ -16,7 +16,7 @@ jobs:
         # cibuildwheel builds linux wheels inside a manylinux container
         # it also takes care of procuring the correct python version for us
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: [39, 310, 311]
+        python-version: [38, 39, 310, 311]
 
     steps:
       - uses: actions/checkout@v3

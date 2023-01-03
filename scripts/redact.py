@@ -9,6 +9,8 @@ def redact_file(path: Path, dry_run: bool) -> None:
         return
 
     text = path.read_text()
+    if not text:
+        return
 
     first_line = text.splitlines()[0]
     if "redact" in first_line:

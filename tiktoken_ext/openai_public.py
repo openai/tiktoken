@@ -9,8 +9,8 @@ ENDOFPROMPT = "<|endofprompt|>"
 
 def gpt2():
     mergeable_ranks = data_gym_to_mergeable_bpe_ranks(
-        vocab_bpe_file="az://openaipublic/gpt-2/encodings/main/vocab.bpe",
-        encoder_json_file="az://openaipublic/gpt-2/encodings/main/encoder.json",
+        vocab_bpe_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe",
+        encoder_json_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json",
     )
     return {
         "name": "gpt2",
@@ -22,7 +22,9 @@ def gpt2():
 
 
 def r50k_base():
-    mergeable_ranks = load_tiktoken_bpe("az://openaipublic/encodings/r50k_base.tiktoken")
+    mergeable_ranks = load_tiktoken_bpe(
+        "https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken"
+    )
     return {
         "name": "r50k_base",
         "explicit_n_vocab": 50257,
@@ -33,7 +35,9 @@ def r50k_base():
 
 
 def p50k_base():
-    mergeable_ranks = load_tiktoken_bpe("az://openaipublic/encodings/p50k_base.tiktoken")
+    mergeable_ranks = load_tiktoken_bpe(
+        "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken"
+    )
     return {
         "name": "p50k_base",
         "explicit_n_vocab": 50281,
@@ -44,7 +48,9 @@ def p50k_base():
 
 
 def cl100k_base():
-    mergeable_ranks = load_tiktoken_bpe("az://openaipublic/encodings/cl100k_base.tiktoken")
+    mergeable_ranks = load_tiktoken_bpe(
+        "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken"
+    )
     special_tokens = {
         ENDOFTEXT: 100257,
         FIM_PREFIX: 100258,
