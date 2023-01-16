@@ -1,5 +1,5 @@
 [package]
-name = "tiktoken-rs"
+name = "tiktoken"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.57.0"
