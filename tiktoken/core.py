@@ -104,7 +104,7 @@ class Encoding:
         This is equivalent to `encode_batch(text, disallowed_special=())` (but slightly faster).
 
         ```
-        >>> enc.encode_batch(["hello world", "goodbye world"])
+        >>> enc.encode_ordinary_batch(["hello world", "goodbye world"])
         [[31373, 995], [11274, 16390, 995]]
         ```
         """
@@ -285,7 +285,7 @@ class Encoding:
             text_or_bytes = text_or_bytes.encode("utf-8")
         return self._core_bpe.encode_single_piece(text_or_bytes)
 
-    def _encode_only_native_bpe(self, text: str) -> list[str]:
+    def _encode_only_native_bpe(self, text: str) -> list[int]:
         """Encodes a string into tokens, but do regex splitting in Python."""
         _unused_pat = regex.compile(self._pat_str)
         ret = []
