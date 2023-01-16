@@ -39,5 +39,4 @@ htmlcov
 # General
 .DS_Store
 
-Cargo.lock
 target/
