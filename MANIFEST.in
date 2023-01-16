@@ -1,8 +1,0 @@
-include *.svg
-include *.toml
-include *.md
-include Makefile
-global-include py.typed
-recursive-include scripts *.py
-recursive-include tests *.py
-recursive-include src *.rs

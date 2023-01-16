@@ -1,17 +1,13 @@
 [package]
-name = "tiktoken"
-version = "0.5.1"
+name = "tiktoken-rs"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.57.0"
 
 [lib]
-name = "_tiktoken"
-crate-type = ["cdylib"]
+name = "tiktoken"
 
 [dependencies]
-pyo3 = { version = "0.19.0", features = ["extension-module"] }
-
-# tiktoken dependencies
 fancy-regex = "0.11.0"
 regex = "1.8.3"
 rustc-hash = "1.1.0"
@@ -19,6 +15,3 @@ bstr = "1.5.0"
 hex = "0.4.3"
 sha2 = "0.10.6"
 base64 = "0.21.0"
-
-[profile.release]
-incremental = true
