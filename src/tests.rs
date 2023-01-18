@@ -50,6 +50,46 @@ fn test_simple() {
         .unwrap(),
         vec![15339, 83739, 8862, 728, 428, 91, 29]
     );
+    assert_eq!(
+        enc.encode(
+            include_str!("test.txt"),
+            &SpecialTokenHandling {
+                default: SpecialTokenAction::NormalText,
+                ..Default::default()
+            }
+        )
+        .unwrap()
+        .len(),
+        7182 // this is same as text-davinici-003
+    );
+
+    let enc_r = EncodingFactory::r50k_base().unwrap();
+    assert_eq!(
+        enc_r
+            .encode(
+                "hello world    hello",
+                &SpecialTokenHandling {
+                    default: SpecialTokenAction::NormalText,
+                    ..Default::default()
+                }
+            )
+            .unwrap(),
+        vec![31373, 995, 220, 220, 220, 23748] // this is the GPT-3 tokenizer
+    );
+
+    let enc_p = EncodingFactory::p50k_base().unwrap();
+    assert_eq!(
+        enc_p
+            .encode(
+                "hello world    hello",
+                &SpecialTokenHandling {
+                    default: SpecialTokenAction::NormalText,
+                    ..Default::default()
+                }
+            )
+            .unwrap(),
+        vec![31373, 995, 50258, 23748] // this is the Codex tokenizer
+    );
 
     let enc = EncodingFactory::cl100k_base().unwrap();
     for token in 0..10000 {

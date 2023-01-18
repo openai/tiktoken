@@ -56,7 +56,7 @@ impl EncodingFactory {
             r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+",
             mergeable_ranks,
             special_tokens,
-            Some(50257),
+            Some(50281),
         )
         .map_err(|e| Error::UnableToCreateEncoding(e.to_string()))
     }
