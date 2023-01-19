@@ -18,6 +18,6 @@ println!("Number of tokens: {}", tokens.len());
 
 GPT-3 (`text-davinci-002` and earlier) is `r50k_base`.
 
-Codex (`code-davinci-002` and earlier) is `p50k_base`.
+Codex and GPT-3.5 (`code-davinci-002` and `text-davinci-003`) is `p50k_base`.
 
-GPT-3.5 and embeddings (`text-davinci-003` and `text-embedding-ada-002`) is `cl100k_base`.
+Embeddings (`text-embedding-ada-002`) is `cl100k_base`.
