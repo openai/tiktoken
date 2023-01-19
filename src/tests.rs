@@ -62,6 +62,18 @@ fn test_simple() {
         .len(),
         7182 // this is same as text-davinici-003
     );
+    assert_eq!(
+        enc.encode(
+            include_str!("prompt.txt"),
+            &SpecialTokenHandling {
+                default: SpecialTokenAction::NormalText,
+                ..Default::default()
+            }
+        )
+        .unwrap()
+        .len(),
+        6791 // this is same as text-davinici-003
+    );
 
     let enc_r = EncodingFactory::r50k_base().unwrap();
     assert_eq!(
@@ -89,6 +101,20 @@ fn test_simple() {
             )
             .unwrap(),
         vec![31373, 995, 50258, 23748] // this is the Codex tokenizer
+    );
+
+    assert_eq!(
+        enc_p
+            .encode(
+                include_str!("prompt.txt"),
+                &SpecialTokenHandling {
+                    default: SpecialTokenAction::NormalText,
+                    ..Default::default()
+                }
+            )
+            .unwrap()
+            .len(),
+        9545 // this is same as text-davinici-003. HENCE TEXT-DAVINCI-003 USES CODEX TOKENIZER
     );
 
     let enc = EncodingFactory::cl100k_base().unwrap();

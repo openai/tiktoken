@@ -1,0 +1,370 @@
+Potentially useful code snippets:
+
+extension =&gt; {
+# ... skipped lines ...
+{const packageJSON = extension.packageJSON;if (packageJSON &amp;&amp; packageJSON.contributes &amp;&amp; packageJSON.contributes.jsonValidation) {const jsonValidation = packageJSON.contributes.jsonValidation;if (Array.isArray(jsonValidation)) {jsonValidation.forEach(jv =&gt; {let { fileMatch, url } = jv;if (typeof fileMatch === &#x27;string&#x27;)
+:
+```
+extensions/json-language-features/client/src/jsonClient.ts:0:593
+```
+
+(json) =&gt; {
+# ... skipped lines ...
+{callback(undefined, new File({path: `extensions/${extensionFolderName}/bundle.l10n.json`,contents: Buffer.from(JSON.stringify(json), &#x27;utf8&#x27;)}));}
+:
+```
+build/lib/i18n.ts:0:988
+```
+
+(json) =&gt; {
+# ... skipped lines ...
+{callback(undefined, new File({path: `extensions/${extensionFolderName}/bundle.l10n.json`,contents: Buffer.from(JSON.stringify(json), &#x27;utf8&#x27;)}));}
+:
+```
+build/lib/i18n.js:0:639
+```
+
+for (const extension of extensions.all) {
+# ... skipped lines ...
+{const jsonValidations = extension.packageJSON?.contributes?.jsonValidation;if (Array.isArray(jsonValidations)) {for (const jsonValidation of jsonValidations) {let uri = jsonValidation.url;if (typeof uri === &#x27;string&#x27;) {if (uri[0] === &#x27;.&#x27; &amp;&amp; uri[1] === &#x27;/&#x27;) {uri = Uri.joinPath(extension.extensionUri, uri).toString(false
+:
+```
+extensions/json-language-features/client/src/languageStatus.ts:0:291
+```
+
+(extensions) =&gt; {
+# ... skipped lines ...
+{for (const extension of extensions) {const extensionValue = &lt;IJSONValidationExtensionPoint[]&gt;extension.value;const collector = extension.collector;const extensionLocation = extension.description.extensionLocation;if (!extensionValue || !Array.isArray(extensionValue)) {collector.error(nls.localize(&#x27;invalid.jsonValidati
+:
+```
+src/vs/workbench/api/common/jsonValidationExtensionPoint.ts:0:85
+```
+
+const configurationExtPoint = ExtensionsRegistry.registerExtensionPoint&lt;IJSONValidationExtensionPoint[]&gt;({
+extensionPoint: &#x27;jsonValidation&#x27;,
+defaultExtensionKind: [&#x27;workspace&#x27;, &#x27;web&#x27;],
+jsonSchema: {
+description: nls.localize(&#x27;contributes.jsonValidation&#x27;, &#x27;Contributes json schema configuration.&#x27;),type: &#x27;array&#x27;,
+defaultSnippets: [{ body: [{ fileMatch: &#x27;${1:file.json}&#x27;, url: &#x27;${2:url}&#x27; }] }],
+items: {
+type: &#x27;object&#x27;,
+defaultSnippets: [{ body: { fileMatch: &#x27;${1:file.json}&#x27;, url: &#x27;${2:url}&#x27; } }],
+properties: {
+fileMatch: {
+type: [&#x27;string&#x27;, &#x27;array&#x27;],
+description: nls.localize(&#x27;contributes.jsonValidation.fileMatch&#x27;, &#x27;The file pattern (or an array of patterns) to match, for example &quot;package.json&quot; or &quot;*.launch&quot;. Exclusion patterns start with \&#x27;!\&#x27;&#x27;),
+items: {
+type: [&#x27;string&#x27;]
+}
+},
+url: {
+description: nls.localize(&#x27;contributes.jsonValidation.url&#x27;, &#x27;A schema URL (\&#x27;http:\&#x27;, \&#x27;https:\&#x27;) or relative path to the extension folder (\&#x27;./\&#x27;).&#x27;),
+type: &#x27;string&#x27;
+}
+}
+}
+}:
+```
+src/vs/workbench/api/common/jsonValidationExtensionPoint.ts:16:84
+```
+
+try {
+# ... skipped lines ...
+{bundledExtensions = JSON.parse(builtinExtensionsElementAttribute);}
+:
+```
+src/vs/workbench/services/extensionManagement/browser/builtinExtensionsScannerService.ts:0:119
+```
+
+type: &#x27;string&#x27;
+}
+}
+}
+}});
+
+export class JSONValidationExtensionPoint {
+
+constructor() {
+configurationExtPoint.setHandler((extensions) =&gt; {
+for (const extension of extensions) {
+const extensionValue = &lt;IJSONValidationExtensionPoint[]&gt;extension.value;
+const collector = extension.collector;
+const extensionLocation = extension.description.extensionLocation;
+
+if (!extensionValue || !Array.isArray(extensionValue)) {
+collector.error(nls.localize(&#x27;invalid.jsonValidation&#x27;, &quot;&#x27;configuration.jsonValidation&#x27; must be a array&quot;));
+return;
+}
+extensionValue.forEach(extension =&gt; {
+if (!isString(extension.fileMatch) &amp;&amp; !(Array.isArray(extension.fileMatch) &amp;&amp; extension.fileMatch.every(isString))) {
+collector.error(nls.localize(&#x27;invalid.fileMatch&#x27;, &quot;&#x27;configuration.jsonValidation.fileMatch&#x27; must be defined as a string or an array of strings.&quot;));
+return;
+}:
+```
+src/vs/workbench/api/common/jsonValidationExtensionPoint.ts:0:84
+```
+
+() =&gt; {
+# ... skipped lines ...
+{if (this.extensions) {this.updateExtensions();}}
+:
+```
+src/vs/workbench/contrib/extensions/browser/extensionsActions.ts:0:2966
+```
+
+extension =&gt; {
+# ... skipped lines ...
+{extension.value.forEach(rawAdapter =&gt; {if (rawAdapter.type === &#x27;*&#x27;) {this.debuggers.forEach(dbg =&gt; dbg.merge(rawAdapter, extension.description));}});}
+:
+```
+src/vs/workbench/contrib/debug/browser/debugAdapterManager.ts:0:439
+```
+
+
+Currently active file:
+/Users/arvid/code/vscode/package.json
+```
+{
+  &quot;name&quot;: &quot;code-oss-dev&quot;,
+  &quot;version&quot;: &quot;1.74.3&quot;,
+  &quot;distro&quot;: &quot;fbc246d437431ffae1a5a4c944dc037f74fc22cc&quot;,
+  &quot;author&quot;: {
+    &quot;name&quot;: &quot;Microsoft Corporation&quot;
+  },
+  &quot;license&quot;: &quot;MIT&quot;,
+  &quot;main&quot;: &quot;./out/main&quot;,
+  &quot;private&quot;: true,
+  &quot;scripts&quot;: {
+    &quot;test&quot;: &quot;echo Please run any of the test scripts from the scripts folder.&quot;,
+    &quot;test-browser&quot;: &quot;npx playwright install &amp;&amp; node test/unit/browser/index.js&quot;,
+    &quot;test-browser-no-install&quot;: &quot;node test/unit/browser/index.js&quot;,
+    &quot;test-node&quot;: &quot;mocha test/unit/node/index.js --delay --ui=tdd --timeout=5000 --exit&quot;,
+    &quot;preinstall&quot;: &quot;node build/npm/preinstall.js&quot;,
+    &quot;postinstall&quot;: &quot;node build/npm/postinstall.js&quot;,
+    &quot;compile&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js compile&quot;,
+    &quot;watch&quot;: &quot;npm-run-all -lp watch-client watch-extensions&quot;,
+    &quot;watchd&quot;: &quot;deemon yarn watch&quot;,
+    &quot;watch-webd&quot;: &quot;deemon yarn watch-web&quot;,
+    &quot;kill-watchd&quot;: &quot;deemon --kill yarn watch&quot;,
+    &quot;kill-watch-webd&quot;: &quot;deemon --kill yarn watch-web&quot;,
+    &quot;restart-watchd&quot;: &quot;deemon --restart yarn watch&quot;,
+    &quot;restart-watch-webd&quot;: &quot;deemon --restart yarn watch-web&quot;,
+    &quot;watch-client&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js watch-client&quot;,
+    &quot;watch-clientd&quot;: &quot;deemon yarn watch-client&quot;,
+    &quot;kill-watch-clientd&quot;: &quot;deemon --kill yarn watch-client&quot;,
+    &quot;watch-extensions&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js watch-extensions watch-extension-media&quot;,
+    &quot;watch-extensionsd&quot;: &quot;deemon yarn watch-extensions&quot;,
+    &quot;kill-watch-extensionsd&quot;: &quot;deemon --kill yarn watch-extensions&quot;,
+    &quot;precommit&quot;: &quot;echo &#x27;ignoring precommit hook&#x27;&quot;,
+    &quot;gulp&quot;: &quot;node --max_old_space_size=8192 ./node_modules/gulp/bin/gulp.js&quot;,
+    &quot;electron&quot;: &quot;node build/lib/electron&quot;,
+    &quot;7z&quot;: &quot;7z&quot;,
+    &quot;update-grammars&quot;: &quot;node build/npm/update-all-grammars.mjs&quot;,
+    &quot;update-localization-extension&quot;: &quot;node build/npm/update-localization-extension.js&quot;,
+    &quot;smoketest&quot;: &quot;node build/lib/preLaunch.js &amp;&amp; cd test/smoke &amp;&amp; yarn compile &amp;&amp; node test/index.js&quot;,
+    &quot;smoketest-no-compile&quot;: &quot;cd test/smoke &amp;&amp; node test/index.js&quot;,
+    &quot;download-builtin-extensions&quot;: &quot;node build/lib/builtInExtensions.js&quot;,
+    &quot;download-builtin-extensions-cg&quot;: &quot;node build/lib/builtInExtensionsCG.js&quot;,
+    &quot;monaco-compile-check&quot;: &quot;tsc -p src/tsconfig.monaco.json --noEmit&quot;,
+    &quot;tsec-compile-check&quot;: &quot;node node_modules/tsec/bin/tsec -p src/tsconfig.tsec.json&quot;,
+    &quot;vscode-dts-compile-check&quot;: &quot;tsc -p src/tsconfig.vscode-dts.json &amp;&amp; tsc -p src/tsconfig.vscode-proposed-dts.json&quot;,
+    &quot;valid-layers-check&quot;: &quot;node build/lib/layersChecker.js&quot;,
+    &quot;update-distro&quot;: &quot;node build/npm/update-distro.mjs&quot;,
+    &quot;web&quot;: &quot;echo &#x27;yarn web&#x27; is replaced by &#x27;./scripts/code-server&#x27; or &#x27;./scripts/code-web&#x27;&quot;,
+    &quot;compile-web&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js compile-web&quot;,
+    &quot;watch-web&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js watch-web&quot;,
+    &quot;eslint&quot;: &quot;node build/eslint&quot;,
+    &quot;playwright-install&quot;: &quot;node build/azure-pipelines/common/installPlaywright.js&quot;,
+    &quot;compile-build&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js compile-build&quot;,
+    &quot;compile-extensions-build&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js compile-extensions-build&quot;,
+    &quot;minify-vscode&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js minify-vscode&quot;,
+    &quot;minify-vscode-reh&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js minify-vscode-reh&quot;,
+    &quot;minify-vscode-reh-web&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js minify-vscode-reh-web&quot;,
+    &quot;hygiene&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js hygiene&quot;,
+    &quot;core-ci&quot;: &quot;node --max_old_space_size=8095 ./node_modules/gulp/bin/gulp.js core-ci&quot;,
+    &quot;extensions-ci&quot;: &quot;node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js extensions-ci&quot;,
+    &quot;webview-generate-csp-hash&quot;: &quot;npx github:apaatsio/csp-hash-from-html csp-hash ./src/vs/workbench/contrib/webview/browser/pre/index.html&quot;
+  },
+  &quot;dependencies&quot;: {
+    &quot;@microsoft/1ds-core-js&quot;: &quot;^3.2.2&quot;,
+    &quot;@microsoft/1ds-post-js&quot;: &quot;^3.2.2&quot;,
+    &quot;@parcel/watcher&quot;: &quot;2.0.5&quot;,
+    &quot;@vscode/iconv-lite-umd&quot;: &quot;0.7.0&quot;,
+    &quot;@vscode/ripgrep&quot;: &quot;^1.14.2&quot;,
+    &quot;@vscode/sqlite3&quot;: &quot;5.1.2-vscode&quot;,
+    &quot;@vscode/sudo-prompt&quot;: &quot;9.3.1&quot;,
+    &quot;@vscode/vscode-languagedetection&quot;: &quot;1.0.21&quot;,
+    &quot;graceful-fs&quot;: &quot;4.2.8&quot;,
+    &quot;http-proxy-agent&quot;: &quot;^2.1.0&quot;,
+    &quot;https-proxy-agent&quot;: &quot;^2.2.3&quot;,
+    &quot;jschardet&quot;: &quot;3.0.0&quot;,
+    &quot;keytar&quot;: &quot;7.9.0&quot;,
+    &quot;minimist&quot;: &quot;^1.2.6&quot;,
+    &quot;native-is-elevated&quot;: &quot;0.4.3&quot;,
+    &quot;native-keymap&quot;: &quot;3.3.2&quot;,
+    &quot;native-watchdog&quot;: &quot;1.4.1&quot;,
+    &quot;node-pty&quot;: &quot;0.11.0-beta11&quot;,
+    &quot;spdlog&quot;: &quot;^0.13.0&quot;,
+    &quot;tas-client-umd&quot;: &quot;0.1.6&quot;,
+    &quot;v8-inspect-profiler&quot;: &quot;^0.1.0&quot;,
+    &quot;vscode-oniguruma&quot;: &quot;1.7.0&quot;,
+    &quot;vscode-policy-watcher&quot;: &quot;^1.1.1&quot;,
+    &quot;vscode-proxy-agent&quot;: &quot;^0.12.0&quot;,
+    &quot;vscode-regexpp&quot;: &quot;^3.1.0&quot;,
+    &quot;vscode-textmate&quot;: &quot;7.0.1&quot;,
+    &quot;xterm&quot;: &quot;5.1.0-beta.63&quot;,
+    &quot;xterm-addon-canvas&quot;: &quot;0.3.0-beta.27&quot;,
+    &quot;xterm-addon-search&quot;: &quot;0.11.0-beta.7&quot;,
+    &quot;xterm-addon-serialize&quot;: &quot;0.9.0-beta.3&quot;,
+    &quot;xterm-addon-unicode11&quot;: &quot;0.5.0-beta.5&quot;,
+    &quot;xterm-addon-webgl&quot;: &quot;0.14.0-beta.40&quot;,
+    &quot;xterm-headless&quot;: &quot;5.1.0-beta.63&quot;,
+    &quot;yauzl&quot;: &quot;^2.9.2&quot;,
+    &quot;yazl&quot;: &quot;^2.4.3&quot;
+  },
+  &quot;devDependencies&quot;: {
+    &quot;7zip&quot;: &quot;0.0.6&quot;,
+    &quot;@playwright/test&quot;: &quot;1.27.1&quot;,
+    &quot;@swc/cli&quot;: &quot;0.1.57&quot;,
+    &quot;@swc/core&quot;: &quot;1.2.245&quot;,
+    &quot;@types/cookie&quot;: &quot;^0.3.3&quot;,
+    &quot;@types/copy-webpack-plugin&quot;: &quot;^6.0.3&quot;,
+    &quot;@types/cssnano&quot;: &quot;^4.0.0&quot;,
+    &quot;@types/debug&quot;: &quot;4.1.5&quot;,
+    &quot;@types/graceful-fs&quot;: &quot;4.1.2&quot;,
+    &quot;@types/gulp-postcss&quot;: &quot;^8.0.0&quot;,
+    &quot;@types/gulp-svgmin&quot;: &quot;^1.2.1&quot;,
+    &quot;@types/http-proxy-agent&quot;: &quot;^2.0.1&quot;,
+    &quot;@types/keytar&quot;: &quot;^4.4.0&quot;,
+    &quot;@types/minimist&quot;: &quot;^1.2.1&quot;,
+    &quot;@types/mocha&quot;: &quot;^9.1.1&quot;,
+    &quot;@types/node&quot;: &quot;16.x&quot;,
+    &quot;@types/sinon&quot;: &quot;^10.0.2&quot;,
+    &quot;@types/sinon-test&quot;: &quot;^2.4.2&quot;,
+    &quot;@types/trusted-types&quot;: &quot;^1.0.6&quot;,
+    &quot;@types/vscode-notebook-renderer&quot;: &quot;^1.72.0&quot;,
+    &quot;@types/webpack&quot;: &quot;^4.41.25&quot;,
+    &quot;@types/wicg-file-system-access&quot;: &quot;^2020.9.5&quot;,
+    &quot;@types/windows-foreground-love&quot;: &quot;^0.3.0&quot;,
+    &quot;@types/windows-mutex&quot;: &quot;^0.4.0&quot;,
+    &quot;@types/windows-process-tree&quot;: &quot;^0.2.0&quot;,
+    &quot;@types/winreg&quot;: &quot;^1.2.30&quot;,
+    &quot;@types/yauzl&quot;: &quot;^2.9.1&quot;,
+    &quot;@types/yazl&quot;: &quot;^2.4.2&quot;,
+    &quot;@typescript-eslint/eslint-plugin&quot;: &quot;^5.39.0&quot;,
+    &quot;@typescript-eslint/experimental-utils&quot;: &quot;^5.39.0&quot;,
+    &quot;@typescript-eslint/parser&quot;: &quot;^5.39.0&quot;,
+    &quot;@vscode/l10n-dev&quot;: &quot;0.0.18&quot;,
+    &quot;@vscode/telemetry-extractor&quot;: &quot;^1.9.8&quot;,
+    &quot;@vscode/test-web&quot;: &quot;^0.0.32&quot;,
+    &quot;ansi-colors&quot;: &quot;^3.2.3&quot;,
+    &quot;asar&quot;: &quot;^3.0.3&quot;,
+    &quot;chromium-pickle-js&quot;: &quot;^0.2.0&quot;,
+    &quot;cookie&quot;: &quot;^0.4.0&quot;,
+    &quot;copy-webpack-plugin&quot;: &quot;^6.0.3&quot;,
+    &quot;cson-parser&quot;: &quot;^1.3.3&quot;,
+    &quot;css-loader&quot;: &quot;^3.6.0&quot;,
+    &quot;cssnano&quot;: &quot;^4.1.11&quot;,
+    &quot;debounce&quot;: &quot;^1.0.0&quot;,
+    &quot;deemon&quot;: &quot;^1.8.0&quot;,
+    &quot;electron&quot;: &quot;19.1.8&quot;,
+    &quot;eslint&quot;: &quot;8.7.0&quot;,
+    &quot;eslint-plugin-header&quot;: &quot;3.1.1&quot;,
+    &quot;eslint-plugin-jsdoc&quot;: &quot;^39.3.2&quot;,
+    &quot;eslint-plugin-local&quot;: &quot;^1.0.0&quot;,
+    &quot;event-stream&quot;: &quot;3.3.4&quot;,
+    &quot;fancy-log&quot;: &quot;^1.3.3&quot;,
+    &quot;fast-plist&quot;: &quot;0.1.3&quot;,
+    &quot;file-loader&quot;: &quot;^5.1.0&quot;,
+    &quot;glob&quot;: &quot;^5.0.13&quot;,
+    &quot;gulp&quot;: &quot;^4.0.0&quot;,
+    &quot;gulp-atom-electron&quot;: &quot;^1.33.0&quot;,
+    &quot;gulp-azure-storage&quot;: &quot;^0.12.1&quot;,
+    &quot;gulp-bom&quot;: &quot;^3.0.0&quot;,
+    &quot;gulp-buffer&quot;: &quot;0.0.2&quot;,
+    &quot;gulp-concat&quot;: &quot;^2.6.1&quot;,
+    &quot;gulp-eslint&quot;: &quot;^5.0.0&quot;,
+    &quot;gulp-filter&quot;: &quot;^5.1.0&quot;,
+    &quot;gulp-flatmap&quot;: &quot;^1.0.2&quot;,
+    &quot;gulp-gunzip&quot;: &quot;^1.0.0&quot;,
+    &quot;gulp-gzip&quot;: &quot;^1.4.2&quot;,
+    &quot;gulp-json-editor&quot;: &quot;^2.5.0&quot;,
+    &quot;gulp-plumber&quot;: &quot;^1.2.0&quot;,
+    &quot;gulp-postcss&quot;: &quot;^9.0.0&quot;,
+    &quot;gulp-remote-retry-src&quot;: &quot;^0.8.0&quot;,
+    &quot;gulp-rename&quot;: &quot;^1.2.0&quot;,
+    &quot;gulp-replace&quot;: &quot;^0.5.4&quot;,
+    &quot;gulp-sourcemaps&quot;: &quot;^3.0.0&quot;,
+    &quot;gulp-svgmin&quot;: &quot;^4.1.0&quot;,
+    &quot;gulp-untar&quot;: &quot;^0.0.7&quot;,
+    &quot;gulp-vinyl-zip&quot;: &quot;^2.1.2&quot;,
+    &quot;innosetup&quot;: &quot;6.0.5&quot;,
+    &quot;is&quot;: &quot;^3.1.0&quot;,
+    &quot;istanbul-lib-coverage&quot;: &quot;^3.2.0&quot;,
+    &quot;istanbul-lib-instrument&quot;: &quot;^5.2.0&quot;,
+    &quot;istanbul-lib-report&quot;: &quot;^3.0.0&quot;,
+    &quot;istanbul-lib-source-maps&quot;: &quot;^4.0.1&quot;,
+    &quot;istanbul-reports&quot;: &quot;^3.1.5&quot;,
+    &quot;lazy.js&quot;: &quot;^0.4.2&quot;,
+    &quot;merge-options&quot;: &quot;^1.0.1&quot;,
+    &quot;mime&quot;: &quot;^1.4.1&quot;,
+    &quot;minimatch&quot;: &quot;^3.0.4&quot;,
+    &quot;minimist&quot;: &quot;^1.2.6&quot;,
+    &quot;mkdirp&quot;: &quot;^1.0.4&quot;,
+    &quot;mocha&quot;: &quot;^9.2.2&quot;,
+    &quot;mocha-junit-reporter&quot;: &quot;^2.0.0&quot;,
+    &quot;mocha-multi-reporters&quot;: &quot;^1.5.1&quot;,
+    &quot;npm-run-all&quot;: &quot;^4.1.5&quot;,
+    &quot;opn&quot;: &quot;^6.0.0&quot;,
+    &quot;optimist&quot;: &quot;0.3.5&quot;,
+    &quot;p-all&quot;: &quot;^1.0.0&quot;,
+    &quot;path-browserify&quot;: &quot;^1.0.1&quot;,
+    &quot;pump&quot;: &quot;^1.0.1&quot;,
+    &quot;queue&quot;: &quot;3.0.6&quot;,
+    &quot;rcedit&quot;: &quot;^1.1.0&quot;,
+    &quot;request&quot;: &quot;^2.85.0&quot;,
+    &quot;rimraf&quot;: &quot;^2.2.8&quot;,
+    &quot;sinon&quot;: &quot;^11.1.1&quot;,
+    &quot;sinon-test&quot;: &quot;^3.1.3&quot;,
+    &quot;source-map&quot;: &quot;0.6.1&quot;,
+    &quot;source-map-support&quot;: &quot;^0.3.2&quot;,
+    &quot;style-loader&quot;: &quot;^1.3.0&quot;,
+    &quot;ts-loader&quot;: &quot;^9.2.7&quot;,
+    &quot;ts-node&quot;: &quot;^10.9.1&quot;,
+    &quot;tsec&quot;: &quot;0.1.4&quot;,
+    &quot;typescript&quot;: &quot;^5.0.0-dev.20221108&quot;,
+    &quot;typescript-formatter&quot;: &quot;7.1.0&quot;,
+    &quot;underscore&quot;: &quot;^1.12.1&quot;,
+    &quot;util&quot;: &quot;^0.12.4&quot;,
+    &quot;vinyl&quot;: &quot;^2.0.0&quot;,
+    &quot;vinyl-fs&quot;: &quot;^3.0.0&quot;,
+    &quot;vscode-nls-dev&quot;: &quot;^3.3.1&quot;,
+    &quot;webpack&quot;: &quot;^5.42.0&quot;,
+    &quot;webpack-cli&quot;: &quot;^4.7.2&quot;,
+    &quot;webpack-stream&quot;: &quot;^6.1.2&quot;,
+    &quot;xml2js&quot;: &quot;^0.4.17&quot;,
+    &quot;yaserver&quot;: &quot;^0.2.0&quot;
+  },
+  &quot;repository&quot;: {
+    &quot;type&quot;: &quot;git&quot;,
+    &quot;url&quot;: &quot;https://github.com/microsoft/vscode.git&quot;
+  },
+  &quot;bugs&quot;: {
+    &quot;url&quot;: &quot;https://github.com/microsoft/vscode/issues&quot;
+  },
+  &quot;optionalDependencies&quot;: {
+    &quot;@vscode/windows-registry&quot;: &quot;1.0.6&quot;,
+    &quot;windows-foreground-love&quot;: &quot;0.4.0&quot;,
+    &quot;windows-mutex&quot;: &quot;0.4.1&quot;,
+    &quot;windows-process-tree&quot;: &quot;0.3.4&quot;
+  },
+  &quot;resolutions&quot;: {
+    &quot;elliptic&quot;: &quot;^6.5.3&quot;,
+    &quot;nwmatcher&quot;: &quot;^1.4.4&quot;
+  }
+}
+
+```
+
+
+where is the json extension being called?
