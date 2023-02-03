@@ -47,6 +47,19 @@ def p50k_base():
     }
 
 
+def p50k_edit():
+    mergeable_ranks = load_tiktoken_bpe(
+        "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken"
+    )
+    special_tokens = {ENDOFTEXT: 50256, FIM_PREFIX: 50281, FIM_MIDDLE: 50282, FIM_SUFFIX: 50283}
+    return {
+        "name": "p50k_edit",
+        "pat_str": r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
+        "mergeable_ranks": mergeable_ranks,
+        "special_tokens": special_tokens,
+    }
+
+
 def cl100k_base():
     mergeable_ranks = load_tiktoken_bpe(
         "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken"

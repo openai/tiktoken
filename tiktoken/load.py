@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import os
+import tempfile
 import uuid
 
 import blobfile
@@ -24,7 +25,7 @@ def read_file_cached(blobpath: str) -> bytes:
     elif "DATA_GYM_CACHE_DIR" in os.environ:
         cache_dir = os.environ["DATA_GYM_CACHE_DIR"]
     else:
-        cache_dir = "/tmp/data-gym-cache"
+        cache_dir = os.path.join(tempfile.gettempdir(), "data-gym-cache")
 
     if cache_dir == "":
         # disable caching

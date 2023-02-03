@@ -17,3 +17,10 @@ def test_simple():
         enc = tiktoken.get_encoding(enc_name)
         for token in range(10_000):
             assert enc.encode_single_token(enc.decode_single_token_bytes(token)) == token
+
+
+def test_encoding_for_model():
+    enc = tiktoken.encoding_for_model("gpt2")
+    assert enc.name == "gpt2"
+    enc = tiktoken.encoding_for_model("text-davinci-003")
+    assert enc.name == "p50k_base"

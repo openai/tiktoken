@@ -1,14 +1,8 @@
 from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
-public = True
-
-if public:
-    version = "0.1.2"
-
 setup(
     name="tiktoken",
-    version=version,
     rust_extensions=[
         RustExtension(
             "tiktoken._tiktoken",
