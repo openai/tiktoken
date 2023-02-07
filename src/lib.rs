@@ -10,3 +10,4 @@ pub use encoding::Encoding;
 pub use encoding::SpecialTokenAction;
 pub use encoding::SpecialTokenHandling;
 pub use openai_public::EncodingFactory;
+pub use openai_public::Error as EncodingFactoryError;

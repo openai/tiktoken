@@ -25,7 +25,7 @@ pub enum SpecialTokenAction {
     Forbidden,
     /// The special token is tokenized as normal text.
     NormalText,
-    /// The special token is treated as the special token it is. If the text is NOT a special token then an error will be returned.
+    /// The special token is treated as the special token it is. If this is applied to a specific text and the text is NOT a special token then an error will be returned. If it is the default action no error will be returned, don't worry.
     Special,
 }
 pub struct SpecialTokenHandling {
