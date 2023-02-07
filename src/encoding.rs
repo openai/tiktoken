@@ -3,6 +3,7 @@ use regex::Regex;
 use rustc_hash::FxHashMap as HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
+use thiserror::Error;
 
 /// A struct that represents an encoding scheme based on byte-pair encoding (BPE).
 pub struct Encoding {
@@ -18,6 +19,13 @@ pub struct Encoding {
     max_token_value: usize,
     /// The core BPE logic implemented in Rust.
     core_bpe: Arc<CoreBPE>,
+}
+
+// TODO: make a non-generic encoding error here
+#[derive(Error, Debug, Clone)]
+pub enum EncodingError {
+    #[error("encoding: {0}")]
+    GenericEncodingError(String),
 }
 
 pub enum SpecialTokenAction {
@@ -50,7 +58,7 @@ impl Encoding {
         mergeable_ranks: HashMap<Vec<u8>, usize>,
         special_tokens: HashMap<String, usize>,
         explicit_n_vocab: Option<usize>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, EncodingError> {
         let max_token_value = match mergeable_ranks
             .values()
             .chain(special_tokens.values())
@@ -58,16 +66,14 @@ impl Encoding {
             .copied()
         {
             Some(value) => value,
-            None => return Err("No token values found".to_string()),
+            None => return Err(EncodingError::GenericEncodingError("No token values found".to_string())),
         };
         if let Some(explicit_n_vocab) = explicit_n_vocab {
             if mergeable_ranks.len() + special_tokens.len() != explicit_n_vocab {
-                return Err(
-                    "Mismatch between explicit vocab size and actual vocab size".to_string()
-                );
+                return Err(EncodingError::GenericEncodingError("Mismatch between explicit vocab size and actual vocab size".to_string()));
             }
             if max_token_value != explicit_n_vocab - 1 {
-                return Err("Mismatch between max token value and explicit vocab size".to_string());
+                return Err(EncodingError::GenericEncodingError("Mismatch between max token value and explicit vocab size".to_string()));
             }
         }
 
@@ -76,7 +82,7 @@ impl Encoding {
             special_tokens.clone(),
             pat_str.clone(),
         )
-        .map_err(|e| format!("Error creating core BPE: {}", e))?;
+        .map_err(|e| EncodingError::GenericEncodingError(format!("Error creating core BPE: {}", e)))?;
 
         Ok(Self {
             name: name.to_string(),
@@ -102,11 +108,14 @@ impl Encoding {
         &self,
         text: &str,
         special_token_handling: &SpecialTokenHandling,
-    ) -> Result<Vec<usize>, String> {
+    ) -> Result<Vec<usize>, EncodingError> {
         // first check if all special tokens are valid
         for (special_token, _) in &special_token_handling.overrides {
             if !self.special_tokens.contains_key(special_token) {
-                return Err(format!("Unknown special token {:?}", special_token));
+                return Err(EncodingError::GenericEncodingError(format!(
+                    "Unknown special token {:?}",
+                    special_token
+                )));
             }
         }
 
@@ -163,10 +172,10 @@ impl Encoding {
         if !forbidden_special.is_empty() {
             let re = special_token_regex(&forbidden_special);
             if let Some(matched) = re.find(text) {
-                return Err(format!(
+                return Err(EncodingError::GenericEncodingError(format!(
                     "Encountered text corresponding to disallowed special token {:?}.",
                     matched.as_str()
-                ));
+                )));
             }
         }
 
@@ -204,11 +213,14 @@ impl Encoding {
         &self,
         text: &str,
         special_token_handling: &SpecialTokenHandling,
-    ) -> Result<(Vec<usize>, HashSet<Vec<usize>>), String> {
+    ) -> Result<(Vec<usize>, HashSet<Vec<usize>>), EncodingError> {
         // first check if all special tokens are valid
         for (special_token, _) in &special_token_handling.overrides {
             if !self.special_tokens.contains_key(special_token) {
-                return Err(format!("Unknown special token {:?}", special_token));
+                return Err(EncodingError::GenericEncodingError(format!(
+                    "Unknown special token {:?}",
+                    special_token
+                )));
             }
         }
 
@@ -265,10 +277,10 @@ impl Encoding {
         if !forbidden_special.is_empty() {
             let re = special_token_regex(&forbidden_special);
             if let Some(matched) = re.find(text) {
-                return Err(format!(
+                return Err(EncodingError::GenericEncodingError(format!(
                     "Encountered text corresponding to disallowed special token {:?}.",
                     matched.as_str()
-                ));
+                )));
             }
         }
 
