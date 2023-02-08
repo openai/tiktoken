@@ -10,39 +10,114 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyTuple};
 use pyo3::PyResult;
 use rustc_hash::FxHashMap as HashMap;
+use std::cmp::{Ordering, Reverse};
+use std::collections::BinaryHeap;
+
+#[derive(Eq, PartialEq, Debug)]
+struct MergeCandidate {
+    range: (usize, usize),
+    rank: usize,
+    previous_edge: usize,
+}
+
+impl Ord for MergeCandidate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        return self.rank.cmp(&other.rank);
+    }
+}
+
+impl PartialOrd for MergeCandidate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        return self.rank.partial_cmp(&other.rank);
+    }
+}
 
 fn _byte_pair_merge(piece: &[u8], ranks: &HashMap<Vec<u8>, usize>) -> Vec<std::ops::Range<usize>> {
-    let mut parts: Vec<_> = (0..piece.len()).map(|i| i..i + 1).collect();
+    let mut heap = BinaryHeap::new();
+    let plen = piece.len();
 
-    // If you have n parts and m merges, this does O(mn) work
-    // We could do something with a heap and do O(m log n) work
+    if plen == 0 {
+        return vec![];
+    }
 
-    // Note that we hash bytes, not token pairs. As long as we train BPE the way we
-    // currently do, this is equivalent. An easy way to break this would be to decouple
-    // merge priority from token index or to prevent specific token merges.
-    loop {
-        if parts.len() == 1 {
-            break;
-        }
-        let mut min_rank: Option<(usize, usize)> = None;
-        for i in 0..parts.len() - 1 {
-            let rank = if let Some(r) = ranks.get(&piece[parts[i].start..parts[i + 1].end]) {
-                *r
-            } else {
-                continue;
-            };
-            if min_rank.is_none() || rank < min_rank.unwrap().0 {
-                min_rank = Some((rank, i));
-            }
-        }
-        if let Some((_, i)) = min_rank {
-            parts[i] = parts[i].start..parts[i + 1].end;
-            parts.remove(i + 1);
-        } else {
-            break;
+    // O(n log m)
+    for i in 0..plen - 1 {
+        if let Some(&rank) = ranks.get(&piece[i..i + 2]) {
+            heap.push(Reverse(MergeCandidate {
+                range: (i, i + 2),
+                rank: rank,
+                previous_edge: i + 1,
+            }));
         }
     }
-    parts
+
+    // Points from the current index to the end of the current interval
+    let mut next: Vec<Option<usize>> = (0..piece.len() + 1)
+        .map(|i| if i == plen { None } else { Some(i + 1) })
+        .collect();
+
+    // Points from the current index to the start of the current interval
+    let mut prev: Vec<Option<usize>> = (0..piece.len() + 1)
+        .map(|i| if i == 0 { None } else { Some(i - 1) })
+        .collect();
+
+    // O(m log m)
+    while !heap.is_empty() {
+        let Reverse(merge_candidate) = heap.pop().unwrap();
+
+        // Check the interval doesn't overlap with one that has been merged.
+        if next[merge_candidate.range.0].is_none() || prev[merge_candidate.range.1].is_none() {
+            continue;
+        }
+
+        // Perform merge by pointing from the current start to the new end via next
+        // as well as pointing from the end to the new beginning via prev
+        next[merge_candidate.range.0] = Some(merge_candidate.range.1);
+        prev[merge_candidate.range.1] = Some(merge_candidate.range.0);
+        // Mark the previous edge of the interval as no longer an edge as it is inside
+        // of the interval
+        next[merge_candidate.previous_edge] = None;
+        prev[merge_candidate.previous_edge] = None;
+
+        // Check if expanding the interval to include the prior interval yields a
+        // range which is in our vocab
+        if let Some(index_before_interval) = prev[merge_candidate.range.0] {
+            if let Some(&rank) = ranks.get(&piece[index_before_interval..merge_candidate.range.1]) {
+                // If so place on the heap and reference the prior left boundary
+                heap.push(Reverse(MergeCandidate {
+                    range: (index_before_interval, merge_candidate.range.1),
+                    rank: rank,
+                    previous_edge: merge_candidate.range.0,
+                }));
+            }
+        }
+        // Repeat, check if expanding this range to include the next interval yields a
+        // range which is in our vocab
+        if let Some(index_after_interval) = next[merge_candidate.range.1] {
+            if let Some(&rank) = ranks.get(&piece[merge_candidate.range.0..index_after_interval]) {
+                // If so place on the heap and reference the prior right boundary
+                heap.push(Reverse(MergeCandidate {
+                    range: (merge_candidate.range.0, index_after_interval),
+                    rank: rank,
+                    previous_edge: merge_candidate.range.1,
+                }));
+            }
+        }
+    }
+
+    let mut result = vec![];
+    let mut curr_start = 0;
+    let mut curr_end = next[0].unwrap();
+    loop {
+        result.push((curr_start..curr_end).clone());
+        curr_start = curr_end;
+        curr_end = match next[curr_end] {
+            Some(end) => end,
+            None => break,
+        }
+    }
+
+    result
 }
 
 pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, usize>) -> Vec<usize> {
@@ -555,5 +630,24 @@ mod tests {
 
         let res = byte_pair_split(b"abcd", &ranks);
         assert_eq!(res, vec![b"ab", b"cd"]);
+    }
+
+    #[test]
+    fn multi_token_test() {
+        let mut ranks = HashMap::default();
+        ranks.insert(b"de".to_vec(), 3);
+        ranks.insert(b"bc".to_vec(), 2);
+        ranks.insert(b"abc".to_vec(), 1);
+        ranks.insert(b"abcd".to_vec(), 0);
+
+        let mut result: Vec<&[u8]> = vec![];
+
+        result.push(b"x");
+        result.push(b"abcd");
+        result.push(b"e");
+
+
+        let res = byte_pair_split(b"xabcde", &ranks);
+        assert_eq!(res, result);
     }
 }
