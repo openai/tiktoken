@@ -28,7 +28,7 @@ fn get_tiktoken_cache_dir() -> PathBuf {
                     temp_dir.push("data-gym-cache");
 
                     temp_dir
-                } 
+                }
             }
         }
     }
@@ -50,12 +50,12 @@ fn read_file_cached(blobpath: &str) -> Result<Vec<u8>> {
     }
 
     cache_path.push(sha1_as_hex(blobpath));
-    
+
     println!("cache_path: {:?}", cache_path);
 
     if cache_path.exists() {
         let catch_path_str = cache_path.into_os_string().into_string()
-            .or(Err( { 
+            .or(Err( {
                 // let cache_path_lossy_str = cache_path.to_string_lossy().to_string();
                 // format!("Unable to convert path {cache_path_lossy_str}")
                 format!("Unable to convert path")
@@ -100,15 +100,18 @@ pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: 
     let vocab_bpe_contents = std::str::from_utf8(&cached_vocab)?
         .split("\n").collect::<Vec<&str>>();
 
-    let bpe_merges = &vocab_bpe_contents[1..(vocab_bpe_contents.len() - 1)]
+    let bpe_merges = match vocab_bpe_contents[1..(vocab_bpe_contents.len() - 1)]
         .iter()
         .map(|&s| s.split_whitespace())
-        .map(|mut sp| sp.take(2).collect::<Vec<&str>>())
-        .filter(|v| v.len() == 2)
-        .map(|v| (v[0], v[1]))
-        // .map(|mut sp| (sp.next()?, sp.next()?))
-        // .map(|mut sp| (sp.next().unwrap(), sp.next().unwrap()))
-        .collect::<Vec<(&str, &str)>>();
+        .map(|mut sp| match (sp.next(), sp.next()) {
+            (Some(a), Some(b)) => Some((a, b)),
+            _ => None,
+        })
+        .collect::<Option<Vec<(&str, &str)>>>()
+    {
+        Some(v) => v,
+        None => return Err("Unable to parse vocab_bpe file".into()),
+    };
 
     let decode_data_gym =
         |value: &str| value.chars().map(|c| {
@@ -126,7 +129,7 @@ pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: 
             .enumerate()
             .map(|(i, b)| (vec![*b], i))
             .collect::<HashMap<Vec<u8>, usize>>();
-     
+
     // add the merged tokens
     let mut n = bpe_ranks.len();
     for (first, second) in bpe_merges {
@@ -143,7 +146,7 @@ pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: 
     let mut encoder_json_loaded = encoder_json.entries()
         .map(|(k, v)| (decode_data_gym(k), v.as_usize().unwrap()))
         .collect::<HashMap<Vec<u8>, usize>>();
-    
+
     // drop these two special tokens if present, since they're not mergeable bpe tokens
     encoder_json_loaded.remove(&decode_data_gym("<|endoftext|>"));
     encoder_json_loaded.remove(&decode_data_gym("<|startoftext|>"));
