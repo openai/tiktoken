@@ -11,7 +11,7 @@ lazy_static! {
     static ref REGISTRY: HashMap<String, EncodingLazy> = [
             EncodingLazy::new(
                 "gpt2".into(),
-                50257, 
+                50257,
                 r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
                 [
                     ("<|endoftext|>".into(), 50256),
@@ -19,7 +19,7 @@ lazy_static! {
                 EncoderLoadingStrategy::DataGym(
                     DataGymDef {
                         vocab_bpe_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe".to_string(),
-                        encoder_json_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json".to_string() 
+                        encoder_json_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json".to_string()
                     }
                 ))
             ]
@@ -41,13 +41,13 @@ struct EncodingLazy {
     name: String,
     explicit_n_vocab: usize,
     pat_str: String,
-    special_tokens: HashMap<String, usize>,   
+    special_tokens: HashMap<String, usize>,
     mergeable_ranks: Option<HashMap<Vec<u8>, usize>>,
     loading_strategy: EncoderLoadingStrategy,
 }
 
 impl EncodingLazy {
-    fn new(name: String, 
+    fn new(name: String,
            explicit_n_vocab: usize,
            pat_str: String,
            special_tokens: HashMap<String, usize>,
@@ -70,7 +70,7 @@ impl EncodingLazy {
             })
         }
 
-        Ok(&self.mergeable_ranks.unwrap())
+        Ok(self.mergeable_ranks.as_ref().expect("mergeable_ranks should be loaded by now"))
     }
 
     fn load_bpe(path: &str) -> Result<HashMap<Vec<u8>, usize>> {
