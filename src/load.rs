@@ -5,7 +5,9 @@ use sha1::{Sha1, Digest};
 use std::error::Error;
 use json;
 
-fn read_file(blobpath: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+fn read_file(blobpath: &str) -> Result<Vec<u8>> {
     // TODO: support blobs?
 
     if !(blobpath.starts_with("http") || blobpath.starts_with("https")) {
@@ -40,12 +42,11 @@ fn sha1_as_hex(s: &str) -> String {
     format!("{:x}", result)
 }
 
-fn read_file_cached(blobpath: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+fn read_file_cached(blobpath: &str) -> Result<Vec<u8>> {
     let mut cache_path = get_tiktoken_cache_dir();
 
     if !cache_path.exists() {
         std::fs::create_dir_all(&cache_path)?;
-        // return read_file(blobpath);
     }
 
     cache_path.push(sha1_as_hex(blobpath));
@@ -54,7 +55,11 @@ fn read_file_cached(blobpath: &str) -> Result<Vec<u8>, Box<dyn Error>> {
 
     if cache_path.exists() {
         let catch_path_str = cache_path.into_os_string().into_string()
-            .or(Err(format!("Unable to convert path")))?; // TODO: how to include path here!?
+            .or(Err( { 
+                // let cache_path_lossy_str = cache_path.to_string_lossy().to_string();
+                // format!("Unable to convert path {cache_path_lossy_str}")
+                format!("Unable to convert path")
+            }))?;
         return read_file(&catch_path_str);
     }
 
@@ -70,15 +75,15 @@ fn is_printable(u: u8) -> bool {
     !(u <= 31 || (u >= 127 && u <= 160) || u == 173)
 }
 
-pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: &str) -> Result<HashMap<Vec<u8>, usize>, Box<dyn Error>> {
+pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: &str) -> Result<HashMap<Vec<u8>, usize>> {
     let mut rank_to_intbyte = (0..=255)
         .filter(|x| is_printable(*x) && (*x as char) != ' ')
         .collect::<Vec<u8>>();
 
-    let mut data_gym_byte_to_byte = HashMap::default();
-    for b in rank_to_intbyte.iter() {
-        data_gym_byte_to_byte.insert(*b as u32, *b);
-    }
+    let mut data_gym_byte_to_byte = rank_to_intbyte
+        .into_iter()
+        .map(|x| (x as u32, x))
+        .collect::<HashMap<u32, u8>>();
 
     let mut n = 0;
     for b in 0..=255 {
@@ -98,8 +103,11 @@ pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: 
     let bpe_merges = &vocab_bpe_contents[1..(vocab_bpe_contents.len() - 1)]
         .iter()
         .map(|&s| s.split_whitespace())
-        // TODO: would be nice to propagate the error?!
-        .map(|mut sp| (sp.next().unwrap(), sp.next().unwrap()))
+        .map(|mut sp| sp.take(2).collect::<Vec<&str>>())
+        .filter(|v| v.len() == 2)
+        .map(|v| (v[0], v[1]))
+        // .map(|mut sp| (sp.next()?, sp.next()?))
+        // .map(|mut sp| (sp.next().unwrap(), sp.next().unwrap()))
         .collect::<Vec<(&str, &str)>>();
 
     let decode_data_gym =
@@ -145,7 +153,7 @@ pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: 
     Ok(bpe_ranks)
 }
 
-pub fn load_tiktoken_bpe(tiktoken_bpe_file: &str) -> Result<HashMap<Vec<u8>, usize>, Box<dyn Error>> {
+pub fn load_tiktoken_bpe(tiktoken_bpe_file: &str) -> Result<HashMap<Vec<u8>, usize>> {
     use base64::{engine::general_purpose, Engine as _};
 
     let content = read_file_cached(tiktoken_bpe_file)?;
