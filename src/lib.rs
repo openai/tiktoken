@@ -11,6 +11,7 @@ use rustc_hash::FxHashMap as HashMap;
 
 mod util;
 mod core;
+mod load;
 
 #[pyclass]
 struct CoreBPE {
@@ -91,9 +92,23 @@ impl CoreBPE {
     }
 }
 
+// pub fn py_data_gym_to_mergable_bpe_ranks(py: Python, vocab_bpe_file: &str, encoder_json_file: &str) -> PyResult<HashMap<PyBytes, usize>> {
+#[pyfunction]
+pub fn py_data_gym_to_mergable_bpe_ranks(py: Python, vocab_bpe_file: &str, encoder_json_file: &str) -> PyResult<HashMap<Vec<u8>, usize>> {
+    let ranks = load::data_gym_to_mergeable_bpe_ranks(vocab_bpe_file, encoder_json_file)
+        .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
+
+    Ok(ranks)
+    // Ok(ranks
+    //     .iter()
+    //     .map(|(k, v)| (PyBytes::new(py, k).into(), *v))
+    //     .collect::<HashMap<PyBytes, usize>>())
+}
+
 #[pymodule]
 fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<CoreBPE>()?;
+    m.add_function(wrap_pyfunction!(crate::py_data_gym_to_mergable_bpe_ranks, m)?)?;
     Ok(())
 }
 

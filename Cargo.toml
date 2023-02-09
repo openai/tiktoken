@@ -10,13 +10,17 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.17.3", features = ["extension-module"] }
+jni = "0.20.0"
 
 # tiktoken dependencies
 fancy-regex = "0.10.0"
 regex = "1.7.0"
 rustc-hash = "1.1.0"
 bstr = "1.0.1"
-linefeed = "0.6"
+reqwest = { version = "0.11.14", features = ["blocking"] }
+sha1 = "0.10.5"
+json = "0.12.4"
+base64 = "0.21.0"
 
 [profile.release]
 incremental = true
