@@ -81,8 +81,8 @@ pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: 
         .collect::<Vec<u8>>();
 
     let mut data_gym_byte_to_byte = rank_to_intbyte
-        .into_iter()
-        .map(|x| (x as u32, x))
+        .iter()
+        .map(|&x| (x as u32, x))
         .collect::<HashMap<u32, u8>>();
 
     let mut n = 0;
@@ -115,10 +115,9 @@ pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: 
 
     let decode_data_gym =
         |value: &str| value.chars().map(|c| {
-            if !data_gym_byte_to_byte.contains_key(&(c as u32)) {
-                panic!("Unknown character: {} {}", c, c as u32);
-            }
-
+            // if !data_gym_byte_to_byte.contains_key(&(c as u32)) {
+            //     panic!("Unknown character: {} {}", c, c as u32);
+            // }
             data_gym_byte_to_byte[&(c as u32)]
         } ).collect::<Vec<u8>>();
 

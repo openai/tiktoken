@@ -116,7 +116,8 @@ impl CoreBPENative {
         ret
     }
 
-    pub fn _encode_native(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<usize>, usize) {
+    pub fn _encode_native(&self, text: &str, allowed_special: &HashSet<&str>, max_tokens: Option<usize>) -> (Vec<usize>, usize, usize) {
+        let max_tokens = max_tokens.unwrap_or(usize::MAX);
         let special_regex = self._get_tl_special_regex();
         let regex = self._get_tl_regex();
         let mut ret = vec![];
@@ -147,11 +148,20 @@ impl CoreBPENative {
                 if let Some(token) = self.encoder.get(piece) {
                     last_piece_token_len = 1;
                     ret.push(*token);
+
+                    if ret.len() >= max_tokens {
+                        return (ret, last_piece_token_len, start);
+                    }
                     continue;
                 }
                 let tokens = util::byte_pair_encode(piece, &self.encoder);
                 last_piece_token_len = tokens.len();
-                ret.extend(&tokens);
+                for token in tokens {
+                    ret.push(token);
+                    if ret.len() >= max_tokens {
+                        return (ret, last_piece_token_len, start);
+                    }
+                }
             }
 
             match next_special {
@@ -160,8 +170,12 @@ impl CoreBPENative {
                     let piece = m.as_str();
                     let token = self.special_tokens_encoder[piece];
                     ret.push(token);
+
                     start = m.end();
                     last_piece_token_len = 0;
+                    if ret.len() >= max_tokens {
+                        return (ret, last_piece_token_len, start);
+                    }
                 }
                 None => break,
             }
@@ -169,7 +183,7 @@ impl CoreBPENative {
 
         // last_piece_token_len is how many tokens came from the last regex split. This is used
         // for determining unstable tokens, since you can't merge across (stable) regex splits
-        (ret, last_piece_token_len)
+        (ret, last_piece_token_len, start)
     }
 
     pub fn _encode_bytes(&self, bytes: &[u8]) -> Vec<usize> {
@@ -177,7 +191,7 @@ impl CoreBPENative {
             Ok(text) => self._encode_ordinary_native(text),
             Err(e) => {
                 let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
-                let (tokens, last_piece_token_len) = self._encode_native(text, &HashSet::new());
+                let (tokens, last_piece_token_len, _) = self._encode_native(text, &HashSet::new(), None);
                 let (mut tokens, last_piece_token_len) =
                     self._increase_last_piece_token_len(tokens, last_piece_token_len);
                 if !tokens.is_empty() && last_piece_token_len > 0 {
@@ -241,7 +255,7 @@ impl CoreBPENative {
         text: &str,
         allowed_special: &HashSet<&str>,
     ) -> (Vec<usize>, HashSet<Vec<usize>>) {
-        let (tokens, last_piece_token_len) = self._encode_native(text, allowed_special);
+        let (tokens, last_piece_token_len, _) = self._encode_native(text, allowed_special, None);
         if last_piece_token_len == 0 {
             // If last_piece_token_len is zero, the last token was a special token and we have
             // no unstable bytes
