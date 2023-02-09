@@ -109,7 +109,7 @@ fn _byte_pair_merge(piece: &[u8], ranks: &HashMap<Vec<u8>, usize>) -> Vec<std::o
     let mut curr_start = 0;
     let mut curr_end = next[0].unwrap();
     loop {
-        result.push((curr_start..curr_end).clone());
+        result.push(curr_start..curr_end);
         curr_start = curr_end;
         curr_end = match next[curr_end] {
             Some(end) => end,
