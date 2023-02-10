@@ -4,8 +4,12 @@ use std::thread;
 use fancy_regex::Regex;
 use rustc_hash::FxHashMap as HashMap;
 
-#[path = "util.rs"]
 mod util;
+mod load;
+mod openai_public;
+
+#[macro_use]
+extern crate lazy_static;
 
 const MAX_NUM_THREADS: usize = 128;
 

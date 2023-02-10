@@ -8,7 +8,8 @@ mod load;
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 lazy_static! {
-    static ref REGISTRY: HashMap<String, EncodingLazy> = [
+    pub static ref REGISTRY: HashMap<String, EncodingLazy> = [
+        // TODO
             EncodingLazy::new(
                 "gpt2".into(),
                 50257,
@@ -26,7 +27,50 @@ lazy_static! {
             .into_iter()
             .map(|enc| (enc.name.clone(), enc))
             .collect::<HashMap<String, EncodingLazy>>();
+
+    pub static ref MODEL_TO_ENCODING: HashMap<String, String> = [
+        // text
+        ("text-davinci-003", "p50k_base"),
+        ("text-davinci-002", "p50k_base"),
+        ("text-davinci-001", "r50k_base"),
+        ("text-curie-001", "r50k_base"),
+        ("text-babbage-001", "r50k_base"),
+        ("text-ada-001", "r50k_base"),
+        ("davinci", "r50k_base"),
+        ("curie", "r50k_base"),
+        ("babbage", "r50k_base"),
+        ("ada", "r50k_base"),
+        // code
+        ("code-davinci-002", "p50k_base"),
+        ("code-davinci-001", "p50k_base"),
+        ("code-cushman-002", "p50k_base"),
+        ("code-cushman-001", "p50k_base"),
+        ("davinci-codex", "p50k_base"),
+        ("cushman-codex", "p50k_base"),
+        // edit
+        ("text-davinci-edit-001", "p50k_edit"),
+        ("code-davinci-edit-001", "p50k_edit"),
+        // embeddings
+        ("text-embedding-ada-002", "cl100k_base"),
+        // old embeddings
+        ("text-similarity-davinci-001", "r50k_base"),
+        ("text-similarity-curie-001", "r50k_base"),
+        ("text-similarity-babbage-001", "r50k_base"),
+        ("text-similarity-ada-001", "r50k_base"),
+        ("text-search-davinci-doc-001", "r50k_base"),
+        ("text-search-curie-doc-001", "r50k_base"),
+        ("text-search-babbage-doc-001", "r50k_base"),
+        ("text-search-ada-doc-001", "r50k_base"),
+        ("code-search-babbage-code-001", "r50k_base"),
+        ("code-search-ada-code-001", "r50k_base"),
+        // open source
+        ("gpt2", "gpt2"),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect::<HashMap<String, String>>();
 }
+
 struct DataGymDef {
     vocab_bpe_file: String,
     encoder_json_file: String,
