@@ -9,24 +9,62 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 lazy_static! {
     pub static ref REGISTRY: HashMap<String, EncodingLazy> = [
-        // TODO
             EncodingLazy::new(
                 "gpt2".into(),
-                50257,
+                Some(50257),
                 r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
-                [
-                    ("<|endoftext|>".into(), 50256),
-                ].into_iter().collect(),
+                [ ("<|endoftext|>".into(), 50256), ].into_iter().collect(),
                 EncoderLoadingStrategy::DataGym(
                     DataGymDef {
-                        vocab_bpe_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe".to_string(),
-                        encoder_json_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json".to_string()
+                        vocab_bpe_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe".into(),
+                        encoder_json_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json".into()
                     }
-                ))
+                )),
+            EncodingLazy::new(
+                "r50k_base".into(),
+                Some(50257),
+                r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
+                [ ("<|endoftext|>".into(), 50256), ].into_iter().collect(),
+                EncoderLoadingStrategy::BPE("https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken".into())
+            ),
+            EncodingLazy::new(
+                "p50k_base".into(),
+                Some(50281),
+                r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
+                [ ("<|endoftext|>".into(), 50256), ].into_iter().collect(),
+                EncoderLoadingStrategy::BPE("https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken".into())
+            ),
+            EncodingLazy::new(
+                "p50k_edit".into(),
+                Some(50281),
+                r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
+                [ 
+                    ("<|endoftext|>".into(),  50256),
+                    ("<|fim_prefix|>".into(), 50281),
+                    ("<|fim_middle|>".into(), 50282),
+                    ("<|fim_suffix|>".into(), 50283),
+                ].into_iter().collect(),
+                EncoderLoadingStrategy::BPE("https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken".into())
+            ),
+            EncodingLazy::new(
+                "cl100k_base".into(),
+                None,
+                r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+".into(),
+                [ 
+                    ("<|endoftext|>".into(),   100257),
+                    ("<|fim_prefix|>".into(),  100258),
+                    ("<|fim_middle|>".into(),  100259),
+                    ("<|fim_suffix|>".into(),  100260),
+                    ("<|endofprompt|>".into(), 100276),
+                ].into_iter().collect(),
+                EncoderLoadingStrategy::BPE("https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken".into())
+            ),
             ]
             .into_iter()
             .map(|enc| (enc.name.clone(), enc))
             .collect::<HashMap<String, EncodingLazy>>();
+
+
 
     pub static ref MODEL_TO_ENCODING: HashMap<String, String> = [
         // text
@@ -83,7 +121,7 @@ enum EncoderLoadingStrategy {
 
 pub struct EncodingLazy {
     name: String,
-    explicit_n_vocab: usize,
+    explicit_n_vocab: Option<usize>,
     pat_str: String,
     special_tokens: HashMap<String, usize>,
     mergeable_ranks: Option<HashMap<Vec<u8>, usize>>,
@@ -92,7 +130,7 @@ pub struct EncodingLazy {
 
 impl EncodingLazy {
     fn new(name: String,
-           explicit_n_vocab: usize,
+           explicit_n_vocab: Option<usize>,
            pat_str: String,
            special_tokens: HashMap<String, usize>,
            loading_strategy: EncoderLoadingStrategy) -> Self {

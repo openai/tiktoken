@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap as HashMap;
 
 mod util;
 mod load;
-mod openai_public;
+pub mod openai_public;
 
 #[macro_use]
 extern crate lazy_static;

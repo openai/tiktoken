@@ -3,4 +3,5 @@
 members = [
     "core",
     "python",
+    "jni",
 ]

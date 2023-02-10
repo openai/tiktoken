@@ -1,30 +1,33 @@
 
+
 use jni::JNIEnv;
 // These objects are what you should use as arguments to your native
 // function. They carry extra lifetime information to prevent them escaping
 // this context and getting used after being GC'd.
-use jni::objects::{JClass, JObject, JString};
+use jni::objects::{JObject, JString};
 
 // This is just a pointer. We'll be returning it from our function. We
 // can't return one of the objects with lifetime information because the
 // lifetime checker won't let us.
-use jni::sys::{jstring, jlong};
+use jni::sys::{jlong};
 
+use _tiktoken_core;
+
+#[no_mangle]
 pub extern "system" fn Java_tiktoken_Encoding_init(
     env: JNIEnv,
     obj: JObject,
     model_name: JString
 ) {
-    use openai_public::{REGISTRY, MODEL_TO_ENCODING};
-
+    
     // First, we have to get the string out of Java. Check out the `strings`
     // module for more info on how this works.
     let model_name: String =
         env.get_string(model_name).expect("Unable to get Java model name").into();
 
-    let encoding_name = openai_public::MODEL_TO_ENCODING.get(&model_name).expect("Unable to find model");
+    let encoding_name = _tiktoken_core::openai_public::MODEL_TO_ENCODING.get(&model_name).expect("Unable to find model");
 
-    let encoding = openai_public::REGISTRY.get(encoding_name).expect("Unable to find encoding");
+    let encoding = _tiktoken_core::openai_public::REGISTRY.get(encoding_name).expect("Unable to find encoding");
 
     let encoding_ptr = Box::into_raw(Box::new(encoding)) as jlong;
 
@@ -33,7 +36,9 @@ pub extern "system" fn Java_tiktoken_Encoding_init(
 
 // pub extern "system" fn Java_tiktoken_Encoding_encode(env: JNIEnv,
 //                                              class: JClass,
-//                                              input: JString)
+//                                              input: JString,
+//                                              allowedSpecialTokens: JObject,
+//                                              maxTokenLength: jlong)
 //                                              -> jstring {
 //     // First, we have to get the string out of Java. Check out the `strings`
 //     // module for more info on how this works.

@@ -82,7 +82,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <argLine>-Djava.library.path=${project.build.directory}/bin/natives/linux_64</argLine>
+                    <argLine>-Djava.library.path=${project.build.directory}/../../target/debug/</argLine>
                 </configuration>
             </plugin>
       </plugins>

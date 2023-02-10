@@ -5,7 +5,7 @@ import java.util.Set;
 public class Encoding
 {
     static {
-        System.loadLibrary("_tiktoken");
+        System.loadLibrary("_tiktoken_jni");
     }
 
     // initialized by init
@@ -16,6 +16,6 @@ public class Encoding
     public native long[] encode(String text, Set<String> allowedSpecialTokens, long maxTokenLength);
 
     public Encoding(String modelName) {
-        init(modelName);
+        this.init(modelName);
     }
 }
