@@ -18,4 +18,6 @@ public class Encoding
     public Encoding(String modelName) {
         this.init(modelName);
     }
+
+    // TODO: close() and/or closeable interface
 }

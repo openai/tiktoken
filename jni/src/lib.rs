@@ -27,8 +27,12 @@ pub extern "system" fn Java_tiktoken_Encoding_init(
 
     let encoding_name = _tiktoken_core::openai_public::MODEL_TO_ENCODING.get(&model_name).expect("Unable to find model");
 
+    // TODO: this is actually mergable_ranks (lazy)
     let encoding = _tiktoken_core::openai_public::REGISTRY.get(encoding_name).expect("Unable to find encoding");
 
+    // TODO: initialize the CoreBPE object
+
+    // TODO: this should be CoreBPE
     let encoding_ptr = Box::into_raw(Box::new(encoding)) as jlong;
 
     env.set_field(obj, "handle", "J", jni::objects::JValue::Long(encoding_ptr)).expect("Unable to store handle");
