@@ -81,7 +81,7 @@ enum EncoderLoadingStrategy {
     DataGym(DataGymDef),
 }
 
-struct EncodingLazy {
+pub struct EncodingLazy {
     name: String,
     explicit_n_vocab: usize,
     pat_str: String,
