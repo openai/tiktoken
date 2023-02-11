@@ -1,8 +1,6 @@
 package tiktoken;
 
-import java.util.Set;
-
-public class Encoding
+public class Encoding implements AutoCloseable
 {
     static {
         System.loadLibrary("_tiktoken_jni");
@@ -13,11 +11,16 @@ public class Encoding
 
     private native void init(String modelName);
 
-    public native long[] encode(String text, Set<String> allowedSpecialTokens, long maxTokenLength);
+    public native long[] encode(String text, String[] allowedSpecialTokens, long maxTokenLength);
+
+    private native void destroy();
+
 
     public Encoding(String modelName) {
         this.init(modelName);
     }
 
-    // TODO: close() and/or closeable interface
+    public void close() throws Exception {
+        destroy();
+    }
 }

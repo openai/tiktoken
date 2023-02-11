@@ -1,6 +1,7 @@
 
 use rustc_hash::FxHashMap as HashMap;
 use std::error::Error;
+use std::sync::RwLock;
 
 #[path = "load.rs"]
 mod load;
@@ -8,7 +9,7 @@ mod load;
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 lazy_static! {
-    pub static ref REGISTRY: HashMap<String, EncodingLazy> = [
+        pub static ref REGISTRY: HashMap<String, EncodingLazy> = [
             EncodingLazy::new(
                 "gpt2".into(),
                 Some(50257),
@@ -38,7 +39,7 @@ lazy_static! {
                 "p50k_edit".into(),
                 Some(50281),
                 r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
-                [ 
+                [
                     ("<|endoftext|>".into(),  50256),
                     ("<|fim_prefix|>".into(), 50281),
                     ("<|fim_middle|>".into(), 50282),
@@ -50,7 +51,7 @@ lazy_static! {
                 "cl100k_base".into(),
                 None,
                 r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+".into(),
-                [ 
+                [
                     ("<|endoftext|>".into(),   100257),
                     ("<|fim_prefix|>".into(),  100258),
                     ("<|fim_middle|>".into(),  100259),
@@ -109,11 +110,13 @@ lazy_static! {
     .collect::<HashMap<String, String>>();
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 struct DataGymDef {
     vocab_bpe_file: String,
     encoder_json_file: String,
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 enum EncoderLoadingStrategy {
     BPE(String),
     DataGym(DataGymDef),
@@ -122,10 +125,27 @@ enum EncoderLoadingStrategy {
 pub struct EncodingLazy {
     name: String,
     explicit_n_vocab: Option<usize>,
-    pat_str: String,
-    special_tokens: HashMap<String, usize>,
-    mergeable_ranks: Option<HashMap<Vec<u8>, usize>>,
+    pub pat_str: String,
+    pub special_tokens: HashMap<String, usize>,
+    mergeable_ranks: RwLock<Option<HashMap<Vec<u8>, usize>>>,
     loading_strategy: EncoderLoadingStrategy,
+}
+
+fn load_bpe(path: &str) -> Result<HashMap<Vec<u8>, usize>> {
+    load::load_tiktoken_bpe(path)
+}
+
+fn load_data_gym(def: &DataGymDef) -> Result<HashMap<Vec<u8>, usize>> {
+    load::data_gym_to_mergeable_bpe_ranks(&def.vocab_bpe_file, &def.encoder_json_file)
+}
+
+// #[memoize]
+fn load_mergeable_ranks(loading_strategy: &EncoderLoadingStrategy) -> Result<HashMap<Vec<u8>, usize>>
+{
+    match loading_strategy {
+            EncoderLoadingStrategy::BPE(path) => load_bpe(&path),
+            EncoderLoadingStrategy::DataGym(def) => load_data_gym(&def),
+        }
 }
 
 impl EncodingLazy {
@@ -139,28 +159,23 @@ impl EncodingLazy {
             explicit_n_vocab,
             pat_str,
             special_tokens,
-            mergeable_ranks: None,
+            mergeable_ranks: RwLock::new(None),
             loading_strategy
         }
     }
 
-    fn get(&mut self) -> Result<&HashMap<Vec<u8>, usize>> {
-        if self.mergeable_ranks.is_none() {
-            self.mergeable_ranks = Some(match &self.loading_strategy {
-                EncoderLoadingStrategy::BPE(path) => Self::load_bpe(&path)?,
-                EncoderLoadingStrategy::DataGym(def) => Self::load_data_gym(&def)?,
-            })
+    pub fn get(&self) -> Result<HashMap<Vec<u8>, usize>> {
+        {
+            let read = self.mergeable_ranks.read().unwrap();
+            if read.is_some() {
+                return Ok(read.as_ref().unwrap().clone());
+            }
         }
 
-        Ok(self.mergeable_ranks.as_ref().expect("mergeable_ranks should be loaded by now"))
-    }
+        let mut write = self.mergeable_ranks.write().unwrap();
+        *write = Some(load_mergeable_ranks(&self.loading_strategy)?);
 
-    fn load_bpe(path: &str) -> Result<HashMap<Vec<u8>, usize>> {
-        load::load_tiktoken_bpe(path)
-    }
-
-    fn load_data_gym(def: &DataGymDef) -> Result<HashMap<Vec<u8>, usize>> {
-        load::data_gym_to_mergeable_bpe_ranks(&def.vocab_bpe_file, &def.encoder_json_file)
+        Ok(write.as_ref().unwrap().clone())
     }
 }
 
