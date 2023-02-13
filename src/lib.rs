@@ -2,9 +2,8 @@
 #![allow(clippy::borrow_deref_ref)]
 
 use std::collections::HashSet;
-use std::thread;
 
-use fancy_regex::Regex;
+use pcre2::bytes::{Regex, RegexBuilder};
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyTuple};
@@ -69,20 +68,34 @@ pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, usize>) -> 
 //
 // Regex
 // =====
-// Most of the time is spent in regex. The easiest way to speed this up is by using less fancy
-// regex features. For instance, using a regex parse-able by `regex` crate is 3x faster than
-// the usual regex we use.
+// A considerable amount of time is spent in regex.
+// The easiest way to speed this up is by using a faster regex parser.
+// A reason performance varies across parsers might be their feature richness
+// The `fast_regex` crate can parse more kinds of regex than the `regex` crate.
+// Another reason, could be the implementation of the parser and whether it
+// has a JIT compiler capable of generating optimized code during pattern compilation.
+// `pcre2` is a C library that has such JIT capabilities and is wrapped in the `pcre2` crate.
 //
-// However, given that we're using a regex parse-able by `regex`, there isn't much difference
-// between using the `regex` crate and using the `fancy_regex` crate.
+// Given that we're using a regex that can be parsed by all of the above packages,
+// we chose to use `pcre2` due to its superior performance.
 //
-// There is an important interaction between threading, `regex` and `fancy_regex`.
-// When using `fancy_regex`, we hit `regex.find_at`. It turns out that this causes contention on
-// some mutable scratch space inside of `regex`. This absolutely kills performance. When using plain
-// old `regex`, we don't hit this, because `find_iter` has a different code path.
-// Related: https://github.com/rust-lang/regex/blob/master/PERFORMANCE.md
-// Anyway, the way we get around this is with having a (mostly) thread local clone of the regex for
-// each thread.
+// There is an important interaction between threading and `prce2`.
+// `pcre2` uses scratch space, `pcre2::ffi::MatchData`, that may only be used by one thread at
+// a time. Internally, `pcre2::Regex` uses a `thread_local::ThreadLocal` to manage a pool
+// of copies of the scratch space. If a new thread is created, it will incur a penalty
+// when allocating a copy of this space. There are also internal mutexes on which there
+// will be contention if there are multiple new threads making scratch space.
+// Thus, it is recommended to keep the threads alive, for example, using a thread pool.
+//
+// There are a couple potentially better designs to consider:
+// 1. Have each thread explicitly own its own scratch space as opposed to looking it up in the
+//    `thread_local::ThreadLocal`. This would require the user (us) to manage these, which involves
+//    adjusting the `Encoding` Python class to keep track.
+// 2. Another option would be to have a lock-free object pool of scratch space and pull from it
+//    whenever necessary, allocating if the pool is empty. This is agnostic to the thread that is
+//    requesting scratch space and thus more flexible. However, there could be contention on the
+//    internal linked-list and CPU-cache innefficiencies considering that the scratch space
+//    could have been residing on another core's cache.
 //
 // Threading
 // =========
@@ -108,44 +121,18 @@ pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, usize>) -> 
 
 use std::num::NonZeroU64;
 pub struct FakeThreadId(NonZeroU64);
-
-fn hash_current_thread() -> usize {
-    // It's easier to use unsafe than to use nightly. Rust has this nice u64 thread id counter
-    // that works great for our use case of avoiding collisions in our array. Unfortunately,
-    // it's private. However, there are only so many ways you can layout a u64, so just transmute
-    // https://github.com/rust-lang/rust/issues/67939
-    const _: [u8; 8] = [0; std::mem::size_of::<std::thread::ThreadId>()];
-    const _: [u8; 8] = [0; std::mem::size_of::<FakeThreadId>()];
-    let x = unsafe {
-        std::mem::transmute::<std::thread::ThreadId, FakeThreadId>(thread::current().id()).0
-    };
-    u64::from(x) as usize
-}
-
-const MAX_NUM_THREADS: usize = 128;
 #[pyclass]
-struct CoreBPE {
+pub struct CoreBPE {
     encoder: HashMap<Vec<u8>, usize>,
     special_tokens_encoder: HashMap<String, usize>,
     decoder: HashMap<usize, Vec<u8>>,
     special_tokens_decoder: HashMap<usize, Vec<u8>>,
-    regex_tls: Vec<Regex>,
-    special_regex_tls: Vec<Regex>,
+    regex: Regex,
+    special_regex: Regex,
     sorted_token_bytes: Vec<Vec<u8>>,
 }
 
 impl CoreBPE {
-    fn _get_tl_regex(&self) -> &Regex {
-        // See performance notes above for what this is about
-        // It's also a little janky, please make a better version of it!
-        // However, it's nice that this doesn't leak memory to short-lived threads
-        &self.regex_tls[hash_current_thread() % MAX_NUM_THREADS]
-    }
-
-    fn _get_tl_special_regex(&self) -> &Regex {
-        &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
-    }
-
     fn _decode_native(&self, tokens: &[usize]) -> Vec<u8> {
         let mut ret = Vec::with_capacity(tokens.len() * 2);
         for token in tokens {
@@ -161,10 +148,9 @@ impl CoreBPE {
     fn _encode_ordinary_native(&self, text: &str) -> Vec<usize> {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
-        let regex = self._get_tl_regex();
         let mut ret = vec![];
-        for mat in regex.find_iter(text) {
-            let piece = mat.unwrap().as_str().as_bytes();
+        for mat in self.regex.find_iter(text.as_bytes()) {
+            let piece = mat.unwrap().as_bytes();
             if let Some(token) = self.encoder.get(piece) {
                 ret.push(*token);
                 continue;
@@ -175,8 +161,6 @@ impl CoreBPE {
     }
 
     fn _encode_native(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<usize>, usize) {
-        let special_regex = self._get_tl_special_regex();
-        let regex = self._get_tl_regex();
         let mut ret = vec![];
 
         let mut start = 0;
@@ -186,8 +170,11 @@ impl CoreBPE {
             let mut start_find = start;
             loop {
                 // Find the next allowed special token, if any
-                next_special = special_regex.find_from_pos(text, start_find).unwrap();
-                match next_special {
+                next_special = self
+                    .special_regex
+                    .find_at(text.as_bytes(), start_find)
+                    .unwrap();
+                match &next_special {
                     Some(m) => {
                         if allowed_special.contains(&text[m.start()..m.end()]) {
                             break;
@@ -197,11 +184,13 @@ impl CoreBPE {
                     None => break,
                 }
             }
-            let end = next_special.map_or(text.len(), |m| m.start());
+            let end: usize = next_special
+                // .as_ref()
+                .map_or(text.len(), |m| -> usize { m.start() });
 
             // Okay, here we go, compare this logic to _encode_ordinary_native
-            for mat in regex.find_iter(&text[start..end]) {
-                let piece = mat.unwrap().as_str().as_bytes();
+            for mat in self.regex.find_iter(&text[start..end].as_bytes()) {
+                let piece = mat.unwrap().as_bytes();
                 if let Some(token) = self.encoder.get(piece) {
                     last_piece_token_len = 1;
                     ret.push(*token);
@@ -215,10 +204,10 @@ impl CoreBPE {
             match next_special {
                 // And here we push the special token
                 Some(m) => {
-                    let piece = m.as_str();
+                    let piece = std::str::from_utf8(m.as_bytes()).unwrap();
                     let token = self.special_tokens_encoder[piece];
                     ret.push(token);
-                    start = m.end();
+                    start = m.start();
                     last_piece_token_len = 0;
                 }
                 None => break,
@@ -394,17 +383,27 @@ impl CoreBPE {
         special_tokens_encoder: HashMap<String, usize>,
         pattern: &str,
     ) -> PyResult<Self> {
-        let regex = Regex::new(pattern)
-            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
+        let builder = {
+            let mut builder = RegexBuilder::new();
+            builder.jit_if_available(true);
+            builder
+        };
 
-        let special_regex = {
+        fn pcre2_error_mapper(e: pcre2::Error) -> pyo3::PyErr {
+            PyErr::new::<exceptions::PyValueError, _>(e.to_string())
+        }
+
+        let regex = builder.build(pattern).map_err(pcre2_error_mapper)?;
+
+        let special_pattern = {
             let _parts = special_tokens_encoder
                 .keys()
                 .map(|s| fancy_regex::escape(s))
                 .collect::<Vec<_>>();
-            Regex::new(&_parts.join("|"))
-                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?
+            &_parts.join("|")
         };
+
+        let special_regex = builder.build(special_pattern).map_err(pcre2_error_mapper)?;
 
         let decoder: HashMap<usize, Vec<u8>> =
             encoder.iter().map(|(k, v)| (*v, k.clone())).collect();
@@ -425,10 +424,8 @@ impl CoreBPE {
             special_tokens_encoder,
             decoder,
             special_tokens_decoder,
-            regex_tls: (0..MAX_NUM_THREADS).map(|_| regex.clone()).collect(),
-            special_regex_tls: (0..MAX_NUM_THREADS)
-                .map(|_| special_regex.clone())
-                .collect(),
+            regex: regex,
+            special_regex: special_regex,
             sorted_token_bytes,
         })
     }
