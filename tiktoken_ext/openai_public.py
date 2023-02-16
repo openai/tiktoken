@@ -84,4 +84,5 @@ ENCODING_CONSTRUCTORS = {
     "r50k_base": r50k_base,
     "p50k_base": p50k_base,
     "cl100k_base": cl100k_base,
+    "p50k_edit": p50k_edit,
 }
