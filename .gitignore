@@ -43,3 +43,4 @@ target/
 
 # WASM
 ranks/
+node_modules

@@ -18,22 +18,72 @@ const ENDOFPROMPT: &'static str = "<|endofprompt|>";
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_APPEND_CONTENT: &'static str = r#"
-export type BPEEncoding = "gpt2" | "r50k_base" | "p50k_base" | "p50k_edit" | "cl100k_base"; 
+export type TiktokenEmbedding = "gpt2" | "r50k_base" | "p50k_base" | "p50k_edit" | "cl100k_base"; 
+export type TiktokenModel =
+    | "text-davinci-003"
+    | "text-davinci-002"
+    | "text-davinci-001"
+    | "text-curie-001"
+    | "text-babbage-001"
+    | "text-ada-001"
+    | "davinci"
+    | "curie"
+    | "babbage"
+    | "ada"
+    | "code-davinci-002"
+    | "code-davinci-001"
+    | "code-cushman-002"
+    | "code-cushman-001"
+    | "davinci-codex"
+    | "cushman-codex"
+    | "text-davinci-edit-001"
+    | "code-davinci-edit-001"
+    | "text-embedding-ada-002"
+    | "text-similarity-davinci-001"
+    | "text-similarity-curie-001"
+    | "text-similarity-babbage-001"
+    | "text-similarity-ada-001"
+    | "text-search-davinci-doc-001"
+    | "text-search-curie-doc-001"
+    | "text-search-babbage-doc-001"
+    | "text-search-ada-doc-001"
+    | "code-search-babbage-code-001"
+    | "code-search-ada-code-001"
+    | "gpt2";
+
 "#;
 
 #[wasm_bindgen]
 extern "C" {
-    #[wasm_bindgen(typescript_type = "BPEEncoding")]
-    pub type BPEEncoding;
+    #[wasm_bindgen(typescript_type = "TiktokenEmbedding")]
+    pub type TiktokenEmbedding;
+
+    #[wasm_bindgen(typescript_type = "TiktokenModel")]
+    pub type TiktokenModel;
 }
 
 #[wasm_bindgen]
-pub struct JsBPE {
+pub struct Tiktoken {
     bpe: Option<CoreBPE>,
 }
 
 #[wasm_bindgen]
-impl JsBPE {
+impl Tiktoken {
+    fn new(encoding: &str) -> Self {
+        let bpe = match encoding {
+            "gpt2" => Tiktoken::gpt2(),
+            "r50k_base" => Tiktoken::r50k_base(),
+            "p50k_base" => Tiktoken::p50k_base(),
+            "p50k_edit" => Tiktoken::p50k_edit(),
+            "cl100k_base" => Tiktoken::cl100k_base(),
+            _ => Err(anyhow!("Invalid encoder type")),
+        };
+
+        Tiktoken {
+            bpe: Some(bpe.unwrap()),
+        }
+    }
+
     fn get_encoder(tiktoken_bfe: &str) -> Result<HashMap<Vec<u8>, usize>> {
         let mut encoder = HashMap::default();
         for line in tiktoken_bfe.lines() {
@@ -51,7 +101,7 @@ impl JsBPE {
         special_tokens.insert(String::from(ENDOFTEXT), 50256);
 
         CoreBPE::new(
-            JsBPE::get_encoder(include_str!("../ranks/gpt2.tiktoken")).unwrap(),
+            Tiktoken::get_encoder(include_str!("../ranks/gpt2.tiktoken")).unwrap(),
             special_tokens,
             "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
         )
@@ -62,7 +112,7 @@ impl JsBPE {
         special_tokens.insert(String::from(ENDOFTEXT), 50256);
 
         CoreBPE::new(
-            JsBPE::get_encoder(include_str!("../ranks/r50k_base.tiktoken")).unwrap(),
+            Tiktoken::get_encoder(include_str!("../ranks/r50k_base.tiktoken")).unwrap(),
             special_tokens,
             "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
         )
@@ -73,7 +123,7 @@ impl JsBPE {
         special_tokens.insert(String::from(ENDOFTEXT), 50256);
 
         CoreBPE::new(
-            JsBPE::get_encoder(include_str!("../ranks/p50k_base.tiktoken")).unwrap(),
+            Tiktoken::get_encoder(include_str!("../ranks/p50k_base.tiktoken")).unwrap(),
             special_tokens,
             "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
         )
@@ -87,7 +137,7 @@ impl JsBPE {
         special_tokens.insert(String::from(FIM_SUFFIX), 50283);
 
         CoreBPE::new(
-            JsBPE::get_encoder(include_str!("../ranks/p50k_base.tiktoken")).unwrap(),
+            Tiktoken::get_encoder(include_str!("../ranks/p50k_base.tiktoken")).unwrap(),
             special_tokens,
             "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
         )
@@ -102,30 +152,63 @@ impl JsBPE {
         special_tokens.insert(String::from(ENDOFPROMPT), 100276);
 
         CoreBPE::new(
-            JsBPE::get_encoder(include_str!("../ranks/cl100k_base.tiktoken")).unwrap(),
+            Tiktoken::get_encoder(include_str!("../ranks/cl100k_base.tiktoken")).unwrap(),
             special_tokens,
             "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
         )
     }
 
-    pub fn new(encoding: BPEEncoding) -> Self {
-        let bpe = match encoding.as_string().unwrap().as_str() {
-            "gpt2" => JsBPE::gpt2(),
-            "r50k_base" => JsBPE::r50k_base(),
-            "p50k_base" => JsBPE::p50k_base(),
-            "p50k_edit" => JsBPE::p50k_edit(),
-            "cl100k_base" => JsBPE::cl100k_base(),
-            _ => Err(anyhow!("Invalid encoder type")),
-        };
-
-        JsBPE {
-            bpe: Some(bpe.unwrap()),
-        }
-    }
-
     pub fn encode(&self, input: &str) -> Vec<usize> {
         self.bpe.as_ref().unwrap().encode(&input)
     }
+
+    pub fn decode(&self, tokens: Vec<usize>) -> Vec<u8> {
+        self.bpe.as_ref().unwrap().decode_bytes(tokens)
+    }
+}
+
+#[wasm_bindgen]
+pub fn get_encoding(encoding: TiktokenEmbedding) -> Tiktoken {
+    Tiktoken::new(encoding.as_string().unwrap().as_str())
+}
+
+#[wasm_bindgen]
+pub fn encoding_for_model(encoding: TiktokenModel) -> Tiktoken {
+    let encoding = match encoding.as_string().unwrap().as_str() {
+        "text-davinci-003" => "p50k_base",
+        "text-davinci-002" => "p50k_base",
+        "text-davinci-001" => "r50k_base",
+        "text-curie-001" => "r50k_base",
+        "text-babbage-001" => "r50k_base",
+        "text-ada-001" => "r50k_base",
+        "davinci" => "r50k_base",
+        "curie" => "r50k_base",
+        "babbage" => "r50k_base",
+        "ada" => "r50k_base",
+        "code-davinci-002" => "p50k_base",
+        "code-davinci-001" => "p50k_base",
+        "code-cushman-002" => "p50k_base",
+        "code-cushman-001" => "p50k_base",
+        "davinci-codex" => "p50k_base",
+        "cushman-codex" => "p50k_base",
+        "text-davinci-edit-001" => "p50k_edit",
+        "code-davinci-edit-001" => "p50k_edit",
+        "text-embedding-ada-002" => "cl100k_base",
+        "text-similarity-davinci-001" => "r50k_base",
+        "text-similarity-curie-001" => "r50k_base",
+        "text-similarity-babbage-001" => "r50k_base",
+        "text-similarity-ada-001" => "r50k_base",
+        "text-search-davinci-doc-001" => "r50k_base",
+        "text-search-curie-doc-001" => "r50k_base",
+        "text-search-babbage-doc-001" => "r50k_base",
+        "text-search-ada-doc-001" => "r50k_base",
+        "code-search-babbage-code-001" => "r50k_base",
+        "code-search-ada-code-001" => "r50k_base",
+        "gpt2" => "gpt2",
+        &_ => "",
+    };
+
+    Tiktoken::new(encoding)
 }
 
 fn _byte_pair_merge(piece: &[u8], ranks: &HashMap<Vec<u8>, usize>) -> Vec<std::ops::Range<usize>> {
