@@ -1,15 +1,132 @@
-// This check is new and seems buggy (possibly with PyO3 interaction)
-#![allow(clippy::borrow_deref_ref)]
-
-use std::collections::HashSet;
-use std::thread;
-
+use anyhow::{anyhow, Result};
+use base64::{engine::general_purpose, Engine as _};
 use fancy_regex::Regex;
-use pyo3::exceptions;
-use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyList, PyTuple};
-use pyo3::PyResult;
 use rustc_hash::FxHashMap as HashMap;
+use std::collections::HashSet;
+
+use wasm_bindgen::prelude::*;
+
+const ENDOFTEXT: &'static str = "<|endoftext|>";
+
+const FIM_PREFIX: &'static str = "<|fim_prefix|>";
+
+const FIM_MIDDLE: &'static str = "<|fim_middle|>";
+
+const FIM_SUFFIX: &'static str = "<|fim_suffix|>";
+
+const ENDOFPROMPT: &'static str = "<|endofprompt|>";
+
+#[wasm_bindgen(typescript_custom_section)]
+const TS_APPEND_CONTENT: &'static str = r#"
+export type BPEEncoding = "gpt2" | "r50k_base" | "p50k_base" | "p50k_edit" | "cl100k_base"; 
+"#;
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "BPEEncoding")]
+    pub type BPEEncoding;
+}
+
+#[wasm_bindgen]
+pub struct JsBPE {
+    bpe: Option<CoreBPE>,
+}
+
+#[wasm_bindgen]
+impl JsBPE {
+    fn get_encoder(tiktoken_bfe: &str) -> Result<HashMap<Vec<u8>, usize>> {
+        let mut encoder = HashMap::default();
+        for line in tiktoken_bfe.lines() {
+            let mut parts = line.split(' ');
+            let token = &general_purpose::STANDARD.decode(parts.next().unwrap())?;
+            let rank: usize = parts.next().unwrap().parse().unwrap();
+            encoder.insert(token.clone(), rank);
+        }
+
+        Ok(encoder)
+    }
+
+    fn gpt2() -> Result<CoreBPE> {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 50256);
+
+        CoreBPE::new(
+            JsBPE::get_encoder(include_str!("../ranks/gpt2.tiktoken")).unwrap(),
+            special_tokens,
+            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    fn r50k_base() -> Result<CoreBPE> {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 50256);
+
+        CoreBPE::new(
+            JsBPE::get_encoder(include_str!("../ranks/r50k_base.tiktoken")).unwrap(),
+            special_tokens,
+            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    fn p50k_base() -> Result<CoreBPE> {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 50256);
+
+        CoreBPE::new(
+            JsBPE::get_encoder(include_str!("../ranks/p50k_base.tiktoken")).unwrap(),
+            special_tokens,
+            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    fn p50k_edit() -> Result<CoreBPE> {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 50256);
+        special_tokens.insert(String::from(FIM_PREFIX), 50281);
+        special_tokens.insert(String::from(FIM_MIDDLE), 50282);
+        special_tokens.insert(String::from(FIM_SUFFIX), 50283);
+
+        CoreBPE::new(
+            JsBPE::get_encoder(include_str!("../ranks/p50k_base.tiktoken")).unwrap(),
+            special_tokens,
+            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    fn cl100k_base() -> Result<CoreBPE> {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 100257);
+        special_tokens.insert(String::from(FIM_PREFIX), 100258);
+        special_tokens.insert(String::from(FIM_MIDDLE), 100259);
+        special_tokens.insert(String::from(FIM_SUFFIX), 100260);
+        special_tokens.insert(String::from(ENDOFPROMPT), 100276);
+
+        CoreBPE::new(
+            JsBPE::get_encoder(include_str!("../ranks/cl100k_base.tiktoken")).unwrap(),
+            special_tokens,
+            "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    pub fn new(encoding: BPEEncoding) -> Self {
+        let bpe = match encoding.as_string().unwrap().as_str() {
+            "gpt2" => JsBPE::gpt2(),
+            "r50k_base" => JsBPE::r50k_base(),
+            "p50k_base" => JsBPE::p50k_base(),
+            "p50k_edit" => JsBPE::p50k_edit(),
+            "cl100k_base" => JsBPE::cl100k_base(),
+            _ => Err(anyhow!("Invalid encoder type")),
+        };
+
+        JsBPE {
+            bpe: Some(bpe.unwrap()),
+        }
+    }
+
+    pub fn encode(&self, input: &str) -> Vec<usize> {
+        self.bpe.as_ref().unwrap().encode(&input)
+    }
+}
 
 fn _byte_pair_merge(piece: &[u8], ranks: &HashMap<Vec<u8>, usize>) -> Vec<std::ops::Range<usize>> {
     let mut parts: Vec<_> = (0..piece.len()).map(|i| i..i + 1).collect();
@@ -109,28 +226,13 @@ pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, usize>) -> 
 use std::num::NonZeroU64;
 pub struct FakeThreadId(NonZeroU64);
 
-fn hash_current_thread() -> usize {
-    // It's easier to use unsafe than to use nightly. Rust has this nice u64 thread id counter
-    // that works great for our use case of avoiding collisions in our array. Unfortunately,
-    // it's private. However, there are only so many ways you can layout a u64, so just transmute
-    // https://github.com/rust-lang/rust/issues/67939
-    const _: [u8; 8] = [0; std::mem::size_of::<std::thread::ThreadId>()];
-    const _: [u8; 8] = [0; std::mem::size_of::<FakeThreadId>()];
-    let x = unsafe {
-        std::mem::transmute::<std::thread::ThreadId, FakeThreadId>(thread::current().id()).0
-    };
-    u64::from(x) as usize
-}
-
-const MAX_NUM_THREADS: usize = 128;
-#[pyclass]
 struct CoreBPE {
     encoder: HashMap<Vec<u8>, usize>,
     special_tokens_encoder: HashMap<String, usize>,
     decoder: HashMap<usize, Vec<u8>>,
     special_tokens_decoder: HashMap<usize, Vec<u8>>,
-    regex_tls: Vec<Regex>,
-    special_regex_tls: Vec<Regex>,
+    regex: Regex,
+    special_regex: Regex,
     sorted_token_bytes: Vec<Vec<u8>>,
 }
 
@@ -139,11 +241,11 @@ impl CoreBPE {
         // See performance notes above for what this is about
         // It's also a little janky, please make a better version of it!
         // However, it's nice that this doesn't leak memory to short-lived threads
-        &self.regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+        &self.regex
     }
 
     fn _get_tl_special_regex(&self) -> &Regex {
-        &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+        &self.special_regex
     }
 
     fn _decode_native(&self, tokens: &[usize]) -> Vec<u8> {
@@ -386,24 +488,20 @@ impl CoreBPE {
     }
 }
 
-#[pymethods]
 impl CoreBPE {
-    #[new]
     fn new(
         encoder: HashMap<Vec<u8>, usize>,
         special_tokens_encoder: HashMap<String, usize>,
         pattern: &str,
-    ) -> PyResult<Self> {
-        let regex = Regex::new(pattern)
-            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
+    ) -> Result<Self> {
+        let regex = Regex::new(pattern)?;
 
         let special_regex = {
             let _parts = special_tokens_encoder
                 .keys()
                 .map(|s| fancy_regex::escape(s))
                 .collect::<Vec<_>>();
-            Regex::new(&_parts.join("|"))
-                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?
+            Regex::new(&_parts.join("|"))?
         };
 
         let decoder: HashMap<usize, Vec<u8>> =
@@ -425,10 +523,8 @@ impl CoreBPE {
             special_tokens_encoder,
             decoder,
             special_tokens_decoder,
-            regex_tls: (0..MAX_NUM_THREADS).map(|_| regex.clone()).collect(),
-            special_regex_tls: (0..MAX_NUM_THREADS)
-                .map(|_| special_regex.clone())
-                .collect(),
+            regex,
+            special_regex,
             sorted_token_bytes,
         })
     }
@@ -437,16 +533,22 @@ impl CoreBPE {
     // Encoding
     // ====================
 
-    fn encode_ordinary(&self, py: Python, text: &str) -> Vec<usize> {
-        py.allow_threads(|| self._encode_ordinary_native(text))
+    fn encode_ordinary(&self, text: &str) -> Vec<usize> {
+        self._encode_ordinary_native(text)
     }
 
-    fn encode(&self, py: Python, text: &str, allowed_special: HashSet<&str>) -> Vec<usize> {
-        py.allow_threads(|| self._encode_native(text, &allowed_special).0)
+    fn encode(&self, text: &str) -> Vec<usize> {
+        let allowed_special = self
+            .special_tokens_encoder
+            .keys()
+            .map(|s| s.as_str())
+            .collect();
+
+        self._encode_native(text, &allowed_special).0
     }
 
-    fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<usize> {
-        py.allow_threads(|| {
+    fn _encode_bytes(&self, bytes: &[u8]) -> Vec<usize> {
+        {
             match std::str::from_utf8(bytes) {
                 Ok(text) => self._encode_ordinary_native(text),
                 Err(e) => {
@@ -469,23 +571,18 @@ impl CoreBPE {
                     tokens
                 }
             }
-        })
+        }
     }
 
     fn encode_with_unstable(
         &self,
-        py: Python,
         text: &str,
         allowed_special: HashSet<&str>,
-    ) -> Py<PyTuple> {
-        let (tokens, completions) =
-            py.allow_threads(|| self._encode_unstable_native(text, &allowed_special));
-        let py_completions =
-            PyList::new(py, completions.iter().map(|seq| PyList::new(py, &seq[..])));
-        (tokens, py_completions).into_py(py)
+    ) -> (Vec<usize>, HashSet<Vec<usize>>) {
+        self._encode_unstable_native(text, &allowed_special)
     }
 
-    fn encode_single_token(&self, piece: &[u8]) -> PyResult<usize> {
+    fn encode_single_token(&self, piece: &[u8]) -> Result<usize> {
         if let Some(token) = self.encoder.get(piece).copied() {
             return Ok(token);
         }
@@ -494,7 +591,7 @@ impl CoreBPE {
                 return Ok(token);
             }
         }
-        Err(PyErr::new::<exceptions::PyKeyError, _>(piece.to_owned()))
+        Err(anyhow!("Unable to encode single token: {:?}", piece))
     }
 
     fn encode_single_piece(&self, piece: &[u8]) -> Vec<usize> {
@@ -508,37 +605,30 @@ impl CoreBPE {
     // Decoding
     // ====================
 
-    fn decode_bytes(&self, py: Python, tokens: Vec<usize>) -> Py<PyBytes> {
-        let bytes = py.allow_threads(|| self._decode_native(&tokens));
-        PyBytes::new(py, &bytes).into()
+    fn decode_bytes(&self, tokens: Vec<usize>) -> Vec<u8> {
+        self._decode_native(&tokens)
     }
 
-    fn decode_single_token_bytes(&self, py: Python, token: usize) -> PyResult<Py<PyBytes>> {
+    fn decode_single_token_bytes(&self, token: usize) -> Result<Vec<u8>> {
         if let Some(bytes) = self.decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
+            return Ok(bytes.clone());
         }
         if let Some(bytes) = self.special_tokens_decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
+            return Ok(bytes.clone());
         }
-        Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string()))
+        Err(anyhow!(
+            "Token not found in the vocabulary: {}",
+            token.to_string()
+        ))
     }
 
     // ====================
     // Miscellaneous
     // ====================
 
-    fn token_byte_values(&self, py: Python) -> Vec<Py<PyBytes>> {
-        self.sorted_token_bytes
-            .iter()
-            .map(|x| PyBytes::new(py, x).into())
-            .collect()
+    fn token_byte_values(&self) -> Vec<Vec<u8>> {
+        self.sorted_token_bytes.clone()
     }
-}
-
-#[pymodule]
-fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<CoreBPE>()?;
-    Ok(())
 }
 
 #[cfg(test)]
