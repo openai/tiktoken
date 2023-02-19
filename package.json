@@ -1,0 +1,24 @@
+{
+  "name": "@dqbd/tiktoken",
+  "version": "0.2.1",
+  "description": "Javascript bindings for tiktoken",
+  "files": [
+    "dist/**/*",
+    "package.json"
+  ],
+  "license": "Apache-2.0",
+  "main": "dist/node/_tiktoken.js",
+  "browser": "dist/web/_tiktoken.js",
+  "types": "dist/node/_tiktoken.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dqbd/tiktoken"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "build": "rm -rf dist/ && npm run build:node && npm run build:bundler && npm run build:web",
+    "build:bundler": "wasm-pack build --target bundler --release --out-dir dist/bundler && rm dist/bundler/.gitignore",
+    "build:node": "wasm-pack build --target nodejs --release --out-dir dist/node && rm dist/node/.gitignore",
+    "build:web": "wasm-pack build --target no-modules --release --out-dir dist/web && rm dist/web/.gitignore"
+  }
+}
