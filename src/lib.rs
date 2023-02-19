@@ -22,11 +22,16 @@ fn _byte_pair_merge<T>(
 
     // NOTE: using a macro here because a closure fails to get inlined
     // according to optimization remarks.
+    // A closure also cannot capture a reference to `piece` without
+    // the borrow checker complaining about the mutable borrows during
+    // the assignments later in this code.
     macro_rules! get_rank {
         ($start_idx:expr, $skip:expr) => {{
-            if ($start_idx + $skip + 2) < parts.len() {
+            let start_idx: usize = $start_idx;
+            let skip: usize = $skip;
+            if (start_idx + skip + 2) < parts.len() {
                 ranks
-                    .get(&piece[parts[$start_idx].0..parts[$start_idx + $skip + 2].0])
+                    .get(&piece[parts[start_idx].0..parts[start_idx + skip + 2].0])
                     .map(|r| *r)
             } else {
                 None
