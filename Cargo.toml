@@ -13,7 +13,7 @@ pyo3 = { version = "0.17.3", features = ["extension-module"] }
 
 # tiktoken dependencies
 fancy-regex = "0.10.0"
-pcre2 = { git = "https://github.com/nistath/rust-pcre2/" }
+regex = "1.7.0"
 rustc-hash = "1.1.0"
 bstr = "1.0.1"
 
