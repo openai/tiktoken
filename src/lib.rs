@@ -1,24 +1,211 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine as _};
 use fancy_regex::Regex;
+use gloo_utils::format::JsValueSerdeExt;
 use rustc_hash::FxHashMap as HashMap;
 use std::collections::HashSet;
 
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "inline")]
 const ENDOFTEXT: &'static str = "<|endoftext|>";
 
+#[cfg(feature = "inline")]
 const FIM_PREFIX: &'static str = "<|fim_prefix|>";
 
+#[cfg(feature = "inline")]
 const FIM_MIDDLE: &'static str = "<|fim_middle|>";
 
+#[cfg(feature = "inline")]
 const FIM_SUFFIX: &'static str = "<|fim_suffix|>";
 
+#[cfg(feature = "inline")]
 const ENDOFPROMPT: &'static str = "<|endofprompt|>";
 
+struct CoreBPEConstructor {
+    encoder: HashMap<Vec<u8>, usize>,
+    special_tokens: HashMap<String, usize>,
+    pat_str: String,
+}
+
+impl CoreBPEConstructor {
+    fn new(
+        tiktoken_bfe: &str,
+        special_tokens: Option<HashMap<String, usize>>,
+        pat_str: &str,
+    ) -> Self {
+        CoreBPEConstructor {
+            encoder: CoreBPEConstructor::parse_bfe(tiktoken_bfe).unwrap(),
+            special_tokens: special_tokens.unwrap_or_default(),
+            pat_str: String::from(pat_str),
+        }
+    }
+
+    fn parse_bfe(tiktoken_bfe: &str) -> Result<HashMap<Vec<u8>, usize>> {
+        let mut encoder = HashMap::default();
+        for line in tiktoken_bfe.lines() {
+            let mut parts = line.split(' ');
+            let token = &general_purpose::STANDARD.decode(parts.next().unwrap())?;
+            let rank: usize = parts.next().unwrap().parse().unwrap();
+            encoder.insert(token.clone(), rank);
+        }
+
+        Ok(encoder)
+    }
+
+    #[cfg(feature = "inline")]
+    fn gpt2() -> Self {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 50256);
+
+        CoreBPEConstructor::new(
+            include_str!("../ranks/gpt2.tiktoken"),
+            Some(special_tokens),
+            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    #[cfg(feature = "inline")]
+    fn r50k_base() -> Self {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 50256);
+
+        CoreBPEConstructor::new(
+            include_str!("../ranks/r50k_base.tiktoken"),
+            Some(special_tokens),
+            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    #[cfg(feature = "inline")]
+    fn p50k_base() -> Self {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 50256);
+
+        CoreBPEConstructor::new(
+            include_str!("../ranks/p50k_base.tiktoken"),
+            Some(special_tokens),
+            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    #[cfg(feature = "inline")]
+    fn p50k_edit() -> Self {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 50256);
+        special_tokens.insert(String::from(FIM_PREFIX), 50281);
+        special_tokens.insert(String::from(FIM_MIDDLE), 50282);
+        special_tokens.insert(String::from(FIM_SUFFIX), 50283);
+
+        CoreBPEConstructor::new(
+            include_str!("../ranks/p50k_base.tiktoken"),
+            Some(special_tokens),
+            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+
+    #[cfg(feature = "inline")]
+    fn cl100k_base() -> Self {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 100257);
+        special_tokens.insert(String::from(FIM_PREFIX), 100258);
+        special_tokens.insert(String::from(FIM_MIDDLE), 100259);
+        special_tokens.insert(String::from(FIM_SUFFIX), 100260);
+        special_tokens.insert(String::from(ENDOFPROMPT), 100276);
+
+        CoreBPEConstructor::new(
+            include_str!("../ranks/cl100k_base.tiktoken"),
+            Some(special_tokens),
+            "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+        )
+    }
+}
+
+#[wasm_bindgen]
+pub struct Tiktoken {
+    bpe: CoreBPE,
+}
+
+#[wasm_bindgen]
+impl Tiktoken {
+    #[wasm_bindgen(constructor)]
+    pub fn new(tiktoken_bfe: &str, special_tokens: JsValue, pat_str: &str) -> Self {
+        let constructor = CoreBPEConstructor::new(
+            tiktoken_bfe,
+            special_tokens.into_serde::<HashMap<String, usize>>().ok(),
+            pat_str,
+        );
+
+        Tiktoken {
+            bpe: CoreBPE::new(
+                constructor.encoder,
+                constructor.special_tokens,
+                &constructor.pat_str,
+            )
+            .unwrap(),
+        }
+    }
+
+    #[cfg(feature = "inline")]
+    fn with_encoding(
+        encoding: &str,
+        extend_special_tokens: &Option<HashMap<String, usize>>,
+    ) -> Self {
+        let mut bpe: CoreBPEConstructor = match encoding {
+            "gpt2" => CoreBPEConstructor::gpt2(),
+            "r50k_base" => CoreBPEConstructor::r50k_base(),
+            "p50k_base" => CoreBPEConstructor::p50k_base(),
+            "p50k_edit" => CoreBPEConstructor::p50k_edit(),
+            "cl100k_base" => CoreBPEConstructor::cl100k_base(),
+            &_ => unreachable!(),
+        };
+
+        match extend_special_tokens {
+            Some(tokens) => bpe.special_tokens.extend(tokens.clone()),
+            _ => (),
+        };
+
+        Tiktoken {
+            bpe: CoreBPE::new(bpe.encoder, bpe.special_tokens, &bpe.pat_str).unwrap(),
+        }
+    }
+
+    pub fn encode(&self, input: &str) -> Vec<usize> {
+        self.bpe.encode(&input)
+    }
+
+    pub fn decode(&self, tokens: Vec<usize>) -> Vec<u8> {
+        self.bpe.decode_bytes(tokens)
+    }
+}
+
+#[cfg(feature = "inline")]
 #[wasm_bindgen(typescript_custom_section)]
-const TS_APPEND_CONTENT: &'static str = r#"
+const _: &'static str = r#"
 export type TiktokenEmbedding = "gpt2" | "r50k_base" | "p50k_base" | "p50k_edit" | "cl100k_base"; 
+
+/**
+ * @param {TiktokenEmbedding} encoding
+ * @param {Record<string, number>} [extend_special_tokens]
+ * @returns {Tiktoken}
+ */
+export function get_encoding(encoding: TiktokenEmbedding, extend_special_tokens?: Record<string, number>): Tiktoken;
+"#;
+
+#[cfg(feature = "inline")]
+#[wasm_bindgen(skip_typescript)]
+pub fn get_encoding(encoding: &str, extend_special_tokens: JsValue) -> Tiktoken {
+    Tiktoken::with_encoding(
+        encoding,
+        &extend_special_tokens
+            .into_serde::<HashMap<String, usize>>()
+            .ok(),
+    )
+}
+
+#[cfg(feature = "inline")]
+#[wasm_bindgen(typescript_custom_section)]
+const _: &'static str = r#"
 export type TiktokenModel =
     | "text-davinci-003"
     | "text-davinci-002"
@@ -51,130 +238,18 @@ export type TiktokenModel =
     | "code-search-ada-code-001"
     | "gpt2";
 
+/**
+ * @param {TiktokenModel} encoding
+ * @param {Record<string, number>} [extend_special_tokens]
+ * @returns {Tiktoken}
+ */
+export function encoding_for_model(model: TiktokenModel, extend_special_tokens?: Record<string, number>): Tiktoken;
 "#;
 
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(typescript_type = "TiktokenEmbedding")]
-    pub type TiktokenEmbedding;
-
-    #[wasm_bindgen(typescript_type = "TiktokenModel")]
-    pub type TiktokenModel;
-}
-
-#[wasm_bindgen]
-pub struct Tiktoken {
-    bpe: Option<CoreBPE>,
-}
-
-#[wasm_bindgen]
-impl Tiktoken {
-    fn new(encoding: &str) -> Self {
-        let bpe = match encoding {
-            "gpt2" => Tiktoken::gpt2(),
-            "r50k_base" => Tiktoken::r50k_base(),
-            "p50k_base" => Tiktoken::p50k_base(),
-            "p50k_edit" => Tiktoken::p50k_edit(),
-            "cl100k_base" => Tiktoken::cl100k_base(),
-            _ => Err(anyhow!("Invalid encoder type")),
-        };
-
-        Tiktoken {
-            bpe: Some(bpe.unwrap()),
-        }
-    }
-
-    fn get_encoder(tiktoken_bfe: &str) -> Result<HashMap<Vec<u8>, usize>> {
-        let mut encoder = HashMap::default();
-        for line in tiktoken_bfe.lines() {
-            let mut parts = line.split(' ');
-            let token = &general_purpose::STANDARD.decode(parts.next().unwrap())?;
-            let rank: usize = parts.next().unwrap().parse().unwrap();
-            encoder.insert(token.clone(), rank);
-        }
-
-        Ok(encoder)
-    }
-
-    fn gpt2() -> Result<CoreBPE> {
-        let mut special_tokens = HashMap::default();
-        special_tokens.insert(String::from(ENDOFTEXT), 50256);
-
-        CoreBPE::new(
-            Tiktoken::get_encoder(include_str!("../ranks/gpt2.tiktoken")).unwrap(),
-            special_tokens,
-            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
-        )
-    }
-
-    fn r50k_base() -> Result<CoreBPE> {
-        let mut special_tokens = HashMap::default();
-        special_tokens.insert(String::from(ENDOFTEXT), 50256);
-
-        CoreBPE::new(
-            Tiktoken::get_encoder(include_str!("../ranks/r50k_base.tiktoken")).unwrap(),
-            special_tokens,
-            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
-        )
-    }
-
-    fn p50k_base() -> Result<CoreBPE> {
-        let mut special_tokens = HashMap::default();
-        special_tokens.insert(String::from(ENDOFTEXT), 50256);
-
-        CoreBPE::new(
-            Tiktoken::get_encoder(include_str!("../ranks/p50k_base.tiktoken")).unwrap(),
-            special_tokens,
-            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
-        )
-    }
-
-    fn p50k_edit() -> Result<CoreBPE> {
-        let mut special_tokens = HashMap::default();
-        special_tokens.insert(String::from(ENDOFTEXT), 50256);
-        special_tokens.insert(String::from(FIM_PREFIX), 50281);
-        special_tokens.insert(String::from(FIM_MIDDLE), 50282);
-        special_tokens.insert(String::from(FIM_SUFFIX), 50283);
-
-        CoreBPE::new(
-            Tiktoken::get_encoder(include_str!("../ranks/p50k_base.tiktoken")).unwrap(),
-            special_tokens,
-            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
-        )
-    }
-
-    fn cl100k_base() -> Result<CoreBPE> {
-        let mut special_tokens = HashMap::default();
-        special_tokens.insert(String::from(ENDOFTEXT), 100257);
-        special_tokens.insert(String::from(FIM_PREFIX), 100258);
-        special_tokens.insert(String::from(FIM_MIDDLE), 100259);
-        special_tokens.insert(String::from(FIM_SUFFIX), 100260);
-        special_tokens.insert(String::from(ENDOFPROMPT), 100276);
-
-        CoreBPE::new(
-            Tiktoken::get_encoder(include_str!("../ranks/cl100k_base.tiktoken")).unwrap(),
-            special_tokens,
-            "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
-        )
-    }
-
-    pub fn encode(&self, input: &str) -> Vec<usize> {
-        self.bpe.as_ref().unwrap().encode(&input)
-    }
-
-    pub fn decode(&self, tokens: Vec<usize>) -> Vec<u8> {
-        self.bpe.as_ref().unwrap().decode_bytes(tokens)
-    }
-}
-
-#[wasm_bindgen]
-pub fn get_encoding(encoding: TiktokenEmbedding) -> Tiktoken {
-    Tiktoken::new(encoding.as_string().unwrap().as_str())
-}
-
-#[wasm_bindgen]
-pub fn encoding_for_model(encoding: TiktokenModel) -> Tiktoken {
-    let encoding = match encoding.as_string().unwrap().as_str() {
+#[cfg(feature = "inline")]
+#[wasm_bindgen(skip_typescript)]
+pub fn encoding_for_model(model: &str, extend_special_tokens: JsValue) -> Tiktoken {
+    let encoding = match model {
         "text-davinci-003" => "p50k_base",
         "text-davinci-002" => "p50k_base",
         "text-davinci-001" => "r50k_base",
@@ -208,7 +283,12 @@ pub fn encoding_for_model(encoding: TiktokenModel) -> Tiktoken {
         &_ => "",
     };
 
-    Tiktoken::new(encoding)
+    Tiktoken::with_encoding(
+        encoding,
+        &extend_special_tokens
+            .into_serde::<HashMap<String, usize>>()
+            .ok(),
+    )
 }
 
 fn _byte_pair_merge(piece: &[u8], ranks: &HashMap<Vec<u8>, usize>) -> Vec<std::ops::Range<usize>> {
