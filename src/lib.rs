@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Error};
 use base64::{engine::general_purpose, Engine as _};
 use fancy_regex::Regex;
 use gloo_utils::format::JsValueSerdeExt;
 use rustc_hash::FxHashMap as HashMap;
 use std::collections::HashSet;
-
+use std::result::Result;
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "inline")]
@@ -41,7 +41,7 @@ impl CoreBPEConstructor {
         }
     }
 
-    fn parse_bfe(tiktoken_bfe: &str) -> Result<HashMap<Vec<u8>, usize>> {
+    fn parse_bfe(tiktoken_bfe: &str) -> Result<HashMap<Vec<u8>, usize>, Error> {
         let mut encoder = HashMap::default();
         for line in tiktoken_bfe.lines() {
             let mut parts = line.split(' ');
@@ -123,6 +123,7 @@ impl CoreBPEConstructor {
 
 #[wasm_bindgen]
 pub struct Tiktoken {
+    special_tokens_set: HashSet<String>,
     bpe: CoreBPE,
 }
 
@@ -137,6 +138,11 @@ impl Tiktoken {
         );
 
         Tiktoken {
+            special_tokens_set: constructor
+                .special_tokens
+                .keys()
+                .map(|s| s.clone())
+                .collect(),
             bpe: CoreBPE::new(
                 constructor.encoder,
                 constructor.special_tokens,
@@ -150,32 +156,139 @@ impl Tiktoken {
     fn with_encoding(
         encoding: &str,
         extend_special_tokens: &Option<HashMap<String, usize>>,
-    ) -> Self {
-        let mut bpe: CoreBPEConstructor = match encoding {
-            "gpt2" => CoreBPEConstructor::gpt2(),
-            "r50k_base" => CoreBPEConstructor::r50k_base(),
-            "p50k_base" => CoreBPEConstructor::p50k_base(),
-            "p50k_edit" => CoreBPEConstructor::p50k_edit(),
-            "cl100k_base" => CoreBPEConstructor::cl100k_base(),
-            &_ => unreachable!(),
-        };
+    ) -> Result<Self, JsError> {
+        let mut constructor: CoreBPEConstructor = match encoding {
+            "gpt2" => Ok(CoreBPEConstructor::gpt2()),
+            "r50k_base" => Ok(CoreBPEConstructor::r50k_base()),
+            "p50k_base" => Ok(CoreBPEConstructor::p50k_base()),
+            "p50k_edit" => Ok(CoreBPEConstructor::p50k_edit()),
+            "cl100k_base" => Ok(CoreBPEConstructor::cl100k_base()),
+            &_ => Err(JsError::new("Invalid encoding")),
+        }?;
 
-        match extend_special_tokens {
-            Some(tokens) => bpe.special_tokens.extend(tokens.clone()),
-            _ => (),
-        };
-
-        Tiktoken {
-            bpe: CoreBPE::new(bpe.encoder, bpe.special_tokens, &bpe.pat_str).unwrap(),
+        if let Some(tokens) = extend_special_tokens {
+            constructor.special_tokens.extend(tokens.clone());
         }
+
+        Ok(Tiktoken {
+            // TODO: can we avoid cloning here?
+            special_tokens_set: constructor
+                .special_tokens
+                .keys()
+                .map(|s| s.clone())
+                .collect(),
+            bpe: CoreBPE::new(
+                constructor.encoder,
+                constructor.special_tokens,
+                &constructor.pat_str,
+            )
+            .unwrap(),
+        })
     }
 
-    pub fn encode(&self, input: &str) -> Vec<usize> {
-        self.bpe.encode(&input)
+    pub fn encode(
+        &self,
+        text: &str,
+        allowed_special: JsValue,
+        disallowed_special: JsValue,
+    ) -> Result<Vec<usize>, JsError> {
+        let allowed_tokens =
+            self.validate_allowed_tokens(text, &allowed_special, &disallowed_special)?;
+
+        Ok(self
+            .bpe
+            .encode(&text, allowed_tokens.iter().map(AsRef::as_ref).collect()))
+    }
+
+    pub fn encode_ordinary(&self, text: &str) -> Vec<usize> {
+        self.bpe.encode_ordinary(&text)
+    }
+
+    pub fn encode_with_unstable(
+        &self,
+        text: &str,
+        allowed_special: JsValue,
+        disallowed_special: JsValue,
+    ) -> Result<JsValue, JsError> {
+        let allowed_tokens =
+            self.validate_allowed_tokens(text, &allowed_special, &disallowed_special)?;
+
+        JsValue::from_serde(
+            &self
+                .bpe
+                .encode_with_unstable(&text, allowed_tokens.iter().map(AsRef::as_ref).collect()),
+        )
+        .map_err(|e| {
+            JsError::new(&format!(
+                "Failed to serialize encode_with_unstable result: {}",
+                e
+            ))
+        })
+    }
+
+    pub fn encode_single_token(&self, bytes: &[u8]) -> usize {
+        self.bpe.encode_single_token(&bytes).unwrap_throw()
+    }
+
+    #[wasm_bindgen(skip_typescript)]
+    pub fn _encode_single_piece(&self, bytes: &[u8]) -> Vec<usize> {
+        self.bpe.encode_single_piece(&bytes)
     }
 
     pub fn decode(&self, tokens: Vec<usize>) -> Vec<u8> {
         self.bpe.decode_bytes(tokens)
+    }
+
+    pub fn decode_single_token_bytes(&self, token: usize) -> Vec<u8> {
+        self.bpe.decode_single_token_bytes(token).unwrap_throw()
+    }
+
+    pub fn token_byte_values(&self) -> JsValue {
+        JsValue::from_serde(&self.bpe.token_byte_values()).unwrap_throw()
+    }
+
+    fn validate_allowed_tokens(
+        &self,
+        text: &str,
+        allowed_special_param: &JsValue,
+        disallowed_special_param: &JsValue,
+    ) -> Result<HashSet<String>, JsError> {
+        let allowed_special: HashSet<String> = match allowed_special_param.as_string() {
+            Some(value) => match value.as_str() {
+                "all" => Ok(self.special_tokens_set.clone()),
+                _ => Err(JsError::new("Invalid value for allowed_special")),
+            },
+            _ => Ok(JsValue::into_serde(&allowed_special_param).unwrap_or_default()),
+        }?;
+
+        let disallowed_special: HashSet<String> = match disallowed_special_param.as_string() {
+            Some(value) => match value.as_str() {
+                "all" => Ok(&self.special_tokens_set - &allowed_special),
+                _ => Err(JsError::new("Invalid value for disallowed_special")),
+            },
+            _ => Ok(JsValue::into_serde(&disallowed_special_param).unwrap_or_default()),
+        }?;
+
+        if !disallowed_special.is_empty() {
+            if let Some(found) = Tiktoken::special_token_regex(&disallowed_special).find(text)? {
+                return Err(JsError::new(&format!(
+                    "The text contains a special token that is not allowed: {}",
+                    found.as_str()
+                )));
+            }
+        }
+
+        return Ok(allowed_special);
+    }
+
+    fn special_token_regex(tokens: &HashSet<String>) -> Regex {
+        let inner = tokens
+            .iter()
+            .map(|token| regex::escape(token))
+            .collect::<Vec<String>>()
+            .join("|");
+
+        Regex::new(&format!("({})", inner)).unwrap_throw()
     }
 }
 
@@ -194,7 +307,7 @@ export function get_encoding(encoding: TiktokenEmbedding, extend_special_tokens?
 
 #[cfg(feature = "inline")]
 #[wasm_bindgen(skip_typescript)]
-pub fn get_encoding(encoding: &str, extend_special_tokens: JsValue) -> Tiktoken {
+pub fn get_encoding(encoding: &str, extend_special_tokens: JsValue) -> Result<Tiktoken, JsError> {
     Tiktoken::with_encoding(
         encoding,
         &extend_special_tokens
@@ -248,40 +361,45 @@ export function encoding_for_model(model: TiktokenModel, extend_special_tokens?:
 
 #[cfg(feature = "inline")]
 #[wasm_bindgen(skip_typescript)]
-pub fn encoding_for_model(model: &str, extend_special_tokens: JsValue) -> Tiktoken {
+pub fn encoding_for_model(
+    model: &str,
+    extend_special_tokens: JsValue,
+) -> Result<Tiktoken, JsError> {
     let encoding = match model {
-        "text-davinci-003" => "p50k_base",
-        "text-davinci-002" => "p50k_base",
-        "text-davinci-001" => "r50k_base",
-        "text-curie-001" => "r50k_base",
-        "text-babbage-001" => "r50k_base",
-        "text-ada-001" => "r50k_base",
-        "davinci" => "r50k_base",
-        "curie" => "r50k_base",
-        "babbage" => "r50k_base",
-        "ada" => "r50k_base",
-        "code-davinci-002" => "p50k_base",
-        "code-davinci-001" => "p50k_base",
-        "code-cushman-002" => "p50k_base",
-        "code-cushman-001" => "p50k_base",
-        "davinci-codex" => "p50k_base",
-        "cushman-codex" => "p50k_base",
-        "text-davinci-edit-001" => "p50k_edit",
-        "code-davinci-edit-001" => "p50k_edit",
-        "text-embedding-ada-002" => "cl100k_base",
-        "text-similarity-davinci-001" => "r50k_base",
-        "text-similarity-curie-001" => "r50k_base",
-        "text-similarity-babbage-001" => "r50k_base",
-        "text-similarity-ada-001" => "r50k_base",
-        "text-search-davinci-doc-001" => "r50k_base",
-        "text-search-curie-doc-001" => "r50k_base",
-        "text-search-babbage-doc-001" => "r50k_base",
-        "text-search-ada-doc-001" => "r50k_base",
-        "code-search-babbage-code-001" => "r50k_base",
-        "code-search-ada-code-001" => "r50k_base",
-        "gpt2" => "gpt2",
-        &_ => "",
-    };
+        "text-davinci-003" => Ok("p50k_base"),
+        "text-davinci-002" => Ok("p50k_base"),
+        "text-davinci-001" => Ok("r50k_base"),
+        "text-curie-001" => Ok("r50k_base"),
+        "text-babbage-001" => Ok("r50k_base"),
+        "text-ada-001" => Ok("r50k_base"),
+        "davinci" => Ok("r50k_base"),
+        "curie" => Ok("r50k_base"),
+        "babbage" => Ok("r50k_base"),
+        "ada" => Ok("r50k_base"),
+        "code-davinci-002" => Ok("p50k_base"),
+        "code-davinci-001" => Ok("p50k_base"),
+        "code-cushman-002" => Ok("p50k_base"),
+        "code-cushman-001" => Ok("p50k_base"),
+        "davinci-codex" => Ok("p50k_base"),
+        "cushman-codex" => Ok("p50k_base"),
+        "text-davinci-edit-001" => Ok("p50k_edit"),
+        "code-davinci-edit-001" => Ok("p50k_edit"),
+        "text-embedding-ada-002" => Ok("cl100k_base"),
+        "text-similarity-davinci-001" => Ok("r50k_base"),
+        "text-similarity-curie-001" => Ok("r50k_base"),
+        "text-similarity-babbage-001" => Ok("r50k_base"),
+        "text-similarity-ada-001" => Ok("r50k_base"),
+        "text-search-davinci-doc-001" => Ok("r50k_base"),
+        "text-search-curie-doc-001" => Ok("r50k_base"),
+        "text-search-babbage-doc-001" => Ok("r50k_base"),
+        "text-search-ada-doc-001" => Ok("r50k_base"),
+        "code-search-babbage-code-001" => Ok("r50k_base"),
+        "code-search-ada-code-001" => Ok("r50k_base"),
+        "gpt2" => Ok("gpt2"),
+        model => Err(JsError::new(
+            format!("Invalid model: {}", model.to_string()).as_str(),
+        )),
+    }?;
 
     Tiktoken::with_encoding(
         encoding,
@@ -656,7 +774,7 @@ impl CoreBPE {
         encoder: HashMap<Vec<u8>, usize>,
         special_tokens_encoder: HashMap<String, usize>,
         pattern: &str,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let regex = Regex::new(pattern)?;
 
         let special_regex = {
@@ -700,13 +818,7 @@ impl CoreBPE {
         self._encode_ordinary_native(text)
     }
 
-    fn encode(&self, text: &str) -> Vec<usize> {
-        let allowed_special = self
-            .special_tokens_encoder
-            .keys()
-            .map(|s| s.as_str())
-            .collect();
-
+    fn encode(&self, text: &str, allowed_special: HashSet<&str>) -> Vec<usize> {
         self._encode_native(text, &allowed_special).0
     }
 
@@ -745,7 +857,7 @@ impl CoreBPE {
         self._encode_unstable_native(text, &allowed_special)
     }
 
-    fn encode_single_token(&self, piece: &[u8]) -> Result<usize> {
+    fn encode_single_token(&self, piece: &[u8]) -> Result<usize, Error> {
         if let Some(token) = self.encoder.get(piece).copied() {
             return Ok(token);
         }
@@ -772,7 +884,7 @@ impl CoreBPE {
         self._decode_native(&tokens)
     }
 
-    fn decode_single_token_bytes(&self, token: usize) -> Result<Vec<u8>> {
+    fn decode_single_token_bytes(&self, token: usize) -> Result<Vec<u8>, Error> {
         if let Some(bytes) = self.decoder.get(&token) {
             return Ok(bytes.clone());
         }
