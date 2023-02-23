@@ -14,11 +14,19 @@
     "type": "git",
     "url": "https://github.com/dqbd/tiktoken"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "ts-morph": "^17.0.1",
+    "tsx": "^3.12.3",
+    "typescript": "^4.9.5",
+    "vitest": "^0.28.5"
+  },
   "scripts": {
-    "build": "rm -rf dist/ && npm run build:node && npm run build:bundler && npm run build:web",
+    "build": "rm -rf dist/ && yarn run build:node && yarn run build:bundler && yarn run build:web && yarn run build:cleanup",
     "build:bundler": "wasm-pack build --target bundler --release --out-dir dist/bundler && rm dist/bundler/.gitignore",
     "build:node": "wasm-pack build --target nodejs --release --out-dir dist/node && rm dist/node/.gitignore",
-    "build:web": "wasm-pack build --target no-modules --release --out-dir dist/web && rm dist/web/.gitignore"
-  }
+    "build:web": "wasm-pack build --target no-modules --release --out-dir dist/web && rm dist/web/.gitignore",
+    "build:cleanup": "tsx scripts/override_any.ts",
+    "test": "yarn vitest"
+  },
+  "dependencies": {}
 }
