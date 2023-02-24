@@ -120,3 +120,17 @@ it("encode string tokens", () => {
     new Uint32Array([27, 91, 437, 1659, 5239, 91, 29])
   );
 });
+
+it("invalid (dis)allowed_tokens", () => {
+  const enc = get_encoding("gpt2");
+
+  // @ts-expect-error
+  expect(() => enc.encode("hello world", "invalid-string")).toThrowError(
+    "Invalid value for allowed_special"
+  );
+
+  // @ts-expect-error
+  expect(() => enc.encode("hello world", [], "invalid-string")).toThrowError(
+    "Invalid value for disallowed_special"
+  );
+});

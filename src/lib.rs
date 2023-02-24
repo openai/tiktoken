@@ -269,11 +269,17 @@ impl Tiktoken {
             _ => Ok(JsValue::into_serde(&allowed_special_param).unwrap_or_default()),
         }?;
 
-        let disallowed_special: HashSet<String> =
-            match JsValue::into_serde::<HashSet<String>>(&disallowed_special_param) {
-                Ok(value) => value,
-                Err(_) => &self.special_tokens_set - &allowed_special,
-            };
+        let disallowed_special = JsValue::into_serde::<HashSet<String>>(&disallowed_special_param)
+            .or_else(|_| {
+                match disallowed_special_param
+                    .as_string()
+                    .unwrap_or(String::from("all"))
+                    .as_str()
+                {
+                    "all" => Ok(&self.special_tokens_set - &allowed_special),
+                    _ => Err(JsError::new("Invalid value for disallowed_special")),
+                }
+            })?;
 
         if !disallowed_special.is_empty() {
             if let Some(found) = Tiktoken::special_token_regex(&disallowed_special).find(text)? {
