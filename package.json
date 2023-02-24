@@ -10,6 +10,30 @@
   "main": "dist/node/_tiktoken.js",
   "browser": "dist/web/_tiktoken.js",
   "types": "dist/node/_tiktoken.d.ts",
+  "exports": {
+    ".": {
+      "node": {
+        "types": "./dist/node/_tiktoken.d.ts",
+        "default": "./dist/node/_tiktoken.js"
+      },
+      "default": {
+        "types": "./dist/bundler/_tiktoken.d.js",
+        "default": "./dist/bundler/_tiktoken.mjs"
+      }
+    },
+    "./bundler": {
+      "types": "./dist/bundler/_tiktoken.d.ts",
+      "default": "./dist/bundler/_tiktoken.mjs"
+    },
+    "./web": {
+      "types": "./dist/web/_tiktoken.d.ts",
+      "default": "./dist/web/_tiktoken.js"
+    },
+    "./node": {
+      "types": "./dist/node/_tiktoken.d.ts",
+      "default": "./dist/node/_tiktoken.js"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/dqbd/tiktoken"

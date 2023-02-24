@@ -25,6 +25,7 @@ bstr = "1.0.1"
 [profile.release]
 incremental = true
 opt-level = "s"
+lto = true
 
 [features]
 default = ["inline"]

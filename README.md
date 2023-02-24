@@ -9,8 +9,6 @@ The open source version of `tiktoken` can be installed from NPM:
 npm install @dqbd/tiktoken
 ```
 
-> Please note there are some missing features which are present in the Python version but not in the JS version.
-
 ## Usage
 
 Basic usage follows:
@@ -48,14 +46,99 @@ const encoder = new Tiktoken(
 );
 ```
 
+## Compatibility
+
+As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
+
+| Runtime             | Status | Notes                           |
+| ------------------- | ------ | ------------------------------- |
+| Node.js             | ✅     |                                 |
+| Bun                 | ✅     |                                 |
+| Vite                | ✅     | See [here](#vite) for notes     |
+| Next.js             | ✅ 🚧  | See [here](#nextjs) for caveats |
+| Vercel Edge Runtime | 🚧     | Work in progress                |
+| Cloudflare Workers  | 🚧     | Untested                        |
+| Deno                | ❌     | Currently unsupported           |
+
+### [Vite](#vite)
+
+If you are using Vite, you will need to add both the `vite-plugin-wasm` and `vite-plugin-top-level-await`. Add the following to your `vite.config.js`:
+
+```js
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [wasm(), topLevelAwait()],
+});
+```
+
+### [Next.js](#nextjs)
+
+Both API routes and `/pages` are supported with some caveats. To overcome issues with importing `/node` variant and incorrect `__dirname` resolution, you can import the package from `@dqbd/tiktoken/bundler` instead.
+
+```typescript
+import { get_encoding } from "@dqbd/tiktoken/bundler";
+import { NextApiRequest, NextApiResponse } from "next";
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  return res.status(200).json({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    message: get_encoding("gpt2").encode(`Hello World ${Math.random()}`),
+  });
+}
+```
+
+Additional Webpack configuration is also required, see https://github.com/vercel/next.js/issues/29362.
+
+```typescript
+class WasmChunksFixPlugin {
+  apply(compiler) {
+    compiler.hooks.thisCompilation.tap("WasmChunksFixPlugin", (compilation) => {
+      compilation.hooks.processAssets.tap(
+        { name: "WasmChunksFixPlugin" },
+        (assets) =>
+          Object.entries(assets).forEach(([pathname, source]) => {
+            if (!pathname.match(/\.wasm$/)) return;
+            compilation.deleteAsset(pathname);
+
+            const name = pathname.split("/")[1];
+            const info = compilation.assetsInfo.get(pathname);
+            compilation.emitAsset(name, source, info);
+          })
+      );
+    });
+  }
+}
+
+const config = {
+  webpack(config, { isServer, dev }) {
+    config.experiments = {
+      asyncWebAssembly: true,
+      layers: true,
+    };
+
+    if (!dev && isServer) {
+      config.output.webassemblyModuleFilename = "chunks/[id].wasm";
+      config.plugins.push(new WasmChunksFixPlugin());
+    }
+
+    return config;
+  },
+};
+```
+
+To properly resolve `tsconfig.json`, use either `moduleResolution: "node16"` or `moduleResolution: "nodenext"`:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "node16"
+  }
+}
+```
+
 ## Acknowledgements
 
 - https://github.com/zurawiki/tiktoken-rs
-
-## Tasks to do before creating an upstream PR
-
-1. Add back the pyo3 bindings, so we can build both Python version and JS version at the same time
-2. Allow loading of embeddings via an argument. This is needed to make the resulting WASM blob smaller, as it is currently inlined during build.
-3. Examine the possibility of reintroduction of multithreading (not sure, if that is even needed however due to the sheer perf. difference between other JS libraries)
-4. Feature parity match - adding special tokens support etc.
-5. Investigate better packaging support for browsers and other runtimes.

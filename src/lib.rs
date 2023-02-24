@@ -123,6 +123,7 @@ impl CoreBPEConstructor {
 
 #[wasm_bindgen]
 pub struct Tiktoken {
+    name: Option<String>,
     special_tokens_set: HashSet<String>,
     bpe: CoreBPE,
 }
@@ -138,6 +139,7 @@ impl Tiktoken {
         );
 
         Tiktoken {
+            name: None,
             special_tokens_set: constructor
                 .special_tokens
                 .keys()
@@ -171,6 +173,7 @@ impl Tiktoken {
         }
 
         Ok(Tiktoken {
+            name: Some(String::from(encoding)),
             // TODO: can we avoid cloning here?
             special_tokens_set: constructor
                 .special_tokens
@@ -184,6 +187,11 @@ impl Tiktoken {
             )
             .unwrap(),
         })
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn name(&self) -> Option<String> {
+        self.name.clone()
     }
 
     pub fn encode(
@@ -261,13 +269,11 @@ impl Tiktoken {
             _ => Ok(JsValue::into_serde(&allowed_special_param).unwrap_or_default()),
         }?;
 
-        let disallowed_special: HashSet<String> = match disallowed_special_param.as_string() {
-            Some(value) => match value.as_str() {
-                "all" => Ok(&self.special_tokens_set - &allowed_special),
-                _ => Err(JsError::new("Invalid value for disallowed_special")),
-            },
-            _ => Ok(JsValue::into_serde(&disallowed_special_param).unwrap_or_default()),
-        }?;
+        let disallowed_special: HashSet<String> =
+            match JsValue::into_serde::<HashSet<String>>(&disallowed_special_param) {
+                Ok(value) => value,
+                Err(_) => &self.special_tokens_set - &allowed_special,
+            };
 
         if !disallowed_special.is_empty() {
             if let Some(found) = Tiktoken::special_token_regex(&disallowed_special).find(text)? {
