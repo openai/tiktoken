@@ -29,6 +29,7 @@ jobs:
         with:
           # stable doesn't have --out-dir
           toolchain: nightly
+          override: true
 
       - name: Build
         working-directory: ./jni
