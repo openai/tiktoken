@@ -55,7 +55,6 @@ def data_gym_to_mergeable_bpe_ranks(
     # NB: do not add caching to this function
     rank_to_intbyte = [b for b in range(2**8) if chr(b).isprintable() and chr(b) != " "]
 
-    print(f"rank_to_intbyte: {len(rank_to_intbyte)}")
     data_gym_byte_to_byte = {chr(b): b for b in rank_to_intbyte}
     n = 0
     for b in range(2**8):
@@ -74,9 +73,6 @@ def data_gym_to_mergeable_bpe_ranks(
 
     # add the single byte tokens
     bpe_ranks = {bytes([b]): i for i, b in enumerate(rank_to_intbyte)}
-
-    # print(len(rank_to_intbyte))
-    print(f"py data gym: {len(data_gym_byte_to_byte)} '{data_gym_byte_to_byte[chr(288)]}'")
 
     # add the merged tokens
     n = len(bpe_ranks)

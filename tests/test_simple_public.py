@@ -24,18 +24,3 @@ def test_encoding_for_model():
     assert enc.name == "gpt2"
     enc = tiktoken.encoding_for_model("text-davinci-003")
     assert enc.name == "p50k_base"
-
-def test_loading():
-    x = tiktoken.load.data_gym_to_mergeable_bpe_ranks(
-        vocab_bpe_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe",
-        encoder_json_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json",
-    )
-
-    print(len(x))
-
-    y = tiktoken._tiktoken.py_data_gym_to_mergable_bpe_ranks(
-        vocab_bpe_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe",
-        encoder_json_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json",
-    )
-
-    print(len(y))

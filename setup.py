@@ -13,7 +13,8 @@ setup(
             debug=False,
         )
     ],
-    package_data={"tiktoken": ["py.typed"]},
-    packages=["tiktoken", "tiktoken_ext"],
+    include_package_data=True,
+    package_data={ "tiktoken": ["py.typed", "registry.json", "model_to_encoding.json"] },
+    packages=["tiktoken"],
     zip_safe=False,
 )

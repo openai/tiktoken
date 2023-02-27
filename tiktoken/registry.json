@@ -1,0 +1,50 @@
+{
+    "gpt2": {
+        "data_gym_to_mergeable_bpe_ranks": {
+            "vocab_bpe_file": "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe",
+            "encoder_json_file": "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json"
+        },
+        "explicit_n_vocab": 50257,
+        "pat_str": "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        "special_tokens": {
+            "<|endoftext|>": 50256
+        }
+    },
+    "r50k_base": {
+        "load_tiktoken_bpe": "https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken",
+        "explicit_n_vocab": 50257,
+        "pat_str": "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        "special_tokens": {
+            "<|endoftext|>": 50256
+        }
+    },
+    "p50k_base": {
+        "load_tiktoken_bpe": "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
+        "explicit_n_vocab": 50281,
+        "pat_str": "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+        "special_tokens": {
+            "<|endoftext|>": 50256
+        }
+    },
+    "p50k_edit": {
+        "load_tiktoken_bpe": "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
+        "special_tokens": {
+            "<|endoftext|>": 50256,
+            "<|fim_prefix|>": 50281,
+            "<|fim_middle|>": 50282,
+            "<|fim_suffix|>": 50283
+        },
+        "pat_str": "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+"
+    },
+    "cl100k_base": {
+        "load_tiktoken_bpe": "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken",
+        "special_tokens": {
+            "<|endoftext|>": 100257,
+            "<|fim_prefix|>": 100258,
+            "<|fim_middle|>": 100259,
+            "<|fim_suffix|>": 100260,
+            "<|endofprompt|>": 100276
+        },
+        "pat_str": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+    }
+}

@@ -1,11 +1,11 @@
 package tiktoken;
 
 import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-public class EncodingTest
+// run test: mvn failsafe:integration-test
+public class EncodingTestIT
 {
     @Test
     public void shouldAnswerWithTrue() throws Exception
@@ -16,7 +16,6 @@ public class EncodingTest
 
         encoding.close();
 
-        assertTrue( true );
         assertArrayEquals(new long[] {9288}, a);
     }
 }

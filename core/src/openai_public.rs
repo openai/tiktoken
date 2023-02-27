@@ -2,6 +2,7 @@
 use rustc_hash::FxHashMap as HashMap;
 use std::error::Error;
 use std::sync::RwLock;
+use json;
 
 #[path = "load.rs"]
 mod load;
@@ -9,105 +10,47 @@ mod load;
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 lazy_static! {
-        pub static ref REGISTRY: HashMap<String, EncodingLazy> = [
-            EncodingLazy::new(
-                "gpt2".into(),
-                Some(50257),
-                r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
-                [ ("<|endoftext|>".into(), 50256), ].into_iter().collect(),
-                EncoderLoadingStrategy::DataGym(
-                    DataGymDef {
-                        vocab_bpe_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe".into(),
-                        encoder_json_file: "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json".into()
-                    }
-                )),
-            EncodingLazy::new(
-                "r50k_base".into(),
-                Some(50257),
-                r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
-                [ ("<|endoftext|>".into(), 50256), ].into_iter().collect(),
-                EncoderLoadingStrategy::BPE("https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken".into())
-            ),
-            EncodingLazy::new(
-                "p50k_base".into(),
-                Some(50281),
-                r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
-                [ ("<|endoftext|>".into(), 50256), ].into_iter().collect(),
-                EncoderLoadingStrategy::BPE("https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken".into())
-            ),
-            EncodingLazy::new(
-                "p50k_edit".into(),
-                Some(50281),
-                r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+".into(),
-                [
-                    ("<|endoftext|>".into(),  50256),
-                    ("<|fim_prefix|>".into(), 50281),
-                    ("<|fim_middle|>".into(), 50282),
-                    ("<|fim_suffix|>".into(), 50283),
-                ].into_iter().collect(),
-                EncoderLoadingStrategy::BPE("https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken".into())
-            ),
-            EncodingLazy::new(
-                "cl100k_base".into(),
-                None,
-                r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+".into(),
-                [
-                    ("<|endoftext|>".into(),   100257),
-                    ("<|fim_prefix|>".into(),  100258),
-                    ("<|fim_middle|>".into(),  100259),
-                    ("<|fim_suffix|>".into(),  100260),
-                    ("<|endofprompt|>".into(), 100276),
-                ].into_iter().collect(),
-                EncoderLoadingStrategy::BPE("https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken".into())
-            ),
-            ]
-            .into_iter()
+    pub static ref REGISTRY: HashMap<String, EncodingLazy> = {
+        // TODO: error handling
+        json::parse(include_str!("../../tiktoken/registry.json"))
+            .expect("Failed to parse internal JSON")
+            .entries()
+            .map(|(key, value)| {
+                let loading_strategy = if value.has_key("data_gym_to_mergeable_bpe_ranks") {
+                    EncoderLoadingStrategy::DataGym(
+                        DataGymDef {
+                            vocab_bpe_file: value["data_gym_to_mergeable_bpe_ranks"]["vocab_bpe_file"].as_str().expect("error").into(),
+                            encoder_json_file: value["data_gym_to_mergeable_bpe_ranks"]["encoder_json_file"].as_str().expect("error").into()
+                        })
+                }
+                else if value.has_key("load_tiktoken_bpe") {
+                    EncoderLoadingStrategy::BPE(value["load_tiktoken_bpe"].as_str().expect("fail").into())
+                }
+                else {
+                    panic!("Invalid encoding");
+                };
+
+                EncodingLazy::new(
+                    key.into(),
+                    value["explicit_n_vocab"].as_usize(),
+                    value["pat_str"].as_str().expect("foo").into(),
+                    value["special_tokens"].entries()
+                        .map(|(key, value)| (key.into(), value.as_usize().expect("foo")))
+                        .collect::<HashMap<String, usize>>(),
+                    loading_strategy
+                )
+            })
+            
             .map(|enc| (enc.name.clone(), enc))
-            .collect::<HashMap<String, EncodingLazy>>();
+            .collect::<HashMap<String, EncodingLazy>>()
+        };
 
-
-
-    pub static ref MODEL_TO_ENCODING: HashMap<String, String> = [
-        // text
-        ("text-davinci-003", "p50k_base"),
-        ("text-davinci-002", "p50k_base"),
-        ("text-davinci-001", "r50k_base"),
-        ("text-curie-001", "r50k_base"),
-        ("text-babbage-001", "r50k_base"),
-        ("text-ada-001", "r50k_base"),
-        ("davinci", "r50k_base"),
-        ("curie", "r50k_base"),
-        ("babbage", "r50k_base"),
-        ("ada", "r50k_base"),
-        // code
-        ("code-davinci-002", "p50k_base"),
-        ("code-davinci-001", "p50k_base"),
-        ("code-cushman-002", "p50k_base"),
-        ("code-cushman-001", "p50k_base"),
-        ("davinci-codex", "p50k_base"),
-        ("cushman-codex", "p50k_base"),
-        // edit
-        ("text-davinci-edit-001", "p50k_edit"),
-        ("code-davinci-edit-001", "p50k_edit"),
-        // embeddings
-        ("text-embedding-ada-002", "cl100k_base"),
-        // old embeddings
-        ("text-similarity-davinci-001", "r50k_base"),
-        ("text-similarity-curie-001", "r50k_base"),
-        ("text-similarity-babbage-001", "r50k_base"),
-        ("text-similarity-ada-001", "r50k_base"),
-        ("text-search-davinci-doc-001", "r50k_base"),
-        ("text-search-curie-doc-001", "r50k_base"),
-        ("text-search-babbage-doc-001", "r50k_base"),
-        ("text-search-ada-doc-001", "r50k_base"),
-        ("code-search-babbage-code-001", "r50k_base"),
-        ("code-search-ada-code-001", "r50k_base"),
-        // open source
-        ("gpt2", "gpt2"),
-    ]
-    .into_iter()
-    .map(|(k, v)| (k.to_string(), v.to_string()))
-    .collect::<HashMap<String, String>>();
+        pub static ref MODEL_TO_ENCODING: HashMap<String, String> = 
+            json::parse(include_str!("../../tiktoken/model_to_encoding.json"))
+                .expect("Failed to parse internal JSON")
+                .entries()
+                .map(|(k, v)| (k.into(), v.as_str().expect("foo").into()))
+                .collect::<HashMap<String, String>>();
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
