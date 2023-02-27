@@ -93,12 +93,12 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name="my_tiktoken_extension",
-    packages=find_namespace_packages(include=['tiktoken_ext.*'])
+    packages=find_namespace_packages(include=['tiktoken_ext*']),
     install_requires=["tiktoken"],
     ...
 )
 ```
 
-Then simply `pip install my_tiktoken_extension` and you should be able to use your custom encodings!
-Make sure **not** to use an editable install.
+Then simply `pip install ./my_tiktoken_extension` and you should be able to use your
+custom encodings! Make sure **not** to use an editable install.
 
