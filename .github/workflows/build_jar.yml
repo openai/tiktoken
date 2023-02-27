@@ -52,6 +52,8 @@ jobs:
     needs: [build_jni]
 
     steps:
+      - uses: actions/checkout@v3
+
       - name: Load outputs
         uses: actions/download-artifact@v3
         with:
@@ -69,6 +71,11 @@ jobs:
       - name: Build with Maven
         working-directory: ./java
         run: mvn --batch-mode package failsafe:integration-test
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: java
+          path: ./java/target/*.jar
 
       # TODO: publish to maven (only from ubuntu)
 
