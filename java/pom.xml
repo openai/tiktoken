@@ -35,11 +35,8 @@
   <build>
     <resources>
         <resource>
-            <directory>${project.build.directory}/../../target/release/</directory>
-             <targetPath>${project.build.directory}/classes/natives/linux_64</targetPath>
-            <includes>
-              <include>lib_tiktoken_jni.so</include>
-            </includes>
+            <directory>${project.build.directory}/../../natives/</directory>
+             <targetPath>${project.build.directory}/classes/natives/</targetPath>
         </resource>
     </resources>
     <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
