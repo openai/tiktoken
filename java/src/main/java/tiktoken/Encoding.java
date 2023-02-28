@@ -6,9 +6,8 @@ import java.io.IOException;
 public class Encoding implements AutoCloseable
 {
     static {
-        // TODO: unpack the library from the jar
-        // System.loadLibrary("_tiktoken_jni");
         try {
+            // load from JAR
             NativeLoader.loadLibrary("_tiktoken_jni");
         }
         catch(IOException e) {
