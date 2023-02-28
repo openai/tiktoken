@@ -1,21 +1,15 @@
-[package]
-name = "tiktoken"
-version = "0.2.0"
-edition = "2021"
-rust-version = "1.57.0"
+[workspace]
 
-[lib]
-name = "_tiktoken"
-crate-type = ["cdylib"]
-
-[dependencies]
-pyo3 = { version = "0.17.3", features = ["extension-module"] }
-
-# tiktoken dependencies
-fancy-regex = "0.10.0"
-regex = "1.7.0"
-rustc-hash = "1.1.0"
-bstr = "1.0.1"
+members = [
+    "core",
+    "python",
+    "jni",
+]
 
 [profile.release]
 incremental = true
+opt-level = 'z'     # Optimize for size
+lto = true          # Enable link-time optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations
+panic = 'abort'     # Abort on panic
+strip = true        # Strip symbols from binary*

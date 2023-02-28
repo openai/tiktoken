@@ -1,0 +1,17 @@
+[package]
+name = "tiktoken_jni"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.57.0"
+
+[lib]
+name = "_tiktoken_jni"
+crate-type = ["cdylib"]
+
+[dependencies]
+tiktoken_core = { path = "../core" }
+rustc-hash = "1.1.0"
+jni = "0.20.0"
+
+[build-dependencies]
+json = "0.12.4"

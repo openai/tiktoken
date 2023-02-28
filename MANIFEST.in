@@ -6,3 +6,4 @@ global-include py.typed
 recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include src *.rs
+include tiktoken *.json

@@ -3,46 +3,32 @@ from __future__ import annotations
 import importlib
 import pkgutil
 import threading
+import json
 from typing import Any, Callable, Optional
 
-import tiktoken_ext
-
 from tiktoken.core import Encoding
+from tiktoken.load import data_gym_to_mergeable_bpe_ranks, load_tiktoken_bpe
 
 _lock = threading.RLock()
 ENCODINGS: dict[str, Encoding] = {}
-ENCODING_CONSTRUCTORS: Optional[dict[str, Callable[[], dict[str, Any]]]] = None
+ENCODING_DEFS: dict[str, Any] = None
 
+def _load_encoding_defs():
+    global ENCODING_DEFS
+    if not ENCODING_DEFS is None:
+        return ENCODING_DEFS
 
-def _find_constructors() -> None:
-    global ENCODING_CONSTRUCTORS
-    with _lock:
-        if ENCODING_CONSTRUCTORS is not None:
-            return
-        ENCODING_CONSTRUCTORS = {}
+    try:
+        import importlib.resources as pkg_resources
+    except ImportError:
+        # Try backported to PY<37 `importlib_resources`.
+        import importlib_resources as pkg_resources
 
-        # tiktoken_ext is a namespace package
-        # submodules inside tiktoken_ext will be inspected for ENCODING_CONSTRUCTORS attributes
-        # - we use namespace package pattern so `pkgutil.iter_modules` is fast
-        # - it's a separate top-level package because namespace subpackages of non-namespace
-        #   packages don't quite do what you want with editable installs
-        plugin_mods = pkgutil.iter_modules(tiktoken_ext.__path__, tiktoken_ext.__name__ + ".")
+    # read registry.json
+    # note: was trying to place it into /data/registry.json but python packaging is always unhappy
+    ENCODING_DEFS = json.loads(pkg_resources.read_text("tiktoken", "registry.json"))
 
-        for _, mod_name, _ in plugin_mods:
-            mod = importlib.import_module(mod_name)
-            try:
-                constructors = mod.ENCODING_CONSTRUCTORS
-            except AttributeError as e:
-                raise ValueError(
-                    f"tiktoken plugin {mod_name} does not define ENCODING_CONSTRUCTORS"
-                ) from e
-            for enc_name, constructor in constructors.items():
-                if enc_name in ENCODING_CONSTRUCTORS:
-                    raise ValueError(
-                        f"Duplicate encoding name {enc_name} in tiktoken plugin {mod_name}"
-                    )
-                ENCODING_CONSTRUCTORS[enc_name] = constructor
-
+    return ENCODING_DEFS
 
 def get_encoding(encoding_name: str) -> Encoding:
     if encoding_name in ENCODINGS:
@@ -52,22 +38,26 @@ def get_encoding(encoding_name: str) -> Encoding:
         if encoding_name in ENCODINGS:
             return ENCODINGS[encoding_name]
 
-        if ENCODING_CONSTRUCTORS is None:
-            _find_constructors()
-            assert ENCODING_CONSTRUCTORS is not None
-
-        if encoding_name not in ENCODING_CONSTRUCTORS:
+        _load_encoding_defs()
+        if encoding_name not in ENCODING_DEFS:
             raise ValueError(f"Unknown encoding {encoding_name}")
 
-        constructor = ENCODING_CONSTRUCTORS[encoding_name]
-        enc = Encoding(**constructor())
+        encoding_def = dict(ENCODING_DEFS[encoding_name])
+        encoding_def["name"] = encoding_name	
+
+        if "load_tiktoken_bpe" in encoding_def:
+            encoding_def["mergeable_ranks"] = load_tiktoken_bpe(encoding_def["load_tiktoken_bpe"])
+            del encoding_def["load_tiktoken_bpe"]
+        elif "data_gym_to_mergeable_bpe_ranks" in encoding_def:
+            encoding_def["mergeable_ranks"] = data_gym_to_mergeable_bpe_ranks(**encoding_def["data_gym_to_mergeable_bpe_ranks"])
+            del encoding_def["data_gym_to_mergeable_bpe_ranks"]
+        else:
+            raise ValueError(f"Unknown loader {encoding_name}")
+        enc = Encoding(**encoding_def)
         ENCODINGS[encoding_name] = enc
         return enc
 
 
 def list_encoding_names() -> list[str]:
     with _lock:
-        if ENCODING_CONSTRUCTORS is None:
-            _find_constructors()
-            assert ENCODING_CONSTRUCTORS is not None
-        return list(ENCODING_CONSTRUCTORS)
+        return list(_load_encoding_defs().keys())
