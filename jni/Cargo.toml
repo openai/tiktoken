@@ -13,3 +13,5 @@ tiktoken_core = { path = "../core" }
 rustc-hash = "1.1.0"
 jni = "0.20.0"
 
+[build-dependencies]
+json = "0.12.4"

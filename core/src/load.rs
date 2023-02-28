@@ -115,9 +115,6 @@ pub fn data_gym_to_mergeable_bpe_ranks(vocab_bpe_file: &str, encoder_json_file: 
 
     let decode_data_gym =
         |value: &str| value.chars().map(|c| {
-            // if !data_gym_byte_to_byte.contains_key(&(c as u32)) {
-            //     panic!("Unknown character: {} {}", c, c as u32);
-            // }
             data_gym_byte_to_byte[&(c as u32)]
         } ).collect::<Vec<u8>>();
 

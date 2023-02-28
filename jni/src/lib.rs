@@ -48,13 +48,8 @@ pub extern "system" fn Java_tiktoken_Encoding_init(env: JNIEnv, obj: JObject, mo
         let encoding_name = _tiktoken_core::openai_public::MODEL_TO_ENCODING
             .get(&model_name).ok_or("Unable to find model")?;
 
-        // TODO: this is actually mergable_ranks (lazy)
         let encoding = _tiktoken_core::openai_public::REGISTRY
             .get(encoding_name).ok_or("Unable to find encoding")?;
-
-        // TODO: initialize the CoreBPE object
-
-        // TODO: this should be CoreBPE
 
         let bpe_native = CoreBPENative::new(
             encoding.get()?,
@@ -82,8 +77,8 @@ pub extern "system" fn Java_tiktoken_Encoding_encode(
     env: JNIEnv,
     obj: JObject,
     text: JString,
-    allowedSpecialTokens: jarray,
-    maxTokenLength: jlong,
+    allowed_special_tokens: jarray,
+    max_token_length: jlong,
 ) -> jarray {
     let result = || -> Result<jarray> {
         let encoding: MutexGuard<CoreBPENative> = unsafe { env.get_rust_field(obj, "handle")? };
@@ -93,18 +88,18 @@ pub extern "system" fn Java_tiktoken_Encoding_encode(
             .get_string(text)?
             .into();
 
-        let len = env.get_array_length(allowedSpecialTokens)?;
+        let len = env.get_array_length(allowed_special_tokens)?;
         let mut strings: Vec<String> = Vec::with_capacity(len as usize);
         for i in 0..len {
             let element: JObject = env
-                .get_object_array_element(allowedSpecialTokens, i)?;
+                .get_object_array_element(allowed_special_tokens, i)?;
             let current: String = env.get_string(element.into())?.into();
             strings.push(current);
         }
 
         let v2: HashSet<&str> = strings.iter().map(|s| &**s).collect();
 
-        let (tokens, _, _) = enc._encode_native(&input, &v2, Some(maxTokenLength as usize));
+        let (tokens, _, _) = enc._encode_native(&input, &v2, Some(max_token_length as usize));
 
         let output = env
             .new_long_array(tokens.len().try_into()?)?;

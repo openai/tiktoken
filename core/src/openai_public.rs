@@ -11,7 +11,6 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 lazy_static! {
     pub static ref REGISTRY: HashMap<String, EncodingLazy> = {
-        // TODO: error handling
         json::parse(include_str!("../../tiktoken/registry.json"))
             .expect("Failed to parse internal JSON")
             .entries()
