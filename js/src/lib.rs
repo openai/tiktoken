@@ -245,11 +245,6 @@ impl Tiktoken {
         self.bpe.encode_single_token(&bytes).unwrap_throw()
     }
 
-    #[wasm_bindgen(skip_typescript)]
-    pub fn _encode_single_piece(&self, bytes: &[u8]) -> Vec<usize> {
-        self.bpe.encode_single_piece(&bytes)
-    }
-
     pub fn decode(&self, tokens: Vec<usize>) -> Vec<u8> {
         self.bpe._decode_native(&tokens)
     }

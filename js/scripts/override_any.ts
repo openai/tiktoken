@@ -4,9 +4,9 @@ const project = new Project();
 project.addSourceFilesAtPaths("./dist/**/*.ts");
 
 for (const filename of [
-  "./dist/bundler/_tiktoken.d.ts",
-  "./dist/node/_tiktoken.d.ts",
-  "./dist/web/_tiktoken.d.ts",
+  "./dist/bundler/_tiktoken_js.d.ts",
+  "./dist/node/_tiktoken_js.d.ts",
+  "./dist/web/_tiktoken_js.d.ts",
 ]) {
   const sourceFile = project.getSourceFileOrThrow(filename);
   const cls = sourceFile.getFirstDescendantByKindOrThrow(

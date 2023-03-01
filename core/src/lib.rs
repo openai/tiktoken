@@ -5,9 +5,13 @@ use fancy_regex::Regex;
 use rustc_hash::FxHashMap as HashMap;
 
 mod util;
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 mod load;
+
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub mod openai_public;
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 #[macro_use]
 extern crate lazy_static;
 
