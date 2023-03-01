@@ -73,6 +73,7 @@ def data_gym_to_mergeable_bpe_ranks(
 
     # add the single byte tokens
     bpe_ranks = {bytes([b]): i for i, b in enumerate(rank_to_intbyte)}
+
     # add the merged tokens
     n = len(bpe_ranks)
     for first, second in bpe_merges:

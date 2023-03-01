@@ -1,0 +1,14 @@
+[package]
+name = "tiktoken"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.57.0"
+
+[lib]
+name = "_tiktoken"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.17.3", features = ["extension-module"] }
+tiktoken_core = { path = "../core" }
+rustc-hash = "1.1.0"

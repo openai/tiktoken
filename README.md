@@ -1,144 +1,103 @@
 # ⏳ tiktoken
 
-tiktoken is a [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
-OpenAI's models, forked from the original tiktoken library to provide NPM bindings for Node and other JS runtimes.
+tiktoken is a fast [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
+OpenAI's models.
 
-The open source version of `tiktoken` can be installed from NPM:
+```python
+import tiktoken
+enc = tiktoken.get_encoding("gpt2")
+assert enc.decode(enc.encode("hello world")) == "hello world"
 
-```
-npm install @dqbd/tiktoken
-```
-
-## Usage
-
-Basic usage follows:
-
-```typescript
-import assert from "node:assert";
-import { get_encoding, encoding_for_model } from "@dqbd/tiktoken";
-
-const enc = get_encoding("gpt2");
-assert(
-  new TextDecoder().decode(enc.decode(enc.encode("hello world"))) ===
-    "hello world"
-);
-
-// To get the tokeniser corresponding to a specific model in the OpenAI API:
-const enc = encoding_for_model("text-davinci-003");
-
-// Extend existing encoding with custom special tokens
-const enc = encoding_for_model("gpt2", {
-  "<|im_start|>": 100264,
-  "<|im_end|>": 100265,
-});
+# To get the tokeniser corresponding to a specific model in the OpenAI API:
+enc = tiktoken.encoding_for_model("text-davinci-003")
 ```
 
-If desired, you can create a Tiktoken instance directly with custom ranks, special tokens and regex pattern:
-
-```typescript
-import { Tiktoken } from "../pkg";
-import { readFileSync } from "fs";
-
-const encoder = new Tiktoken(
-  readFileSync("./ranks/gpt2.tiktoken").toString("utf-8"),
-  { "<|endoftext|>": 50256, "<|im_start|>": 100264, "<|im_end|>": 100265 },
-  "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+"
-);
+The open source version of `tiktoken` can be installed from PyPI:
+```
+pip install tiktoken
 ```
 
-## Compatibility
+The tokeniser API is documented in `tiktoken/core.py`.
 
-As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
+Example code using `tiktoken` can be found in the
+[OpenAI Cookbook](https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb).
 
-| Runtime             | Status | Notes                           |
-| ------------------- | ------ | ------------------------------- |
-| Node.js             | ✅     |                                 |
-| Bun                 | ✅     |                                 |
-| Vite                | ✅     | See [here](#vite) for notes     |
-| Next.js             | ✅ 🚧  | See [here](#nextjs) for caveats |
-| Vercel Edge Runtime | 🚧     | Work in progress                |
-| Cloudflare Workers  | 🚧     | Untested                        |
-| Deno                | ❌     | Currently unsupported           |
 
-### [Vite](#vite)
+## Performance
 
-If you are using Vite, you will need to add both the `vite-plugin-wasm` and `vite-plugin-top-level-await`. Add the following to your `vite.config.js`:
+`tiktoken` is between 3-6x faster than a comparable open source tokeniser:
 
-```js
-import wasm from "vite-plugin-wasm";
-import topLevelAwait from "vite-plugin-top-level-await";
-import { defineConfig } from "vite";
+![image](./perf.svg)
 
-export default defineConfig({
-  plugins: [wasm(), topLevelAwait()],
-});
-```
+Performance measured on 1GB of text using the GPT-2 tokeniser, using `GPT2TokenizerFast` from
+`tokenizers==0.13.2` and `transformers==4.24.0`.
 
-### [Next.js](#nextjs)
 
-Both API routes and `/pages` are supported with some caveats. To overcome issues with importing `/node` variant and incorrect `__dirname` resolution, you can import the package from `@dqbd/tiktoken/bundler` instead.
+## Getting help
 
-```typescript
-import { get_encoding } from "@dqbd/tiktoken/bundler";
-import { NextApiRequest, NextApiResponse } from "next";
+Please post questions in the [issue tracker](https://github.com/openai/tiktoken/issues).
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  return res.status(200).json({
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    message: get_encoding("gpt2").encode(`Hello World ${Math.random()}`),
-  });
-}
-```
+If you work at OpenAI, make sure to check the internal documentation or feel free to contact
+@shantanu.
 
-Additional Webpack configuration is also required, see https://github.com/vercel/next.js/issues/29362.
 
-```typescript
-class WasmChunksFixPlugin {
-  apply(compiler) {
-    compiler.hooks.thisCompilation.tap("WasmChunksFixPlugin", (compilation) => {
-      compilation.hooks.processAssets.tap(
-        { name: "WasmChunksFixPlugin" },
-        (assets) =>
-          Object.entries(assets).forEach(([pathname, source]) => {
-            if (!pathname.match(/\.wasm$/)) return;
-            compilation.deleteAsset(pathname);
+## Extending tiktoken
 
-            const name = pathname.split("/")[1];
-            const info = compilation.assetsInfo.get(pathname);
-            compilation.emitAsset(name, source, info);
-          })
-      );
-    });
-  }
-}
+You may wish to extend `tiktoken` to support new encodings. There are two ways to do this.
 
-const config = {
-  webpack(config, { isServer, dev }) {
-    config.experiments = {
-      asyncWebAssembly: true,
-      layers: true,
-    };
 
-    if (!dev && isServer) {
-      config.output.webassemblyModuleFilename = "chunks/[id].wasm";
-      config.plugins.push(new WasmChunksFixPlugin());
+**Create your `Encoding` object exactly the way you want and simply pass it around.**
+
+```python
+cl100k_base = tiktoken.get_encoding("cl100k_base")
+
+# In production, load the arguments directly instead of accessing private attributes
+# See openai_public.py for examples of arguments for specific encodings
+enc = tiktoken.Encoding(
+    # If you're changing the set of special tokens, make sure to use a different name
+    # It should be clear from the name what behaviour to expect.
+    name="cl100k_im",
+    pat_str=cl100k_base._pat_str,
+    mergeable_ranks=cl100k_base._mergeable_ranks,
+    special_tokens={
+        **cl100k_base._special_tokens,
+        "<|im_start|>": 100264,
+        "<|im_end|>": 100265,
     }
-
-    return config;
-  },
-};
+)
 ```
 
-To properly resolve `tsconfig.json`, use either `moduleResolution: "node16"` or `moduleResolution: "nodenext"`:
+**Use the `tiktoken_ext` plugin mechanism to register your `Encoding` objects with `tiktoken`.**
 
-```json
-{
-  "compilerOptions": {
-    "moduleResolution": "node16"
-  }
-}
+This is only useful if you need `tiktoken.get_encoding` to find your encoding, otherwise prefer
+option 1.
+
+To do this, you'll need to create a namespace package under `tiktoken_ext`.
+
+Layout your project like this, making sure to omit the `tiktoken_ext/__init__.py` file:
+```
+my_tiktoken_extension
+├── tiktoken_ext
+│   └── my_encodings.py
+└── setup.py
 ```
 
-## Acknowledgements
+`my_encodings.py` should be a module that contains a variable named `ENCODING_CONSTRUCTORS`.
+This is a dictionary from an encoding name to a function that takes no arguments and returns
+arguments that can be passed to `tiktoken.Encoding` to construct that encoding. For an example, see
+`tiktoken_ext/openai_public.py`. For precise details, see `tiktoken/registry.py`.
 
-- https://github.com/zurawiki/tiktoken-rs
+Your `setup.py` should look something like this:
+```python
+from setuptools import setup, find_namespace_packages
+
+setup(
+    name="my_tiktoken_extension",
+    packages=find_namespace_packages(include=['tiktoken_ext*']),
+    install_requires=["tiktoken"],
+    ...
+)
+```
+
+Then simply `pip install ./my_tiktoken_extension` and you should be able to use your
+custom encodings! Make sure **not** to use an editable install.
