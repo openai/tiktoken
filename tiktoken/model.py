@@ -3,8 +3,15 @@ from __future__ import annotations
 from .core import Encoding
 from .registry import get_encoding
 
-# TODO: this will likely be replaced by an API endpoint
+# TODO: these will likely be replaced by an API endpoint
+MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
+    # chat
+    "gpt-3.5-turbo-": "cl100k_base",  # e.g, gpt-3.5-turbo-0301, -0401, etc.
+}
+
 MODEL_TO_ENCODING: dict[str, str] = {
+    # chat
+    "gpt-3.5-turbo": "cl100k_base",
     # text
     "text-davinci-003": "p50k_base",
     "text-davinci-002": "p50k_base",
@@ -45,6 +52,14 @@ MODEL_TO_ENCODING: dict[str, str] = {
 
 
 def encoding_for_model(model_name: str) -> Encoding:
+    """Returns the encoding used by a model."""
+    # first, check if the model matches a known prefix
+    # prefix matching avoids needing library updates for every model version release
+    # note that this can match on non-existent models (e.g., gpt-3.5-turbo-FAKE)
+    for model_prefix, model_encoding_name in MODEL_PREFIX_TO_ENCODING.items():
+        if model_name.startswith(model_prefix):
+            return get_encoding(model_encoding_name)
+    # otherwise, check if the model matches a known model name
     try:
         encoding_name = MODEL_TO_ENCODING[model_name]
     except KeyError:
