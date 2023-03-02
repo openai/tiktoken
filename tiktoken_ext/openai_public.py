@@ -83,6 +83,6 @@ ENCODING_CONSTRUCTORS = {
     "gpt2": gpt2,
     "r50k_base": r50k_base,
     "p50k_base": p50k_base,
-    "cl100k_base": cl100k_base,
     "p50k_edit": p50k_edit,
+    "cl100k_base": cl100k_base,
 }
