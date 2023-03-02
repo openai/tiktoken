@@ -26,3 +26,5 @@ def test_encoding_for_model():
     assert enc.name == "p50k_base"
     enc = tiktoken.encoding_for_model("text-davinci-edit-001")
     assert enc.name == "p50k_edit"
+    enc = tiktoken.encoding_for_model("gpt-3.5-turbo-0301")
+    assert enc.name == "cl100k_base"
