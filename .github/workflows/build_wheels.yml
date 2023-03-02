@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: pypa/cibuildwheel@v2.11.3
+      - uses: pypa/cibuildwheel@v2.12.0
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
 
