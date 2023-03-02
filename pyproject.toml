@@ -38,3 +38,5 @@ test-skip = "*-macosx_arm64"
 before-test = "pip install pytest"
 test-command = "pytest {project}/tests"
 
+[tool.check-manifest]
+ignore = ["js", "jni", "java"]
