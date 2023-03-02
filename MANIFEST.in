@@ -7,4 +7,7 @@ recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include core *.rs *.toml
 recursive-include python *.rs *.toml
+recursive-exclude jni *
+recursive-exclude java *
+recursive-exclude js *
 include tiktoken *.json
