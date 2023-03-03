@@ -28,5 +28,6 @@
     "text-search-ada-doc-001": "r50k_base",
     "code-search-babbage-code-001": "r50k_base",
     "code-search-ada-code-001": "r50k_base",
-    "gpt2": "gpt2"
+    "gpt2": "gpt2",
+    "gpt-3.5-turbo": "cl100k_base"
 }
