@@ -16,6 +16,10 @@ jobs:
           node-version: 18
           registry-url: "https://registry.npmjs.org"
           cache: yarn
+
+      - name: Install
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - run: yarn install --frozen-lockfile
         working-directory: ./js
       - run: yarn run build
