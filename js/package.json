@@ -45,7 +45,8 @@
     "vitest": "^0.28.5"
   },
   "scripts": {
-    "build": "rm -rf dist/ && yarn run build:node && yarn run build:bundler && yarn run build:web && yarn run build:cleanup",
+    "build": "rm -rf dist/ ranks/ && yarn run ranks && yarn run build:node && yarn run build:bundler && yarn run build:web && yarn run build:cleanup",
+    "ranks": "tsx scripts/download_ranks.ts",
     "build:bundler": "wasm-pack build --target bundler --release --out-dir dist/bundler && rm dist/bundler/.gitignore",
     "build:node": "wasm-pack build --target nodejs --release --out-dir dist/node && rm dist/node/.gitignore",
     "build:web": "wasm-pack build --target no-modules --release --out-dir dist/web && rm dist/web/.gitignore",
