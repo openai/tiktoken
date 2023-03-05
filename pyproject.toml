@@ -23,7 +23,7 @@ build-verbosity = 1
 
 linux.before-all = [
   "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y",
-  "ulimit -n 1024 && yum install -y openssl-devel"
+  "apt-get install -y pkg-config libssl-dev"
 ]
 linux.environment = { PATH = "$PATH:$HOME/.cargo/bin" }
 macos.before-all = "rustup target add aarch64-apple-darwin"
