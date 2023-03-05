@@ -1,0 +1,28 @@
+name: Build JS
+
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build_js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 18
+          registry-url: "https://registry.npmjs.org"
+          cache: yarn
+
+      - name: Install
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - run: yarn install --frozen-lockfile
+        working-directory: ./js
+      - run: yarn run build
+        working-directory: ./js
+      - run: yarn run test
+        working-directory: ./js
