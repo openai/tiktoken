@@ -209,7 +209,7 @@ impl Tiktoken {
             ._encode_native(
                 &text,
                 &allowed_tokens.iter().map(AsRef::as_ref).collect(),
-                Some(0),
+                None,
             )
             .0)
     }
