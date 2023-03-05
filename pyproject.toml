@@ -23,8 +23,8 @@ build-verbosity = 1
 
 linux.before-all = [
   "ulimit -n 1024",
-  "(command -v yum || yum install openssl-devel -y)",
-  "(command -v apk || apk add openssl-dev -y)",
+  "((command -v yum && yum install openssl-devel -y) || echo 'no yum found')",
+  "((command -v apk && apk add openssl-dev -y) || echo 'no apk found')",
   "(curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y)"
 ]
 linux.environment = { PATH = "$PATH:$HOME/.cargo/bin" }
