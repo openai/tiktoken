@@ -5,17 +5,21 @@ use fancy_regex::Regex;
 use rustc_hash::FxHashMap as HashMap;
 
 mod util;
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+#[cfg(feature = "lazyload")]
 mod load;
 
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+#[cfg(feature = "lazyload")]
 pub mod openai_public;
 
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+#[cfg(feature = "lazyload")]
 #[macro_use]
 extern crate lazy_static;
 
+#[cfg(feature = "multithreading")]
 const MAX_NUM_THREADS: usize = 128;
+
+#[cfg(not(feature = "multithreading"))]
+const MAX_NUM_THREADS: usize = 1;
 
 // Various performance notes:
 //
@@ -421,7 +425,7 @@ impl CoreBPENative {
         pattern: &str,
     ) -> Result<CoreBPENative, fancy_regex::Error> {
         let regex = Regex::new(pattern)?;
-            // .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
+        // .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
 
         let special_regex = {
             let _parts = special_tokens_encoder
@@ -430,7 +434,7 @@ impl CoreBPENative {
                 .collect::<Vec<_>>();
             Regex::new(&_parts.join("|"))?
 
-                // .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?
+            // .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?
         };
 
         let decoder: HashMap<usize, Vec<u8>> =

@@ -6,10 +6,10 @@ rust-version = "1.57.0"
 
 [lib]
 name = "_tiktoken"
-crate-type = ["rlib", "cdylib"]
+crate-type = ["cdylib"]
 
 [dependencies]
-tiktoken_core = { path = "../core" }
+tiktoken_core = { path = "../core", features = [] }
 # tiktoken dependencies
 fancy-regex = "0.10.0"
 regex = "1.7.0"

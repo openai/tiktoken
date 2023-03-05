@@ -19,3 +19,8 @@ sha1 = "0.10.5"
 json = "0.12.4"
 base64 = "0.21.0"
 lazy_static = "1.4.0"
+
+[features]
+default = []
+lazyload = []
+multithreading = []

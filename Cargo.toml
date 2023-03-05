@@ -9,7 +9,7 @@ members = [
 
 [profile.release]
 incremental = true
-opt-level = 'z'     # Optimize for size
+opt-level = 's'     # Optimize for size
 lto = true          # Enable link-time optimization
 codegen-units = 1   # Reduce number of codegen units to increase optimizations
 panic = 'abort'     # Abort on panic

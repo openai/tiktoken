@@ -9,7 +9,7 @@ name = "_tiktoken_jni"
 crate-type = ["cdylib"]
 
 [dependencies]
-tiktoken_core = { path = "../core" }
+tiktoken_core = { path = "../core", features = ["multithreading", "lazyload"] }
 rustc-hash = "1.1.0"
 jni = "0.20.0"
 

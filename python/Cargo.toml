@@ -10,5 +10,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.17.3", features = ["extension-module"] }
-tiktoken_core = { path = "../core" }
+tiktoken_core = { path = "../core", features = ["multithreading"] }
 rustc-hash = "1.1.0"
