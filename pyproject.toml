@@ -22,8 +22,13 @@ build-frontend = "build"
 build-verbosity = 1
 
 linux.before-all = [
-  "ulimit -n 1024 && yum install -y openssl-devel",
-  "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+  "ulimit -n 1024",
+  "(command -v apk || echo 'no-apk')",
+  "(command -v yum || echo 'no-yum')",
+  "(command -v apt-get || echo 'no-apt-get')",
+  "(command -v dnf || echo 'no-dnf')",
+  "yum install openssl-devel -y",
+  "(curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y)"
 ]
 linux.environment = { PATH = "$PATH:$HOME/.cargo/bin" }
 macos.before-all = "rustup target add aarch64-apple-darwin"
