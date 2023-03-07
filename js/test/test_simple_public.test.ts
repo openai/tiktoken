@@ -1,5 +1,5 @@
 import { it, expect, describe } from "vitest";
-import { encoding_for_model, get_encoding } from "../";
+import { encoding_for_model, get_encoding } from "../dist";
 
 it("encoding_for_model initialization", () => {
   expect(() => encoding_for_model("gpt2")).not.toThrowError();
