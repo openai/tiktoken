@@ -52,6 +52,7 @@ jobs:
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
+          CIBW_BUILD_VERBOSITY: 3
       - uses: actions/upload-artifact@v3
         with:
           name: dist
