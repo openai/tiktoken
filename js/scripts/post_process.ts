@@ -129,8 +129,8 @@ export function init(
   pkg["exports"] = {
     ".": {
       types: "./tiktoken.d.ts",
-      default: "./tiktoken.js",
       node: "./tiktoken.node.js",
+      default: "./tiktoken.js",
     },
     "./bundler": {
       types: "./bundler.d.ts",
