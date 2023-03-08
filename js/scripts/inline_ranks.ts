@@ -137,6 +137,13 @@ async function main() {
     console.log(name);
     const data = registry[name];
 
+    const targetFile = path.resolve(__dirname, `../ranks/${name}.tiktoken`);
+
+    try {
+      await fs.stat(targetFile);
+      continue;
+    } catch {}
+
     let ranks: Record<string, number> | null = null;
 
     if (data.data_gym_to_mergeable_bpe_ranks) {
@@ -151,10 +158,7 @@ async function main() {
     }
 
     if (ranks != null) {
-      await fs.writeFile(
-        path.resolve(__dirname, `../ranks/${name}.tiktoken`),
-        dump_tiktoken_bpe(ranks)
-      );
+      await fs.writeFile(targetFile, dump_tiktoken_bpe(ranks));
     }
   }
 }

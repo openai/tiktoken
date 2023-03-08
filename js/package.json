@@ -1,57 +1,29 @@
 {
   "name": "@dqbd/tiktoken",
-  "version": "0.4.0",
+  "version": "1.0.0-alpha.1",
   "description": "Javascript bindings for tiktoken",
-  "files": [
-    "dist/**/*",
-    "package.json"
-  ],
-  "license": "Apache-2.0",
-  "main": "dist/node/_tiktoken.js",
-  "browser": "dist/web/_tiktoken.js",
-  "types": "dist/node/_tiktoken.d.ts",
-  "exports": {
-    ".": {
-      "node": {
-        "types": "./dist/node/_tiktoken.d.ts",
-        "default": "./dist/node/_tiktoken.js"
-      },
-      "default": {
-        "types": "./dist/bundler/_tiktoken.d.js",
-        "default": "./dist/bundler/_tiktoken.mjs"
-      }
-    },
-    "./bundler": {
-      "types": "./dist/bundler/_tiktoken.d.ts",
-      "default": "./dist/bundler/_tiktoken.mjs"
-    },
-    "./web": {
-      "types": "./dist/web/_tiktoken.d.ts",
-      "default": "./dist/web/_tiktoken.js"
-    },
-    "./node": {
-      "types": "./dist/node/_tiktoken.d.ts",
-      "default": "./dist/node/_tiktoken.js"
-    }
+  "license": "MIT",
+  "scripts": {
+    "build": "run-s build:*",
+    "build:cleanup": "rm -rf dist/",
+    "build:rank": "tsx scripts/inline_ranks.ts",
+    "build:wasm": "run-s wasm:*",
+    "build:postprocess": "tsx scripts/post_process.ts",
+    "wasm:bundler": "wasm-pack build --target bundler --release --out-dir dist && rm -rf dist/.gitignore dist/README.md dist/package.json",
+    "wasm:node": "wasm-pack build --target nodejs --release --out-dir dist/node && rm -rf dist/node/.gitignore dist/node/README.md dist/node/package.json",
+    "test": "yarn vitest"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/dqbd/tiktoken"
   },
+  "dependencies": {},
   "devDependencies": {
+    "@types/node": "^18.14.4",
+    "npm-run-all": "^4.1.5",
     "ts-morph": "^17.0.1",
     "tsx": "^3.12.3",
     "typescript": "^4.9.5",
     "vitest": "^0.28.5"
-  },
-  "scripts": {
-    "build": "rm -rf dist/ ranks/ && yarn run ranks && yarn run build:node && yarn run build:bundler && yarn run build:web && yarn run build:cleanup",
-    "ranks": "tsx scripts/download_ranks.ts",
-    "build:bundler": "wasm-pack build --target bundler --release --out-dir dist/bundler && rm dist/bundler/.gitignore",
-    "build:node": "wasm-pack build --target nodejs --release --out-dir dist/node && rm dist/node/.gitignore",
-    "build:web": "wasm-pack build --target no-modules --release --out-dir dist/web && rm dist/web/.gitignore",
-    "build:cleanup": "tsx scripts/override_any.ts",
-    "test": "yarn vitest"
-  },
-  "dependencies": {}
+  }
 }

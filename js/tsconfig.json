@@ -1,6 +1,14 @@
 {
   "compilerOptions": {
-    "esModuleInterop": true,
-    "strict": true
-  }
+    "target": "ES2022",
+    "lib": ["ESNext", "DOM"],
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "strict": true,
+    "declaration": true,
+    "outDir": "./dist",
+    "allowSyntheticDefaultImports": true,
+  },
+  "include": ["./**/*.ts", "./**/*.js"],
+  "exclude": ["node_modules", "dist"]
 }
