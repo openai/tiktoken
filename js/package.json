@@ -7,7 +7,7 @@
     "build": "run-s build:*",
     "build:cleanup": "rm -rf dist/",
     "build:rank": "tsx scripts/inline_ranks.ts",
-    "build:wasm": "run-p wasm:*",
+    "build:wasm": "run-s wasm:*",
     "build:postprocess": "tsx scripts/post_process.ts",
     "wasm:bundler": "wasm-pack build --target bundler --release --out-dir dist && rm -rf dist/.gitignore dist/README.md dist/package.json",
     "wasm:node": "wasm-pack build --target nodejs --release --out-dir dist/node && rm -rf dist/node/.gitignore dist/node/README.md dist/node/package.json",
