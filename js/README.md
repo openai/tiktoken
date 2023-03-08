@@ -31,6 +31,9 @@ const enc = encoding_for_model("gpt2", {
   "<|im_start|>": 100264,
   "<|im_end|>": 100265,
 });
+
+// don't forget to free the encoder after it is not used
+enc.free();
 ```
 
 If desired, you can create a Tiktoken instance directly with custom ranks, special tokens and regex pattern:
@@ -50,15 +53,15 @@ const encoder = new Tiktoken(
 
 As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
 
-| Runtime             | Status | Notes                           |
-| ------------------- | ------ | ------------------------------- |
-| Node.js             | ✅     |                                 |
-| Bun                 | ✅     |                                 |
-| Vite                | ✅     | See [here](#vite) for notes     |
-| Next.js             | ✅     | See [here](#nextjs) for caveats |
-| Vercel Edge Runtime | 🚧     | Work in progress                |
-| Cloudflare Workers  | 🚧     | Untested                        |
-| Deno                | ❌     | Currently unsupported           |
+| Runtime             | Status | Notes                                      |
+| ------------------- | ------ | ------------------------------------------ |
+| Node.js             | ✅     |                                            |
+| Bun                 | ✅     |                                            |
+| Vite                | ✅     | See [here](#vite) for notes                |
+| Next.js             | ✅     | See [here](#nextjs) for notes              |
+| Vercel Edge Runtime | ✅     | See [here](#vercel-edge-runtime) for notes |
+| Cloudflare Workers  | 🚧     | Untested                                   |
+| Deno                | ❌     | Currently unsupported                      |
 
 ### [Vite](#vite)
 
@@ -103,6 +106,27 @@ const config = {
     return config;
   },
 };
+```
+
+### [Vercel Edge Runtime](#vercel-edge-runtime)
+
+Vercel Edge Runtime does support WASM modules by adding a `?module` suffix. Initialize the encoder with the following snippet:
+
+```typescript
+import wasm from "@dqbd/tiktoken/tiktoken_bg.wasm?module";
+import { init, get_encoding } from "@dqbd/tiktoken/init";
+
+export const config = { runtime: "edge" };
+
+export default async function (req: Request) {
+  await init((imports) => WebAssembly.instantiate(wasm, imports));
+
+  const encoder = get_encoding("cl100k_base");
+  const tokens = encoder.encode("hello world");
+  encoder.free();
+
+  return new Response(`${encoder.encode("hello world")}`);
+}
 ```
 
 ## Acknowledgements
