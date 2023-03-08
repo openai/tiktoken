@@ -366,7 +366,9 @@ export type TiktokenModel =
     | "text-search-ada-doc-001"
     | "code-search-babbage-code-001"
     | "code-search-ada-code-001"
-    | "gpt2";
+    | "gpt2"
+    | "gpt-3.5-turbo"
+    | "gpt-3.5-turbo-0301";
 
 /**
  * @param {TiktokenModel} encoding
@@ -413,6 +415,8 @@ pub fn encoding_for_model(
         "code-search-babbage-code-001" => Ok("r50k_base"),
         "code-search-ada-code-001" => Ok("r50k_base"),
         "gpt2" => Ok("gpt2"),
+        "gpt-3.5-turbo" => Ok("cl100k_base"),
+        "gpt-3.5-turbo-0301" => Ok("cl100k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),
