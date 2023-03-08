@@ -81,6 +81,7 @@ it("test_simple", () => {
 it("test_encoding_for_model", () => {
   expect(encoding_for_model("gpt2").name).toEqual("gpt2");
   expect(encoding_for_model("text-davinci-003").name).toEqual("p50k_base");
+  expect(encoding_for_model("gpt-3.5-turbo").name).toEqual("cl100k_base");
 });
 
 it("test_custom_tokens", () => {
