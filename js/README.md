@@ -55,7 +55,7 @@ As this is a WASM library, there might be some issues with specific runtimes. If
 | Node.js             | ✅     |                                 |
 | Bun                 | ✅     |                                 |
 | Vite                | ✅     | See [here](#vite) for notes     |
-| Next.js             | ✅ 🚧  | See [here](#nextjs) for caveats |
+| Next.js             | ✅     | See [here](#nextjs) for caveats |
 | Vercel Edge Runtime | 🚧     | Work in progress                |
 | Cloudflare Workers  | 🚧     | Untested                        |
 | Deno                | ❌     | Currently unsupported           |
@@ -76,42 +76,23 @@ export default defineConfig({
 
 ### [Next.js](#nextjs)
 
-Both API routes and `/pages` are supported with some caveats. To overcome issues with importing `/node` variant and incorrect `__dirname` resolution, you can import the package from `@dqbd/tiktoken/bundler` instead.
+Both API routes and `/pages` are supported with the following configuration. To overcome issues with importing Node.js version, you can import the package from `@dqbd/tiktoken/bundler` instead.
 
 ```typescript
 import { get_encoding } from "@dqbd/tiktoken/bundler";
 import { NextApiRequest, NextApiResponse } from "next";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  return res.status(200).json({
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    message: get_encoding("gpt2").encode(`Hello World ${Math.random()}`),
-  });
+  const encoder = get_encoding("gpt2");
+  const message = encoder.encode(`Hello World ${Math.random()}`);
+  encoder.free();
+  return res.status(200).json({ message });
 }
 ```
 
-Additional Webpack configuration is also required, see https://github.com/vercel/next.js/issues/29362.
+Additional Webpack configuration is required.
 
 ```typescript
-class WasmChunksFixPlugin {
-  apply(compiler) {
-    compiler.hooks.thisCompilation.tap("WasmChunksFixPlugin", (compilation) => {
-      compilation.hooks.processAssets.tap(
-        { name: "WasmChunksFixPlugin" },
-        (assets) =>
-          Object.entries(assets).forEach(([pathname, source]) => {
-            if (!pathname.match(/\.wasm$/)) return;
-            compilation.deleteAsset(pathname);
-
-            const name = pathname.split("/")[1];
-            const info = compilation.assetsInfo.get(pathname);
-            compilation.emitAsset(name, source, info);
-          })
-      );
-    });
-  }
-}
-
 const config = {
   webpack(config, { isServer, dev }) {
     config.experiments = {
@@ -119,24 +100,9 @@ const config = {
       layers: true,
     };
 
-    if (!dev && isServer) {
-      config.output.webassemblyModuleFilename = "chunks/[id].wasm";
-      config.plugins.push(new WasmChunksFixPlugin());
-    }
-
     return config;
   },
 };
-```
-
-To properly resolve `tsconfig.json`, use either `moduleResolution: "node16"` or `moduleResolution: "nodenext"`:
-
-```json
-{
-  "compilerOptions": {
-    "moduleResolution": "node16"
-  }
-}
 ```
 
 ## Acknowledgements

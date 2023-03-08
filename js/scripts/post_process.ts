@@ -6,10 +6,7 @@ const project = new Project();
 project.addSourceFilesAtPaths(["./dist/**/*.ts", "./dist/**/*.js"]);
 
 // make sure the types are correct
-for (const filename of [
-  "./dist/bundler/_tiktoken.d.ts",
-  "./dist/node/_tiktoken.d.ts",
-]) {
+for (const filename of ["./dist/tiktoken.d.ts", "./dist/node/tiktoken.d.ts"]) {
   const sourceFile = project.getSourceFileOrThrow(filename);
   const cls = sourceFile.getFirstDescendantByKindOrThrow(
     ts.SyntaxKind.ClassDeclaration
@@ -39,63 +36,48 @@ for (const filename of [
   sourceFile.saveSync();
 }
 
-// use only a single WASM binary
-fs.copyFileSync(
-  path.resolve(__dirname, "../dist/bundler/_tiktoken_bg.wasm"),
-  path.resolve(__dirname, "../dist/tiktoken.wasm")
-);
-
-fs.copyFileSync(
-  path.resolve(__dirname, "../dist/bundler/_tiktoken_bg.wasm.d.ts"),
-  path.resolve(__dirname, "../dist/tiktoken.wasm.d.ts")
-);
-
-// remove unnecessary files
-for (const folder of ["bundler", "node"]) {
-  fs.rmSync(path.resolve(__dirname, `../dist/${folder}/package.json`));
-  fs.rmSync(path.resolve(__dirname, `../dist/${folder}/README.md`));
-}
-
-function replaceContent(file: string, transform: (content: string) => string) {
-  const options = { encoding: "utf-8" } as const;
-  fs.writeFileSync(
-    path.resolve(__dirname, file),
-    transform(fs.readFileSync(path.resolve(__dirname, file), options)),
-    options
-  );
-}
-
 // bundler
 {
-  replaceContent("../dist/bundler/_tiktoken.js", (src) =>
-    src.replaceAll(`"./_tiktoken_bg.wasm"`, `"../tiktoken.wasm"`)
+  fs.writeFileSync(
+    path.resolve(__dirname, "../dist/bundler.js"),
+    `export * from "./tiktoken";  `.trim(),
+    { encoding: "utf-8" }
   );
 
-  fs.rmSync(path.resolve(__dirname, "../dist/bundler/_tiktoken_bg.wasm"));
-  fs.rmSync(path.resolve(__dirname, "../dist/bundler/_tiktoken_bg.wasm.d.ts"));
+  fs.writeFileSync(
+    path.resolve(__dirname, "../dist/bundler.d.ts"),
+    `export * from "./tiktoken";  `.trim(),
+    { encoding: "utf-8" }
+  );
 }
 
 // node
 {
-  replaceContent("../dist/node/_tiktoken.js", (src) =>
-    src
-      .replaceAll("__wbindgen_placeholder__", `./_tiktoken_bg.js`)
-      .replace("'_tiktoken_bg.wasm'", `'../tiktoken.wasm'`)
+  const options = { encoding: "utf-8" } as const;
+  fs.writeFileSync(
+    path.resolve(__dirname, "../dist/tiktoken.node.js"),
+    fs
+      .readFileSync(
+        path.resolve(__dirname, "../dist/node/tiktoken.js"),
+        options
+      )
+      .replaceAll("__wbindgen_placeholder__", `./tiktoken_bg.js`),
+    options
   );
 
-  fs.rmSync(path.resolve(__dirname, "../dist/node/_tiktoken_bg.wasm"));
-  fs.rmSync(path.resolve(__dirname, "../dist/node/_tiktoken_bg.wasm.d.ts"));
+  fs.rmSync(path.resolve(__dirname, "../dist/node"), { recursive: true });
 }
 
+// package.json
 {
   fs.writeFileSync(
     path.resolve(__dirname, "../dist/init.js"),
     `
-import * as imports from "./bundler/_tiktoken_bg.js";
+import * as imports from "./tiktoken_bg.js";
 
 export async function init(cb) {
   const res = await cb({
-    "./_tiktoken_bg.js": imports,
+    "./tiktoken_bg.js": imports,
   });
 
   const instance =
@@ -110,7 +92,7 @@ export async function init(cb) {
   return imports;
 }
 
-export * from "./bundler/_tiktoken_bg.js";
+export * from "./tiktoken_bg.js";
   `.trim(),
     { encoding: "utf-8" }
   );
@@ -120,7 +102,7 @@ export * from "./bundler/_tiktoken_bg.js";
     `
 /* tslint:disable */
 /* eslint-disable */
-export * from "./bundler/_tiktoken";
+export * from "./tiktoken";
 export function init(
   callback: (
     imports: WebAssembly.Imports
@@ -141,6 +123,28 @@ export function init(
   delete pkg.devDependencies;
   delete pkg.scripts;
   pkg.files = ["**/*"];
+
+  pkg["main"] = "tiktoken.node.js";
+  pkg["types"] = "tiktoken.d.ts";
+  pkg["exports"] = {
+    ".": {
+      types: "./tiktoken.d.ts",
+      default: "./tiktoken.js",
+      node: "./tiktoken.node.js",
+    },
+    "./bundler": {
+      types: "./bundler.d.ts",
+      default: "./bundler.js",
+    },
+    "./init": {
+      types: "./init.d.ts",
+      default: "./init.js",
+    },
+    "./tiktoken_bg.wasm": {
+      types: "./tiktoken_bg.wasm.d.ts",
+      default: "./tiktoken_bg.wasm",
+    },
+  };
 
   fs.writeFileSync(
     path.resolve(__dirname, "../dist/package.json"),

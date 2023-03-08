@@ -6,7 +6,8 @@
     "moduleResolution": "node",
     "strict": true,
     "declaration": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "allowSyntheticDefaultImports": true,
   },
   "include": ["./**/*.ts", "./**/*.js"],
   "exclude": ["node_modules", "dist"]
