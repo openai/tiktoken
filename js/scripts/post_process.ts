@@ -113,6 +113,7 @@ export function init(
   );
 }
 
+// package.json, README.md
 {
   const pkg = JSON.parse(
     fs.readFileSync(path.resolve(__dirname, "../package.json"), {
@@ -150,5 +151,10 @@ export function init(
     path.resolve(__dirname, "../dist/package.json"),
     JSON.stringify(pkg, null, 2),
     { encoding: "utf-8" }
+  );
+
+  fs.copyFileSync(
+    path.resolve(__dirname, "../README.md"),
+    path.resolve(__dirname, "../dist/README.md")
   );
 }
