@@ -312,14 +312,14 @@ impl Tiktoken {
 #[cfg(feature = "inline")]
 #[wasm_bindgen(typescript_custom_section)]
 const _: &'static str = r#"
-export type TiktokenEmbedding = "gpt2" | "r50k_base" | "p50k_base" | "p50k_edit" | "cl100k_base"; 
+export type TiktokenEncoding = "gpt2" | "r50k_base" | "p50k_base" | "p50k_edit" | "cl100k_base"; 
 
 /**
- * @param {TiktokenEmbedding} encoding
+ * @param {TiktokenEncoding} encoding
  * @param {Record<string, number>} [extend_special_tokens]
  * @returns {Tiktoken}
  */
-export function get_encoding(encoding: TiktokenEmbedding, extend_special_tokens?: Record<string, number>): Tiktoken;
+export function get_encoding(encoding: TiktokenEncoding, extend_special_tokens?: Record<string, number>): Tiktoken;
 "#;
 
 #[cfg(feature = "inline")]
