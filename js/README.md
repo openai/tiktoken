@@ -53,15 +53,15 @@ const encoder = new Tiktoken(
 
 As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
 
-| Runtime             | Status | Notes                                      |
-| ------------------- | ------ | ------------------------------------------ |
-| Node.js             | ✅     |                                            |
-| Bun                 | ✅     |                                            |
-| Vite                | ✅     | See [here](#vite) for notes                |
-| Next.js             | ✅     | See [here](#nextjs) for notes              |
-| Vercel Edge Runtime | ✅     | See [here](#vercel-edge-runtime) for notes |
-| Cloudflare Workers  | 🚧     | Untested                                   |
-| Deno                | ❌     | Currently unsupported                      |
+| Runtime             | Status | Notes                                       |
+| ------------------- | ------ | ------------------------------------------- |
+| Node.js             | ✅     |                                             |
+| Bun                 | ✅     |                                             |
+| Vite                | ✅     | See [here](#vite) for notes                 |
+| Next.js             | ✅     | See [here](#nextjs) for notes               |
+| Vercel Edge Runtime | ✅     | See [here](#vercel-edge-runtime) for notes  |
+| Cloudflare Workers  | 🚧     | See [here](#cloudflare-workers) for caveats |
+| Deno                | ❌     | Currently unsupported                       |
 
 ### [Vite](#vite)
 
@@ -129,6 +129,37 @@ export default async function (req: Request) {
 }
 ```
 
+### [Cloudflare Workers](#cloudflare-workers)
+
+Similar to Vercel Edge Runtime, Cloudflare Workers must import the WASM binary file manually. However, users need to point directly at the WASM binary, including `node_modules` prefix in some cases.
+
+Add the following rule to the `wrangler.toml` to upload WASM during build:
+
+```toml
+[[rules]]
+globs = ["**/*.wasm"]
+type = "CompiledWasm"
+```
+
+Initialize the encoder with the following snippet:
+
+```javascript
+import wasm from "./node_modules/@dqbd/tiktoken/tiktoken_bg.wasm";
+import { get_encoding, init } from "@dqbd/tiktoken/init";
+
+export default {
+  async fetch() {
+    await init((imports) => WebAssembly.instantiate(wasm, imports));
+    const encoder = get_encoder("cl100k_base");
+    const tokens = encoder.encode("hello world");
+    encoder.free();
+    return new Response(`${tokens}`);
+  },
+};
+```
+
+```typescript
 ## Acknowledgements
 
 - https://github.com/zurawiki/tiktoken-rs
+```
