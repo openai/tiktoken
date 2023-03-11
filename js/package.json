@@ -1,6 +1,6 @@
 {
   "name": "@dqbd/tiktoken",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "Javascript bindings for tiktoken",
   "license": "MIT",
   "scripts": {
@@ -10,7 +10,7 @@
     "build:wasm": "run-s wasm:*",
     "build:postprocess": "tsx scripts/post_process.ts",
     "wasm:bundler": "wasm-pack build --target bundler --release --out-dir dist && rm -rf dist/.gitignore dist/README.md dist/package.json",
-    "wasm:node": "wasm-pack build --target nodejs --release --out-dir dist/node && rm -rf dist/node/.gitignore dist/node/README.md dist/node/package.json",
+    "wasm:lite": "wasm-pack build --target bundler --release --out-dir dist/lite --no-default-features && rm -rf dist/lite/.gitignore dist/lite/README.md dist/lite/package.json",
     "test": "yarn vitest"
   },
   "repository": {

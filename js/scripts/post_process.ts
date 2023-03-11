@@ -1,116 +1,176 @@
-import { Project, ts } from "ts-morph";
+import { Project, ScriptTarget, StructureKind, ts } from "ts-morph";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const project = new Project();
-project.addSourceFilesAtPaths(["./dist/**/*.ts", "./dist/**/*.js"]);
-
-// make sure the types are correct
-for (const filename of ["./dist/tiktoken.d.ts", "./dist/node/tiktoken.d.ts"]) {
-  const sourceFile = project.getSourceFileOrThrow(filename);
-  const cls = sourceFile.getFirstDescendantByKindOrThrow(
-    ts.SyntaxKind.ClassDeclaration
-  );
-
-  cls
-    .getConstructors()[0]
-    .getParameterOrThrow("special_tokens")
-    .set({ type: "Record<string, number>" });
-
-  for (const method of ["encode", "encode_with_unstable"]) {
-    cls
-      .getMethodOrThrow(method)
-      .getParameterOrThrow("allowed_special")
-      .set({ type: `"all" | string[]`, hasQuestionToken: true });
+for (const baseDir of [
+  path.resolve(__dirname, "../dist"),
+  path.resolve(__dirname, "../dist/lite"),
+]) {
+  // fix `any` types
+  {
+    const sourceFile = new Project().addSourceFileAtPath(
+      path.resolve(baseDir, "tiktoken.d.ts")
+    );
+    const cls = sourceFile.getFirstDescendantByKindOrThrow(
+      ts.SyntaxKind.ClassDeclaration
+    );
 
     cls
-      .getMethodOrThrow(method)
-      .getParameterOrThrow("disallowed_special")
-      .set({ type: `"all" | string[]`, hasQuestionToken: true });
+      .getConstructors()[0]
+      .getParameterOrThrow("special_tokens")
+      .set({ type: "Record<string, number>" });
+
+    for (const method of ["encode", "encode_with_unstable"]) {
+      cls
+        .getMethodOrThrow(method)
+        .getParameterOrThrow("allowed_special")
+        .set({ type: `"all" | string[]`, hasQuestionToken: true });
+
+      cls
+        .getMethodOrThrow(method)
+        .getParameterOrThrow("disallowed_special")
+        .set({ type: `"all" | string[]`, hasQuestionToken: true });
+    }
+
+    cls
+      .getMemberOrThrow("token_byte_values")
+      .set({ returnType: "Array<Array<number>>" });
+
+    sourceFile.saveSync();
   }
 
-  cls
-    .getMemberOrThrow("token_byte_values")
-    .set({ returnType: "Array<Array<number>>" });
+  // tiktoken.cjs
+  {
+    const sourceFile = new Project().addSourceFileAtPath(
+      path.resolve(baseDir, "tiktoken_bg.js")
+    );
+    sourceFile.insertStatements(0, [
+      `let imports = {};`,
+      `imports["./tiktoken_bg.js"] = module.exports;`,
+    ]);
 
-  sourceFile.saveSync();
-}
+    for (const cls of sourceFile.getClasses().filter((x) => x.isExported())) {
+      cls.set({
+        ...cls.getStructure(),
+        kind: StructureKind.Class,
+        isExported: false,
+      });
 
-// bundler
-{
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/bundler.js"),
-    `export * from "./tiktoken";  `.trim(),
-    { encoding: "utf-8" }
-  );
+      sourceFile.insertStatements(cls.getChildIndex() + 1, [
+        `module.exports.${cls.getName()} = ${cls.getName()};`,
+      ]);
+    }
 
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/bundler.d.ts"),
-    `export * from "./tiktoken";  `.trim(),
-    { encoding: "utf-8" }
-  );
-}
+    for (const fn of sourceFile.getFunctions().filter((f) => f.isExported())) {
+      fn.set({
+        ...fn.getStructure(),
+        kind: StructureKind.Function,
+        isExported: false,
+      });
 
-// node
-{
-  const options = { encoding: "utf-8" } as const;
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/tiktoken.node.js"),
-    fs
-      .readFileSync(
-        path.resolve(__dirname, "../dist/node/tiktoken.js"),
-        options
-      )
-      .replaceAll("__wbindgen_placeholder__", `./tiktoken_bg.js`),
-    options
-  );
+      sourceFile.insertStatements(fn.getChildIndex(), [
+        `module.exports.${fn.getName()} = ${fn.getText()};`,
+      ]);
 
-  fs.rmSync(path.resolve(__dirname, "../dist/node"), { recursive: true });
-}
+      sourceFile
+        .getDescendantsOfKind(ts.SyntaxKind.FunctionExpression)
+        .filter((x) => x.getName() === fn.getName())
+        .forEach((f) => f.removeName());
 
-// package.json
-{
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/init.js"),
-    `
-import * as imports from "./tiktoken_bg.js";
+      fn.remove();
+    }
 
-export async function init(cb) {
-  const res = await cb({
-    "./tiktoken_bg.js": imports,
-  });
+    sourceFile.addStatements([
+      `const path = require("path").join(__dirname, "tiktoken_bg.wasm");`,
+      `const bytes = require("fs").readFileSync(path);`,
+      `const wasmModule = new WebAssembly.Module(bytes);`,
+      `const wasmInstance = new WebAssembly.Instance(wasmModule, imports);`,
+      `wasm = wasmInstance.exports;`,
+      `module.exports.__wasm = wasm;`,
+    ]);
 
-  const instance =
-    "instance" in res && res.instance instanceof WebAssembly.Instance
-      ? res.instance
-      : res instanceof WebAssembly.Instance
-      ? res
-      : null;
+    sourceFile
+      .copy(path.resolve(baseDir, "tiktoken.cjs"), { overwrite: true })
+      .saveSync();
+  }
 
-  if (instance == null) throw new Error("Missing instance");
-  imports.__wbg_set_wasm(instance.exports);
-  return imports;
-}
+  // init.js
+  {
+    const sourceFile = new Project({
+      compilerOptions: {
+        target: ScriptTarget.ES2022,
+        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+        strict: true,
+        declaration: true,
+      },
+    }).addSourceFileAtPath(path.resolve(__dirname, "../src/init.ts"));
 
-export * from "./tiktoken_bg.js";
-  `.trim(),
-    { encoding: "utf-8" }
-  );
+    const emitOutput = sourceFile.getEmitOutput();
+    for (const file of emitOutput.getOutputFiles()) {
+      fs.writeFileSync(
+        path.resolve(baseDir, path.basename(file.getFilePath())),
+        file.getText(),
+        { encoding: "utf-8" }
+      );
+    }
+  }
 
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/init.d.ts"),
-    `
-/* tslint:disable */
-/* eslint-disable */
-export * from "./tiktoken";
-export function init(
-  callback: (
-    imports: WebAssembly.Imports
-  ) => Promise<WebAssembly.WebAssemblyInstantiatedSource | WebAssembly.Instance>
-): Promise<void>;
-  `.trim(),
-    { encoding: "utf-8" }
-  );
+  // load.js and load.cjs
+  {
+    for (const module of [ts.ModuleKind.CommonJS, ts.ModuleKind.ES2022]) {
+      const sourceFile = new Project({
+        compilerOptions: {
+          target: ScriptTarget.ES2022,
+          module,
+          moduleResolution: ts.ModuleResolutionKind.NodeJs,
+          strict: true,
+          declaration: true,
+        },
+      }).addSourceFileAtPath(path.resolve(__dirname, "../src/load.ts"));
+
+      const emitOutput = sourceFile.getEmitOutput();
+      for (const file of emitOutput.getOutputFiles()) {
+        let targetFile = path.basename(file.getFilePath());
+
+        if (module === ts.ModuleKind.CommonJS) {
+          targetFile = targetFile.replace(".js", ".cjs");
+        }
+
+        fs.writeFileSync(path.resolve(baseDir, targetFile), file.getText(), {
+          encoding: "utf-8",
+        });
+      }
+    }
+  }
+
+  // bundler.js
+  {
+    fs.writeFileSync(
+      path.resolve(baseDir, "bundler.js"),
+      `export * from "./tiktoken";`.trim(),
+      { encoding: "utf-8" }
+    );
+
+    fs.writeFileSync(
+      path.resolve(baseDir, "bundler.d.ts"),
+      `export * from "./tiktoken";`.trim(),
+      { encoding: "utf-8" }
+    );
+
+    fs.writeFileSync(
+      path.resolve(baseDir, "tiktoken_bg.d.ts"),
+      `export * from "./tiktoken";`.trim(),
+      { encoding: "utf-8" }
+    );
+  }
+
+  if (!baseDir.includes("/lite")) {
+    fs.writeFileSync(
+      path.resolve(baseDir, "lite.d.ts"),
+      `export * from "./lite/tiktoken";`.trim(),
+      { encoding: "utf-8" }
+    );
+  }
 }
 
 // package.json, README.md
@@ -125,12 +185,12 @@ export function init(
   delete pkg.scripts;
   pkg.files = ["**/*"];
 
-  pkg["main"] = "tiktoken.node.js";
+  pkg["main"] = "tiktoken.cjs";
   pkg["types"] = "tiktoken.d.ts";
   pkg["exports"] = {
     ".": {
       types: "./tiktoken.d.ts",
-      node: "./tiktoken.node.js",
+      node: "./tiktoken.cjs",
       default: "./tiktoken.js",
     },
     "./bundler": {
@@ -141,9 +201,36 @@ export function init(
       types: "./init.d.ts",
       default: "./init.js",
     },
+    "./load": {
+      types: "./load.d.ts",
+      node: "./load.cjs",
+      default: "./load.js",
+    },
     "./tiktoken_bg.wasm": {
       types: "./tiktoken_bg.wasm.d.ts",
       default: "./tiktoken_bg.wasm",
+    },
+    "./lite": {
+      types: "./lite/tiktoken.d.ts",
+      node: "./lite/tiktoken.cjs",
+      default: "./lite/tiktoken.js",
+    },
+    "./lite/bundler": {
+      types: "./lite/bundler.d.ts",
+      default: "./lite/bundler.js",
+    },
+    "./lite/init": {
+      types: "./lite/init.d.ts",
+      default: "./lite/init.js",
+    },
+    "./lite/load": {
+      types: "./lite/load.d.ts",
+      node: "./lite/load.cjs",
+      default: "./lite/load.js",
+    },
+    "./lite/tiktoken_bg.wasm": {
+      types: "./lite/tiktoken_bg.wasm.d.ts",
+      default: "./lite/tiktoken_bg.wasm",
     },
   };
 
