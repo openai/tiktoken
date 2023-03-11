@@ -1,14 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ESNext", "DOM"],
-    "module": "ES2020",
     "moduleResolution": "node",
     "strict": true,
     "declaration": true,
-    "outDir": "./dist",
     "allowSyntheticDefaultImports": true
   },
-  "include": ["./src/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"]
 }

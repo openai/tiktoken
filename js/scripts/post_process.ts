@@ -1,4 +1,4 @@
-import { Project, ts } from "ts-morph";
+import { Project, StructureKind, ts } from "ts-morph";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -6,7 +6,7 @@ const project = new Project();
 project.addSourceFilesAtPaths(["./dist/**/*.ts", "./dist/**/*.js"]);
 
 // make sure the types are correct
-for (const filename of ["./dist/tiktoken.d.ts", "./dist/node/tiktoken.d.ts"]) {
+for (const filename of ["./dist/tiktoken.d.ts", "./dist/lite/tiktoken.d.ts"]) {
   const sourceFile = project.getSourceFileOrThrow(filename);
   const cls = sourceFile.getFirstDescendantByKindOrThrow(
     ts.SyntaxKind.ClassDeclaration
@@ -36,43 +36,86 @@ for (const filename of ["./dist/tiktoken.d.ts", "./dist/node/tiktoken.d.ts"]) {
   sourceFile.saveSync();
 }
 
-// bundler
-{
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/bundler.js"),
-    `export * from "./tiktoken";  `.trim(),
-    { encoding: "utf-8" }
-  );
+for (const filename of [
+  "./dist/tiktoken_bg.js",
+  "./dist/lite/tiktoken_bg.js",
+]) {
+  const targetFileName = filename.replace("_bg", ".node");
+  const sourceFile = project.getSourceFileOrThrow(filename);
 
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/bundler.d.ts"),
-    `export * from "./tiktoken";  `.trim(),
-    { encoding: "utf-8" }
-  );
+  sourceFile.insertStatements(0, [
+    `let imports = {};`,
+    `imports["./tiktoken_bg.js"] = module.exports;`,
+  ]);
+
+  for (const cls of sourceFile.getClasses().filter((x) => x.isExported())) {
+    cls.set({
+      ...cls.getStructure(),
+      kind: StructureKind.Class,
+      isExported: false,
+    });
+
+    sourceFile.insertStatements(cls.getChildIndex() + 1, [
+      `module.exports.${cls.getName()} = ${cls.getName()};`,
+    ]);
+  }
+
+  for (const fn of sourceFile.getFunctions().filter((f) => f.isExported())) {
+    fn.set({
+      ...fn.getStructure(),
+      kind: StructureKind.Function,
+      isExported: false,
+    });
+
+    sourceFile.insertStatements(fn.getChildIndex(), [
+      `module.exports.${fn.getName()} = ${fn.getText()};`,
+    ]);
+
+    sourceFile
+      .getDescendantsOfKind(ts.SyntaxKind.FunctionExpression)
+      .filter((x) => x.getName() === fn.getName())
+      .forEach((f) => f.removeName());
+
+    fn.remove();
+  }
+
+  sourceFile.addStatements([
+    `const path = require("path").join(__dirname, "tiktoken_bg.wasm");`,
+    `const bytes = require("fs").readFileSync(path);`,
+
+    `const wasmModule = new WebAssembly.Module(bytes);`,
+    `const wasmInstance = new WebAssembly.Instance(wasmModule, imports);`,
+    `wasm = wasmInstance.exports;`,
+    `module.exports.__wasm = wasm;`,
+  ]);
+
+  sourceFile.copy(targetFileName, { overwrite: true }).saveSync();
 }
 
-// node
-{
-  const options = { encoding: "utf-8" } as const;
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/tiktoken.node.js"),
-    fs
-      .readFileSync(
-        path.resolve(__dirname, "../dist/node/tiktoken.js"),
-        options
-      )
-      .replaceAll("__wbindgen_placeholder__", `./tiktoken_bg.js`),
-    options
-  );
+for (const targetFile of [
+  path.resolve(__dirname, "../dist"),
+  path.resolve(__dirname, "../dist/lite"),
+]) {
+  // bundler
+  {
+    fs.writeFileSync(
+      path.resolve(targetFile, "bundler.js"),
+      `export * from "./tiktoken";`.trim(),
+      { encoding: "utf-8" }
+    );
 
-  fs.rmSync(path.resolve(__dirname, "../dist/node"), { recursive: true });
-}
+    fs.writeFileSync(
+      path.resolve(targetFile, "bundler.d.ts"),
+      `export * from "./tiktoken";`.trim(),
+      { encoding: "utf-8" }
+    );
+  }
 
-// package.json
-{
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/init.js"),
-    `
+  // init.js
+  {
+    fs.writeFileSync(
+      path.resolve(targetFile, "init.js"),
+      `
 import * as imports from "./tiktoken_bg.js";
 
 export async function init(cb) {
@@ -94,12 +137,12 @@ export async function init(cb) {
 
 export * from "./tiktoken_bg.js";
   `.trim(),
-    { encoding: "utf-8" }
-  );
+      { encoding: "utf-8" }
+    );
 
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/init.d.ts"),
-    `
+    fs.writeFileSync(
+      path.resolve(targetFile, "init.d.ts"),
+      `
 /* tslint:disable */
 /* eslint-disable */
 export * from "./tiktoken";
@@ -109,8 +152,9 @@ export function init(
   ) => Promise<WebAssembly.WebAssemblyInstantiatedSource | WebAssembly.Instance>
 ): Promise<void>;
   `.trim(),
-    { encoding: "utf-8" }
-  );
+      { encoding: "utf-8" }
+    );
+  }
 }
 
 // package.json, README.md
@@ -144,6 +188,23 @@ export function init(
     "./tiktoken_bg.wasm": {
       types: "./tiktoken_bg.wasm.d.ts",
       default: "./tiktoken_bg.wasm",
+    },
+    "./lite": {
+      types: "./lite/tiktoken.d.ts",
+      node: "./lite/tiktoken.node.js",
+      default: "./lite/tiktoken.js",
+    },
+    "./lite/bundler": {
+      types: "./lite/bundler.d.ts",
+      default: "./lite/bundler.js",
+    },
+    "./lite/init": {
+      types: "./lite/init.d.ts",
+      default: "./lite/init.js",
+    },
+    "./lite/tiktoken_bg.wasm": {
+      types: "./lite/tiktoken_bg.wasm.d.ts",
+      default: "./lite/tiktoken_bg.wasm",
     },
   };
 
