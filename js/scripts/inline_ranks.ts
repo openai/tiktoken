@@ -1,9 +1,8 @@
-import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-// printable ascii characters according to python
 function is_printable(u: number): boolean {
+  // printable ascii characters according to python
   return !(u <= 31 || (u >= 127 && u <= 160) || u == 173);
 }
 
@@ -32,10 +31,9 @@ function data_gym_to_mergeable_bpe_ranks(
     }
   }
 
-  assert(
-    rank_to_intbyte.length === 2 ** 8,
-    "rank_to_intbyte.length must be 2**8"
-  );
+  if (rank_to_intbyte.length !== 2 ** 8) {
+    throw new Error("rank_to_intbyte.length must be 2**8");
+  }
 
   // vocab_bpe contains the merges along with associated ranks
   const bpe_merges = vocal_bpe_contents
@@ -85,21 +83,11 @@ function data_gym_to_mergeable_bpe_ranks(
     );
   }
 
-  assert(normalize_map(bpe_ranks) === normalize_map(encoder_json_loaded));
-  return bpe_ranks;
-}
+  if (normalize_map(bpe_ranks) !== normalize_map(encoder_json_loaded)) {
+    throw new Error("bpe_ranks !== encoder_json_loaded");
+  }
 
-function load_tiktoken_bpe(tiktoken_bpe_file: string) {
-  return Object.fromEntries<number>(
-    tiktoken_bpe_file
-      .split("\n")
-      .map((line) => line.trim() && line.split(" "))
-      .filter((x): x is Array<string> => !!x && Array.isArray(x))
-      .map(([token, rank]) => [
-        Buffer.from(token, "base64").join(","),
-        Number.parseInt(rank, 10),
-      ])
-  );
+  return bpe_ranks;
 }
 
 function dump_tiktoken_bpe(bpe_ranks: Record<string, number>) {
@@ -118,8 +106,48 @@ function dump_tiktoken_bpe(bpe_ranks: Record<string, number>) {
   );
 }
 
-async function requestText(url: string) {
-  return await fetch(url).then((a) => a.text());
+export async function load(
+  registry: (
+    | { load_tiktoken_bpe: string }
+    | {
+        data_gym_to_mergeable_bpe_ranks: {
+          vocab_bpe_file: string;
+          encoder_json_file: string;
+        };
+      }
+  ) & {
+    explicit_n_vocab: number;
+    pat_str: string;
+    special_tokens: Record<string, number>;
+  },
+  customFetch?: (url: string) => Promise<string>
+) {
+  const ofetch = customFetch
+    ? customFetch
+    : (url: string) => fetch(url).then((r) => r.text());
+
+  if ("data_gym_to_mergeable_bpe_ranks" in registry) {
+    const [vocab_bpe, encoder_json] = await Promise.all([
+      ofetch(registry.data_gym_to_mergeable_bpe_ranks.vocab_bpe_file),
+      ofetch(registry.data_gym_to_mergeable_bpe_ranks.encoder_json_file),
+    ]);
+
+    return {
+      explicit_n_vocab: registry.explicit_n_vocab,
+      pat_str: registry.pat_str,
+      special_tokens: registry.special_tokens,
+      bpe_ranks: dump_tiktoken_bpe(
+        data_gym_to_mergeable_bpe_ranks(vocab_bpe, encoder_json)
+      ),
+    };
+  } else {
+    return {
+      explicit_n_vocab: registry.explicit_n_vocab,
+      pat_str: registry.pat_str,
+      special_tokens: registry.special_tokens,
+      bpe_ranks: await ofetch(registry.load_tiktoken_bpe),
+    };
+  }
 }
 
 async function main() {
@@ -144,22 +172,8 @@ async function main() {
       continue;
     } catch {}
 
-    let ranks: Record<string, number> | null = null;
-
-    if (data.data_gym_to_mergeable_bpe_ranks) {
-      ranks = data_gym_to_mergeable_bpe_ranks(
-        await requestText(data.data_gym_to_mergeable_bpe_ranks.vocab_bpe_file),
-        await requestText(
-          data.data_gym_to_mergeable_bpe_ranks.encoder_json_file
-        )
-      );
-    } else if (data.load_tiktoken_bpe) {
-      ranks = load_tiktoken_bpe(await requestText(data.load_tiktoken_bpe));
-    }
-
-    if (ranks != null) {
-      await fs.writeFile(targetFile, dump_tiktoken_bpe(ranks));
-    }
+    const result = await load(data);
+    await fs.writeFile(targetFile, result.bpe_ranks, { encoding: "utf-8" });
   }
 }
 
