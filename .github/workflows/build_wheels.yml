@@ -53,6 +53,7 @@ jobs:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
           CIBW_BUILD_VERBOSITY: 3
+          CIBW_ENVIRONMENT_LINUX: CARGO_NET_GIT_FETCH_WITH_CLI="true"
       - uses: actions/upload-artifact@v3
         with:
           name: dist
