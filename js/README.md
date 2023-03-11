@@ -158,8 +158,7 @@ export default {
 };
 ```
 
-```typescript
 ## Acknowledgements
 
 - https://github.com/zurawiki/tiktoken-rs
-```
+
