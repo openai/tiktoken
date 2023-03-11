@@ -6,6 +6,7 @@ for (const baseDir of [
   path.resolve(__dirname, "../dist"),
   path.resolve(__dirname, "../dist/lite"),
 ]) {
+  let publicExports: string[] = [];
   // fix `any` types
   {
     const sourceFile = new Project().addSourceFileAtPath(
@@ -36,18 +37,27 @@ for (const baseDir of [
       .getMemberOrThrow("token_byte_values")
       .set({ returnType: "Array<Array<number>>" });
 
+    publicExports = sourceFile
+      .getExportSymbols()
+      .filter((sym) =>
+        sym
+          .getDeclarations()
+          .some(
+            (dcl) =>
+              dcl.isKind(ts.SyntaxKind.ClassDeclaration) ||
+              dcl.isKind(ts.SyntaxKind.FunctionDeclaration)
+          )
+      )
+      .map((i) => i.getName());
+
     sourceFile.saveSync();
   }
 
-  // tiktoken.cjs
+  // tiktoken_bg.cjs
   {
     const sourceFile = new Project().addSourceFileAtPath(
       path.resolve(baseDir, "tiktoken_bg.js")
     );
-    sourceFile.insertStatements(0, [
-      `let imports = {};`,
-      `imports["./tiktoken_bg.js"] = module.exports;`,
-    ]);
 
     for (const cls of sourceFile.getClasses().filter((x) => x.isExported())) {
       cls.set({
@@ -80,38 +90,64 @@ for (const baseDir of [
       fn.remove();
     }
 
-    sourceFile.addStatements([
-      `const path = require("path").join(__dirname, "tiktoken_bg.wasm");`,
-      `const bytes = require("fs").readFileSync(path);`,
-      `const wasmModule = new WebAssembly.Module(bytes);`,
-      `const wasmInstance = new WebAssembly.Instance(wasmModule, imports);`,
-      `wasm = wasmInstance.exports;`,
-      `module.exports.__wasm = wasm;`,
-    ]);
-
     sourceFile
-      .copy(path.resolve(baseDir, "tiktoken.cjs"), { overwrite: true })
+      .copy(path.resolve(baseDir, "tiktoken_bg.cjs"), { overwrite: true })
       .saveSync();
   }
 
-  // init.js
+  // tiktoken.js
   {
-    const sourceFile = new Project({
-      compilerOptions: {
-        target: ScriptTarget.ES2022,
-        moduleResolution: ts.ModuleResolutionKind.NodeJs,
-        strict: true,
-        declaration: true,
-      },
-    }).addSourceFileAtPath(path.resolve(__dirname, "../src/init.ts"));
+    fs.writeFileSync(
+      path.resolve(baseDir, "tiktoken.cjs"),
+      [
+        `const wasm = require("./tiktoken_bg.cjs");`,
+        `let imports = {};`,
+        `imports["./tiktoken_bg.js"] = wasm;`,
+        `const path = require("path").join(__dirname, "tiktoken_bg.wasm");`,
+        `const bytes = require("fs").readFileSync(path);`,
+        `const wasmModule = new WebAssembly.Module(bytes);`,
+        `const wasmInstance = new WebAssembly.Instance(wasmModule, imports);`,
+        `wasm.__wbg_set_wasm(wasmInstance.exports);`,
+        ...publicExports.map((name) => `exports["${name}"] = wasm["${name}"];`),
+      ].join("\n"),
+      { encoding: "utf-8" }
+    );
+  }
 
-    const emitOutput = sourceFile.getEmitOutput();
-    for (const file of emitOutput.getOutputFiles()) {
-      fs.writeFileSync(
-        path.resolve(baseDir, path.basename(file.getFilePath())),
-        file.getText(),
-        { encoding: "utf-8" }
-      );
+  // init.js and init.cjs
+  {
+    for (const module of [ts.ModuleKind.CommonJS, ts.ModuleKind.ES2022]) {
+      const sourceFile = new Project({
+        compilerOptions: {
+          target: ScriptTarget.ES2022,
+          module,
+          moduleResolution: ts.ModuleResolutionKind.NodeJs,
+          strict: true,
+          declaration: true,
+        },
+      }).addSourceFileAtPath(path.resolve(__dirname, "../src/init.ts"));
+
+      const emitOutput = sourceFile.getEmitOutput();
+      for (const file of emitOutput.getOutputFiles()) {
+        let targetFile = path.basename(file.getFilePath());
+
+        let source = file.getText();
+        if (module === ts.ModuleKind.CommonJS) {
+          targetFile = targetFile.replace(".js", ".cjs");
+          source = source
+            .replaceAll(`"./tiktoken_bg"`, `"./tiktoken_bg.cjs"`)
+            .replaceAll(
+              `exports.init = init;`,
+              `exports.init = init;\n${publicExports
+                .map((name) => `exports["${name}"] = imports["${name}"];`)
+                .join("\n")}`
+            );
+        }
+
+        fs.writeFileSync(path.resolve(baseDir, targetFile), source, {
+          encoding: "utf-8",
+        });
+      }
     }
   }
 
@@ -199,6 +235,7 @@ for (const baseDir of [
     },
     "./init": {
       types: "./init.d.ts",
+      node: "./init.cjs",
       default: "./init.js",
     },
     "./load": {
@@ -221,6 +258,7 @@ for (const baseDir of [
     },
     "./lite/init": {
       types: "./lite/init.d.ts",
+      node: "./lite/init.cjs",
       default: "./lite/init.js",
     },
     "./lite/load": {
