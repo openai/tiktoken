@@ -53,7 +53,8 @@ jobs:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
           CIBW_BUILD_VERBOSITY: 3
-          CIBW_ENVIRONMENT_LINUX: CARGO_NET_GIT_FETCH_WITH_CLI="true"
+          # https://github.com/rust-lang/cargo/issues/10583
+          CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
       - uses: actions/upload-artifact@v3
         with:
           name: dist
