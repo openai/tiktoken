@@ -131,6 +131,8 @@ export default async function (req: Request) {
 
 ### [Cloudflare Workers](#cloudflare-workers)
 
+> Currently work in progress, investigating crashes and workarounds to compress ranks.
+
 Similar to Vercel Edge Runtime, Cloudflare Workers must import the WASM binary file manually. However, users need to point directly at the WASM binary, including `node_modules` prefix in some cases.
 
 Add the following rule to the `wrangler.toml` to upload WASM during build:
