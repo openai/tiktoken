@@ -1,5 +1,5 @@
 // @ts-expect-error
-import * as imports from "./tiktoken_bg.js";
+import * as imports from "./tiktoken_bg";
 
 export async function init(
   callback: (
@@ -19,4 +19,4 @@ export async function init(
 }
 
 // @ts-expect-error
-export * from "./tiktoken.js";
+export * from "./tiktoken_bg";

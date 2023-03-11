@@ -39,7 +39,7 @@ for (const baseDir of [
     sourceFile.saveSync();
   }
 
-  // tiktoken.node.js
+  // tiktoken.cjs
   {
     const sourceFile = new Project().addSourceFileAtPath(
       path.resolve(baseDir, "tiktoken_bg.js")
@@ -90,7 +90,7 @@ for (const baseDir of [
     ]);
 
     sourceFile
-      .copy(path.resolve(baseDir, "tiktoken.node.js"), { overwrite: true })
+      .copy(path.resolve(baseDir, "tiktoken.cjs"), { overwrite: true })
       .saveSync();
   }
 
@@ -103,7 +103,7 @@ for (const baseDir of [
         strict: true,
         declaration: true,
       },
-    }).addSourceFileAtPath("./src/init.ts");
+    }).addSourceFileAtPath(path.resolve(__dirname, "../src/init.ts"));
 
     const emitOutput = sourceFile.getEmitOutput();
     for (const file of emitOutput.getOutputFiles()) {
@@ -112,6 +112,34 @@ for (const baseDir of [
         file.getText(),
         { encoding: "utf-8" }
       );
+    }
+  }
+
+  // load.js and load.cjs
+  {
+    for (const module of [ts.ModuleKind.CommonJS, ts.ModuleKind.ES2022]) {
+      const sourceFile = new Project({
+        compilerOptions: {
+          target: ScriptTarget.ES2022,
+          module,
+          moduleResolution: ts.ModuleResolutionKind.NodeJs,
+          strict: true,
+          declaration: true,
+        },
+      }).addSourceFileAtPath(path.resolve(__dirname, "../src/load.ts"));
+
+      const emitOutput = sourceFile.getEmitOutput();
+      for (const file of emitOutput.getOutputFiles()) {
+        let targetFile = path.basename(file.getFilePath());
+
+        if (module === ts.ModuleKind.CommonJS) {
+          targetFile = targetFile.replace(".js", ".cjs");
+        }
+
+        fs.writeFileSync(path.resolve(baseDir, targetFile), file.getText(), {
+          encoding: "utf-8",
+        });
+      }
     }
   }
 
@@ -126,6 +154,20 @@ for (const baseDir of [
     fs.writeFileSync(
       path.resolve(baseDir, "bundler.d.ts"),
       `export * from "./tiktoken";`.trim(),
+      { encoding: "utf-8" }
+    );
+
+    fs.writeFileSync(
+      path.resolve(baseDir, "tiktoken_bg.d.ts"),
+      `export * from "./tiktoken";`.trim(),
+      { encoding: "utf-8" }
+    );
+  }
+
+  if (!baseDir.includes("/lite")) {
+    fs.writeFileSync(
+      path.resolve(baseDir, "lite.d.ts"),
+      `export * from "./lite/tiktoken";`.trim(),
       { encoding: "utf-8" }
     );
   }
@@ -143,12 +185,12 @@ for (const baseDir of [
   delete pkg.scripts;
   pkg.files = ["**/*"];
 
-  pkg["main"] = "tiktoken.node.js";
+  pkg["main"] = "tiktoken.cjs";
   pkg["types"] = "tiktoken.d.ts";
   pkg["exports"] = {
     ".": {
       types: "./tiktoken.d.ts",
-      node: "./tiktoken.node.js",
+      node: "./tiktoken.cjs",
       default: "./tiktoken.js",
     },
     "./bundler": {
@@ -159,13 +201,18 @@ for (const baseDir of [
       types: "./init.d.ts",
       default: "./init.js",
     },
+    "./load": {
+      types: "./load.d.ts",
+      node: "./load.cjs",
+      default: "./load.js",
+    },
     "./tiktoken_bg.wasm": {
       types: "./tiktoken_bg.wasm.d.ts",
       default: "./tiktoken_bg.wasm",
     },
     "./lite": {
       types: "./lite/tiktoken.d.ts",
-      node: "./lite/tiktoken.node.js",
+      node: "./lite/tiktoken.cjs",
       default: "./lite/tiktoken.js",
     },
     "./lite/bundler": {
@@ -175,6 +222,11 @@ for (const baseDir of [
     "./lite/init": {
       types: "./lite/init.d.ts",
       default: "./lite/init.js",
+    },
+    "./lite/load": {
+      types: "./lite/load.d.ts",
+      node: "./lite/load.cjs",
+      default: "./lite/load.js",
     },
     "./lite/tiktoken_bg.wasm": {
       types: "./lite/tiktoken_bg.wasm.d.ts",
