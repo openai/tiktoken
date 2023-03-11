@@ -79,21 +79,7 @@ export default defineConfig({
 
 ### [Next.js](#nextjs)
 
-Both API routes and `/pages` are supported with the following configuration. To overcome issues with importing Node.js version, you can import the package from `@dqbd/tiktoken/bundler` instead.
-
-```typescript
-import { get_encoding } from "@dqbd/tiktoken/bundler";
-import { NextApiRequest, NextApiResponse } from "next";
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const encoder = get_encoding("gpt2");
-  const message = encoder.encode(`Hello World ${Math.random()}`);
-  encoder.free();
-  return res.status(200).json({ message });
-}
-```
-
-Additional Webpack configuration is required.
+Both API routes and `/pages` are supported with the following `next.config.js` configuration.
 
 ```typescript
 const config = {
@@ -106,6 +92,20 @@ const config = {
     return config;
   },
 };
+```
+
+Here is an example usage in API routes:
+
+```typescript
+import { get_encoding } from "@dqbd/tiktoken";
+import { NextApiRequest, NextApiResponse } from "next";
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  const encoder = get_encoding("gpt2");
+  const message = encoder.encode(`Hello World ${Math.random()}`);
+  encoder.free();
+  return res.status(200).json({ message });
+}
 ```
 
 ### [Vercel Edge Runtime](#vercel-edge-runtime)
@@ -161,4 +161,3 @@ export default {
 ## Acknowledgements
 
 - https://github.com/zurawiki/tiktoken-rs
-

@@ -179,20 +179,8 @@ for (const baseDir of [
     }
   }
 
-  // bundler.js
+  // tiktoken_bg.d.ts
   {
-    fs.writeFileSync(
-      path.resolve(baseDir, "bundler.js"),
-      `export * from "./tiktoken";`.trim(),
-      { encoding: "utf-8" }
-    );
-
-    fs.writeFileSync(
-      path.resolve(baseDir, "bundler.d.ts"),
-      `export * from "./tiktoken";`.trim(),
-      { encoding: "utf-8" }
-    );
-
     fs.writeFileSync(
       path.resolve(baseDir, "tiktoken_bg.d.ts"),
       `export * from "./tiktoken";`.trim(),
@@ -229,10 +217,6 @@ for (const baseDir of [
       node: "./tiktoken.cjs",
       default: "./tiktoken.js",
     },
-    "./bundler": {
-      types: "./bundler.d.ts",
-      default: "./bundler.js",
-    },
     "./init": {
       types: "./init.d.ts",
       node: "./init.cjs",
@@ -251,10 +235,6 @@ for (const baseDir of [
       types: "./lite/tiktoken.d.ts",
       node: "./lite/tiktoken.cjs",
       default: "./lite/tiktoken.js",
-    },
-    "./lite/bundler": {
-      types: "./lite/bundler.d.ts",
-      default: "./lite/bundler.js",
     },
     "./lite/init": {
       types: "./lite/init.d.ts",
