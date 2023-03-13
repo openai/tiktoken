@@ -2,6 +2,12 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.3.1]
+- Build aarch64 wheels
+- Make `blobfile` an optional dependency
+
+Thank you to @messense for the environment variable that makes cargo not OOM under emulation!
+
 ## [v0.3.0]
 - Improve performance by 5-20%; thank you to @nistath!
 - Add `gpt-3.5-turbo` models to `encoding_for_model`
@@ -13,6 +19,8 @@ This is the changelog for the open source version of tiktoken.
 ## [v0.2.0]
 - Add ``tiktoken.encoding_for_model`` to get the encoding for a specific model
 - Improve portability of caching logic
+
+Thank you to @fritzo, @arvid220u, @khanhvu207, @henriktorget for various small corrections
 
 ## [v0.1.2]
 - Avoid use of `blobfile` for public files

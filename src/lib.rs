@@ -21,32 +21,23 @@ fn _byte_pair_merge<T>(
     // The rank of the last item in the vector is not a valid value.
     let mut parts: Vec<(usize, usize)> = (0..piece.len() + 1).map(|i| (i, usize::MAX)).collect();
 
-    // NOTE: using a macro here because a closure fails to get inlined
-    // according to optimization remarks.
-    // A closure also cannot capture a reference to `piece` without
-    // the borrow checker complaining about the mutable borrows during
-    // the assignments later in this code.
-    macro_rules! get_rank {
-        ($start_idx:expr, $skip:expr) => {{
-            let start_idx: usize = $start_idx;
-            let skip: usize = $skip;
+    let get_rank = {
+        #[inline(always)]
+        |parts: &Vec<(usize, usize)>, start_idx: usize, skip: usize| {
             if (start_idx + skip + 2) < parts.len() {
                 ranks
                     .get(&piece[parts[start_idx].0..parts[start_idx + skip + 2].0])
-                    .map(|r| *r)
+                    .copied()
             } else {
                 None
             }
-        }};
-        ($idx:expr) => {{
-            get_rank!($idx, 0)
-        }};
-    }
+        }
+    };
 
     // We look up the ranks once in the beggining and iteratively update
     // them during each merge, which reduces the number of rank lookups.
     for i in 0..parts.len() - 2 {
-        match get_rank!(i) {
+        match get_rank(&parts, i, 0) {
             Some(rank) => {
                 // usize::MAX is a sentinel value and cannot be a valid rank
                 debug_assert!(rank != usize::MAX);
@@ -89,9 +80,9 @@ fn _byte_pair_merge<T>(
             // parts[i] and parts[i-1] before removing, which could thrash
             // the cache. Thus, we update the rank calculation by skipping over
             // parts[i + 1], by invoking `get_rank!` with `skip = 1`.
-            parts[i].1 = get_rank!(i, 1).unwrap_or(usize::MAX);
+            parts[i].1 = get_rank(&parts, i, 1).unwrap_or(usize::MAX);
             if i > 0 {
-                parts[i - 1].1 = get_rank!(i - 1, 1).unwrap_or(usize::MAX);
+                parts[i - 1].1 = get_rank(&parts, i - 1, 1).unwrap_or(usize::MAX);
             }
 
             parts.remove(i + 1);
