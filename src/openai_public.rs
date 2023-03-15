@@ -18,6 +18,7 @@ const FIM_MIDDLE: &str = "<|fim_middle|>";
 const FIM_SUFFIX: &str = "<|fim_suffix|>";
 const ENDOFPROMPT: &str = "<|endofprompt|>";
 
+#[derive(Clone, Debug, Copy)]
 pub struct EncodingFactory {}
 impl EncodingFactory {
     pub fn gpt2() -> Result<Encoding, EncodingFactoryError> {

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 /// A struct that represents an encoding scheme based on byte-pair encoding (BPE).
+#[derive(Debug)]
 pub struct Encoding {
     /// The name of the encoding.
     pub name: String,
@@ -28,6 +29,7 @@ pub enum EncodingError {
     GenericEncodingError(String),
 }
 
+#[derive(Debug, Clone)]
 pub enum SpecialTokenAction {
     /// The special token is forbidden. If it is included in the string, an error will be returned.
     Forbidden,
@@ -36,6 +38,8 @@ pub enum SpecialTokenAction {
     /// The special token is treated as the special token it is. If this is applied to a specific text and the text is NOT a special token then an error will be returned. If it is the default action no error will be returned, don't worry.
     Special,
 }
+
+#[derive(Debug, Clone)]
 pub struct SpecialTokenHandling {
     pub default: SpecialTokenAction,
     pub overrides: Vec<(String, SpecialTokenAction)>,
