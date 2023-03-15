@@ -36,7 +36,22 @@ const enc = encoding_for_model("gpt2", {
 enc.free();
 ```
 
-In constrained environments (eg. Edge Runtime, Cloudflare Workers), where you don't want to load all the encoders at once, you can use the lightweight WASM binary via `@dqbd/tiktoken/lite` and load the appropriate encoder data from registry manually.
+In constrained environments (eg. Edge Runtime, Cloudflare Workers), where you don't want to load all the encoders at once, you can use the lightweight WASM binary via `@dqbd/tiktoken/lite`.
+
+```typescript
+const { Tiktoken } = require("@dqbd/tiktoken/lite");
+const cl100k_base = require("@dqbd/tiktoken/encoders/cl100k_base.json");
+
+const encoding = new Tiktoken(
+  cl100k_base.bpe_ranks,
+  cl100k_base.special_tokens,
+  cl100k_base.pat_str
+);
+const tokens = encoding.encode("hello world");
+encoding.free();
+```
+
+If you want to fetch the latest ranks, use the `load` function:
 
 ```typescript
 const { Tiktoken } = require("@dqbd/tiktoken/lite");
@@ -98,7 +113,7 @@ As this is a WASM library, there might be some issues with specific runtimes. If
 | Bun                 | ✅     |                                             |
 | Vite                | ✅     | See [here](#vite) for notes                 |
 | Next.js             | ✅     | See [here](#nextjs) for notes               |
-| Vercel Edge Runtime | ✅     | See [here](#vercel-edge-runtime) for notes  |
+| Vercel Edge Runtime | 🚧     | See [here](#vercel-edge-runtime) for notes  |
 | Cloudflare Workers  | 🚧     | See [here](#cloudflare-workers) for caveats |
 | Deno                | ❌     | Currently unsupported                       |
 
@@ -178,27 +193,33 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 Vercel Edge Runtime does support WASM modules by adding a `?module` suffix. Initialize the encoder with the following snippet:
 
 ```typescript
-import wasm from "@dqbd/tiktoken/tiktoken_bg.wasm?module";
-import { init, get_encoding } from "@dqbd/tiktoken/init";
+// @ts-expect-error
+import wasm from "@dqbd/tiktoken/lite/tiktoken_bg.wasm?module";
+import model from "@dqbd/tiktoken/encoders/cl100k_base.json";
+import { init, Tiktoken } from "@dqbd/tiktoken/lite/init";
 
 export const config = { runtime: "edge" };
 
 export default async function (req: Request) {
   await init((imports) => WebAssembly.instantiate(wasm, imports));
 
-  const encoder = get_encoding("cl100k_base");
-  const tokens = encoder.encode("hello world");
-  encoder.free();
+  const encoding = new Tiktoken(
+    model.bpe_ranks,
+    model.special_tokens,
+    model.pat_str
+  );
 
-  return new Response(`${encoder.encode("hello world")}`);
+  const tokens = encoding.encode("hello world");
+  encoding.free();
+
+  return new Response(`${tokens}`);
 }
+
 ```
 
 ### [Cloudflare Workers](#cloudflare-workers)
 
-> Currently work in progress, investigating crashes and workarounds to compress ranks.
-
-Similar to Vercel Edge Runtime, Cloudflare Workers must import the WASM binary file manually. However, users need to point directly at the WASM binary, including `node_modules` prefix in some cases.
+Similar to Vercel Edge Runtime, Cloudflare Workers must import the WASM binary file manually and use the `@dqbd/tiktoken/lite` version to fit the 1 MB limit. However, users need to point directly at the WASM binary via a relative path (including `./node_modules/`).
 
 Add the following rule to the `wrangler.toml` to upload WASM during build:
 
@@ -211,14 +232,19 @@ type = "CompiledWasm"
 Initialize the encoder with the following snippet:
 
 ```javascript
-import wasm from "./node_modules/@dqbd/tiktoken/tiktoken_bg.wasm";
-import { get_encoding, init } from "@dqbd/tiktoken/init";
+import { init, Tiktoken } from "@dqbd/tiktoken/lite/init";
+import wasm from "./node_modules/@dqbd/tiktoken/lite/tiktoken_bg.wasm";
+import model from "@dqbd/tiktoken/encoders/cl100k_base.json";
 
 export default {
   async fetch() {
     await init((imports) => WebAssembly.instantiate(wasm, imports));
-    const encoder = get_encoder("cl100k_base");
-    const tokens = encoder.encode("hello world");
+    const encoder = new Tiktoken(
+      model.bpe_ranks,
+      model.special_tokens,
+      model.pat_str
+    );
+    const tokens = encoder.encode("test");
     encoder.free();
     return new Response(`${tokens}`);
   },
