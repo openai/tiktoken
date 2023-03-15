@@ -254,11 +254,24 @@ for (const baseDir of [
     "./registry.json": "./registry.json",
   };
 
-  fs.writeFileSync(
-    path.resolve(__dirname, "../dist/package.json"),
-    JSON.stringify(pkg, null, 2),
-    { encoding: "utf-8" }
+  const registry = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, "../../tiktoken/registry.json"), {
+      encoding: "utf-8",
+    })
   );
+
+  fs.mkdirSync(path.resolve(__dirname, "../dist/encoders"), {
+    recursive: true,
+  });
+
+  for (const key in registry) {
+    fs.copyFileSync(
+      path.resolve(__dirname, `../ranks/${key}.json`),
+      path.resolve(__dirname, `../dist/encoders/${key}.json`)
+    );
+
+    pkg["exports"][`./encoders/${key}.json`] = `./encoders/${key}.json`;
+  }
 
   fs.copyFileSync(
     path.resolve(__dirname, "../README.md"),
@@ -273,5 +286,11 @@ for (const baseDir of [
   fs.copyFileSync(
     path.resolve(__dirname, "../../tiktoken/registry.json"),
     path.resolve(__dirname, "../dist/registry.json")
+  );
+
+  fs.writeFileSync(
+    path.resolve(__dirname, "../dist/package.json"),
+    JSON.stringify(pkg, null, 2),
+    { encoding: "utf-8" }
   );
 }

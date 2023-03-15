@@ -17,15 +17,22 @@ async function main() {
     console.log(name);
     const data = registry[name];
 
-    const targetFile = path.resolve(__dirname, `../ranks/${name}.tiktoken`);
+    const tiktokenFile = path.resolve(__dirname, `../ranks/${name}.tiktoken`);
+    const jsonFile = path.resolve(__dirname, `../ranks/${name}.json`);
 
     try {
-      await fs.stat(targetFile);
+      await Promise.all([fs.stat(tiktokenFile), fs.stat(jsonFile)]);
       continue;
     } catch {}
 
     const result = await load(data);
-    await fs.writeFile(targetFile, result.bpe_ranks, { encoding: "utf-8" });
+
+    await Promise.all([
+      fs.writeFile(tiktokenFile, result.bpe_ranks, { encoding: "utf-8" }),
+      fs.writeFile(jsonFile, JSON.stringify(result), {
+        encoding: "utf-8",
+      }),
+    ]);
   }
 }
 
