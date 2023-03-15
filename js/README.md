@@ -11,7 +11,7 @@ npm install @dqbd/tiktoken
 
 ## Usage
 
-Basic usage follows:
+Basic usage follows, which includes all the OpenAI encoders and ranks:
 
 ```typescript
 import assert from "node:assert";
@@ -36,6 +36,28 @@ const enc = encoding_for_model("gpt2", {
 enc.free();
 ```
 
+In constrained environments (eg. Edge Runtime, Cloudflare Workers), where you don't want to load all the encoders at once, you can use the lightweight WASM binary via `@dqbd/tiktoken/lite` and load the appropriate encoder data from registry manually.
+
+```typescript
+const { Tiktoken } = require("@dqbd/tiktoken/lite");
+const { load } = require("@dqbd/tiktoken/load");
+const registry = require("@dqbd/tiktoken/registry.json");
+const models = require("@dqbd/tiktoken/model_to_encoding.json");
+
+async function main() {
+  const model = await load(registry[models["gpt-3.5-turbo"]]);
+  const encoder = new Tiktoken(
+    model.bpe_ranks,
+    model.special_tokens,
+    model.pat_str
+  );
+  const tokens = encoding.encode("hello world");
+  encoder.free();
+}
+
+main();
+```
+
 If desired, you can create a Tiktoken instance directly with custom ranks, special tokens and regex pattern:
 
 ```typescript
@@ -49,23 +71,18 @@ const encoder = new Tiktoken(
 );
 ```
 
-For more constrained runtimes (eg. Edge Runtime), use the `@dqbd/tiktoken/lite` module, which does not inline the ranks into the WASM binary, reducing the binary size from 1.8 MB gzipped down to ~270 kB gzipped.
+Finally, you can a custom `init` function to override the WASM initialization logic for non-Node environments. This is useful if you are using a bundler that does not support WASM ESM integration.
 
 ```typescript
-const { Tiktoken } = require("@dqbd/tiktoken/lite");
-const { load } = require("@dqbd/tiktoken/load");
-const registry = require("@dqbd/tiktoken/registry.json");
-const models = require("@dqbd/tiktoken/model_to_encoding.json");
+import { get_encoding, init } from "@dqbd/tiktoken/init";
 
 async function main() {
-  const model = await load(registry[models["gpt2"]]);
-  const encoder = new Tiktoken(
-    model.bpe_ranks,
-    model.special_tokens,
-    model.pat_str
-  );
+  const wasm = "..."; // fetch the WASM binary somehow
+  await init((imports) => WebAssembly.instantiate(wasm, imports));
+
+  const encoding = get_encoding("cl100k_base");
   const tokens = encoding.encode("hello world");
-  encoder.free();
+  encoding.free();
 }
 
 main();
