@@ -136,7 +136,7 @@ impl Tiktoken {
 
         let constructor = CoreBPEConstructor::new(
             tiktoken_bfe,
-            Some(HashMap::default()),
+            special_tokens.into_serde::<HashMap<String, usize>>().ok(),
             pat_str,
         );
 

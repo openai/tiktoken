@@ -49,6 +49,28 @@ const encoder = new Tiktoken(
 );
 ```
 
+For more constrained runtimes (eg. Edge Runtime), use the `@dqbd/tiktoken/lite` module, which does not inline the ranks into the WASM binary, reducing the binary size from 1.8 MB gzipped down to ~270 kB gzipped.
+
+```typescript
+const { Tiktoken } = require("@dqbd/tiktoken/lite");
+const { load } = require("@dqbd/tiktoken/load");
+const registry = require("@dqbd/tiktoken/registry.json");
+const models = require("@dqbd/tiktoken/model_to_encoding.json");
+
+async function main() {
+  const model = await load(registry[models["gpt2"]]);
+  const encoder = new Tiktoken(
+    model.bpe_ranks,
+    model.special_tokens,
+    model.pat_str
+  );
+  const tokens = encoding.encode("hello world");
+  encoder.free();
+}
+
+main();
+```
+
 ## Compatibility
 
 As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
