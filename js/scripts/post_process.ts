@@ -250,6 +250,8 @@ for (const baseDir of [
       types: "./lite/tiktoken_bg.wasm.d.ts",
       default: "./lite/tiktoken_bg.wasm",
     },
+    "./model_to_encoding.json": "./model_to_encoding.json",
+    "./registry.json": "./registry.json",
   };
 
   fs.writeFileSync(
@@ -261,5 +263,15 @@ for (const baseDir of [
   fs.copyFileSync(
     path.resolve(__dirname, "../README.md"),
     path.resolve(__dirname, "../dist/README.md")
+  );
+
+  fs.copyFileSync(
+    path.resolve(__dirname, "../../tiktoken/model_to_encoding.json"),
+    path.resolve(__dirname, "../dist/model_to_encoding.json")
+  );
+
+  fs.copyFileSync(
+    path.resolve(__dirname, "../../tiktoken/registry.json"),
+    path.resolve(__dirname, "../dist/registry.json")
   );
 }

@@ -82,6 +82,7 @@ export default defineConfig({
 Both API routes and `/pages` are supported with the following `next.config.js` configuration.
 
 ```typescript
+// next.config.json
 const config = {
   webpack(config, { isServer, dev }) {
     config.experiments = {
@@ -94,17 +95,42 @@ const config = {
 };
 ```
 
-Here is an example usage in API routes:
+Usage in pages:
+
+```tsx
+import { get_encoding } from "@dqbd/tiktoken";
+import { useState } from "react";
+
+const encoding = get_encoding("cl100k_base");
+
+export default function Home() {
+  const [input, setInput] = useState("hello world");
+  const tokens = encoding.encode(input);
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+      />
+      <div>{tokens.toString()}</div>
+    </div>
+  );
+}
+```
+
+Usage in API routes:
 
 ```typescript
 import { get_encoding } from "@dqbd/tiktoken";
 import { NextApiRequest, NextApiResponse } from "next";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const encoder = get_encoding("gpt2");
-  const message = encoder.encode(`Hello World ${Math.random()}`);
-  encoder.free();
-  return res.status(200).json({ message });
+  const encoding = get_encoding("cl100k_base");
+  const tokens = encoding.encode("hello world");
+  encoding.free();
+  return res.status(200).json({ tokens });
 }
 ```
 
