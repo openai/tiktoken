@@ -44,11 +44,24 @@ impl CoreBPEConstructor {
 
     fn parse_bfe(tiktoken_bfe: &str) -> Result<HashMap<Vec<u8>, usize>, Error> {
         let mut encoder = HashMap::default();
-        for line in tiktoken_bfe.lines() {
-            let mut parts = line.split(' ');
-            let token = &general_purpose::STANDARD.decode(parts.next().unwrap())?;
-            let rank: usize = parts.next().unwrap().parse().unwrap();
-            encoder.insert(token.clone(), rank);
+        if tiktoken_bfe.chars().next().unwrap() == '!' {
+            for line in tiktoken_bfe.lines() {
+                let mut parts = line.split(' ');
+                parts.next().unwrap();
+
+                let offset: i32 = parts.next().unwrap().parse()?;
+                for (pos, token) in parts.enumerate() {
+                    let token = &general_purpose::STANDARD.decode(token)?;
+                    encoder.insert(token.clone(), (offset as usize) + pos);
+                }
+            }
+        } else {
+            for line in tiktoken_bfe.lines() {
+                let mut parts = line.split(' ');
+                let token = &general_purpose::STANDARD.decode(parts.next().unwrap())?;
+                let rank: usize = parts.next().unwrap().parse().unwrap();
+                encoder.insert(token.clone(), rank);
+            }
         }
 
         Ok(encoder)
@@ -133,7 +146,6 @@ pub struct Tiktoken {
 impl Tiktoken {
     #[wasm_bindgen(constructor)]
     pub fn new(tiktoken_bfe: &str, special_tokens: JsValue, pat_str: &str) -> Self {
-
         let constructor = CoreBPEConstructor::new(
             tiktoken_bfe,
             special_tokens.into_serde::<HashMap<String, usize>>().ok(),

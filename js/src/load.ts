@@ -205,7 +205,7 @@ export async function load(
         };
       }
   ) & {
-    explicit_n_vocab: number;
+    explicit_n_vocab?: number;
     pat_str: string;
     special_tokens: Record<string, number>;
   },
