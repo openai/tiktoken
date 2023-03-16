@@ -107,15 +107,15 @@ main();
 
 As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
 
-| Runtime             | Status | Notes                                       |
-| ------------------- | ------ | ------------------------------------------- |
-| Node.js             | ✅     |                                             |
-| Bun                 | ✅     |                                             |
-| Vite                | ✅     | See [here](#vite) for notes                 |
-| Next.js             | ✅     | See [here](#nextjs) for notes               |
-| Vercel Edge Runtime | 🚧     | See [here](#vercel-edge-runtime) for notes  |
-| Cloudflare Workers  | 🚧     | See [here](#cloudflare-workers) for caveats |
-| Deno                | ❌     | Currently unsupported                       |
+| Runtime             | Status | Notes                                      |
+| ------------------- | ------ | ------------------------------------------ |
+| Node.js             | ✅     |                                            |
+| Bun                 | ✅     |                                            |
+| Vite                | ✅     | See [here](#vite) for notes                |
+| Next.js             | ✅     | See [here](#nextjs) for notes              |
+| Vercel Edge Runtime | ✅     | See [here](#vercel-edge-runtime) for notes |
+| Cloudflare Workers  | ✅     | See [here](#cloudflare-workers) for notes  |
+| Deno                | ❌     | Currently unsupported                      |
 
 ### [Vite](#vite)
 
@@ -214,7 +214,6 @@ export default async function (req: Request) {
 
   return new Response(`${tokens}`);
 }
-
 ```
 
 ### [Cloudflare Workers](#cloudflare-workers)
