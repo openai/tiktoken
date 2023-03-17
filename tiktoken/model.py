@@ -6,11 +6,13 @@ from .registry import get_encoding
 # TODO: these will likely be replaced by an API endpoint
 MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     # chat
-    "gpt-3.5-turbo-": "cl100k_base"  # e.g, gpt-3.5-turbo-0301, -0401, etc.
+    "gpt-4-": "cl100k_base",  # e.g., gpt-4-0314, etc., plus gpt-4-32k
+    "gpt-3.5-turbo-": "cl100k_base",  # e.g, gpt-3.5-turbo-0301, -0401, etc.
 }
 
 MODEL_TO_ENCODING: dict[str, str] = {
     # chat
+    "gpt-4": "cl100k_base",
     "gpt-3.5-turbo": "cl100k_base",
     # text
     "text-davinci-003": "p50k_base",

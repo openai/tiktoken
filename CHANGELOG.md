@@ -2,6 +2,9 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.3.2]
+- Add encoding for GPT-4
+
 ## [v0.3.1]
 - Build aarch64 wheels
 - Make `blobfile` an optional dependency

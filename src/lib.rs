@@ -34,7 +34,7 @@ fn _byte_pair_merge<T>(
         }
     };
 
-    // We look up the ranks once in the beggining and iteratively update
+    // We look up the ranks once in the beginning and iteratively update
     // them during each merge, which reduces the number of rank lookups.
     for i in 0..parts.len() - 2 {
         match get_rank(&parts, i, 0) {
