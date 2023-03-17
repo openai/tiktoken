@@ -5,11 +5,11 @@ OpenAI's models.
 
 ```python
 import tiktoken
-enc = tiktoken.get_encoding("gpt2")
+enc = tiktoken.get_encoding("cl100k_base")
 assert enc.decode(enc.encode("hello world")) == "hello world"
 
 # To get the tokeniser corresponding to a specific model in the OpenAI API:
-enc = tiktoken.encoding_for_model("text-davinci-003")
+enc = tiktoken.encoding_for_model("gpt-4")
 ```
 
 The open source version of `tiktoken` can be installed from PyPI:
@@ -27,7 +27,7 @@ Example code using `tiktoken` can be found in the
 
 `tiktoken` is between 3-6x faster than a comparable open source tokeniser:
 
-![image](./perf.svg)
+![image](https://raw.githubusercontent.com/openai/tiktoken/main/perf.svg)
 
 Performance measured on 1GB of text using the GPT-2 tokeniser, using `GPT2TokenizerFast` from
 `tokenizers==0.13.2`, `transformers==4.24.0` and `tiktoken==0.2.0`.
