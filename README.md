@@ -27,7 +27,7 @@ Example code using `tiktoken` can be found in the
 
 `tiktoken` is between 3-6x faster than a comparable open source tokeniser:
 
-![image](./perf.svg)
+![image](https://raw.githubusercontent.com/openai/tiktoken/main/perf.svg)
 
 Performance measured on 1GB of text using the GPT-2 tokeniser, using `GPT2TokenizerFast` from
 `tokenizers==0.13.2`, `transformers==4.24.0` and `tiktoken==0.2.0`.
