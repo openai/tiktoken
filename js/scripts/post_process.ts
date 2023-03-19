@@ -1,4 +1,12 @@
-import { Project, ScriptTarget, StructureKind, ts } from "ts-morph";
+import {
+  ConstructorDeclaration,
+  FunctionDeclaration,
+  MethodDeclaration,
+  Project,
+  ScriptTarget,
+  StructureKind,
+  ts,
+} from "ts-morph";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -49,6 +57,50 @@ for (const baseDir of [
           )
       )
       .map((i) => i.getName());
+
+    sourceFile.saveSync();
+  }
+
+  // tiktoken_bg.js
+  {
+    const sourceFile = new Project().addSourceFileAtPath(
+      path.resolve(baseDir, "tiktoken_bg.js")
+    );
+
+    function prependWasmCheck(
+      call: FunctionDeclaration | MethodDeclaration | ConstructorDeclaration
+    ) {
+      if (
+        call instanceof FunctionDeclaration &&
+        call.getName() === "__wbg_set_wasm"
+      ) {
+        return;
+      }
+
+      const statements = call
+        .getDescendantsOfKind(ts.SyntaxKind.Identifier)
+        .filter((i) => i.getText() === "wasm");
+
+      if (statements.length > 0) {
+        call.insertStatements(
+          0,
+          `if (wasm == null) throw new Error("@dqbd/tiktoken: WASM binary has not been propery initialized.");`
+        );
+      }
+    }
+
+    for (const cls of sourceFile.getClasses().filter((i) => i.isExported())) {
+      for (const method of cls.getMethods()) {
+        prependWasmCheck(method);
+      }
+
+      for (const constructor of cls.getConstructors()) {
+        prependWasmCheck(constructor);
+      }
+    }
+    for (const fn of sourceFile.getFunctions().filter((i) => i.isExported())) {
+      prependWasmCheck(fn);
+    }
 
     sourceFile.saveSync();
   }

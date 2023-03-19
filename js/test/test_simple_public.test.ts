@@ -135,3 +135,5 @@ it("invalid (dis)allowed_tokens", () => {
     "Invalid value for disallowed_special"
   );
 });
+
+it("invalid");
