@@ -107,15 +107,16 @@ main();
 
 As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
 
-| Runtime             | Status | Notes                                      |
-| ------------------- | ------ | ------------------------------------------ |
-| Node.js             | ✅     |                                            |
-| Bun                 | ✅     |                                            |
-| Vite                | ✅     | See [here](#vite) for notes                |
-| Next.js             | ✅     | See [here](#nextjs) for notes              |
-| Vercel Edge Runtime | ✅     | See [here](#vercel-edge-runtime) for notes |
-| Cloudflare Workers  | ✅     | See [here](#cloudflare-workers) for notes  |
-| Deno                | ❌     | Currently unsupported                      |
+| Runtime                      | Status | Notes                                      |
+| ---------------------------- | ------ | ------------------------------------------ |
+| Node.js                      | ✅     |                                            |
+| Bun                          | ✅     |                                            |
+| Vite                         | ✅     | See [here](#vite) for notes                |
+| Next.js                      | ✅     | See [here](#nextjs) for notes              |
+| Create React App (via Craco) | ✅     | See [here](#create-react-app) for notes    |
+| Vercel Edge Runtime          | ✅     | See [here](#vercel-edge-runtime) for notes |
+| Cloudflare Workers           | ✅     | See [here](#cloudflare-workers) for notes  |
+| Deno                         | ❌     | Currently unsupported                      |
 
 ### [Vite](#vite)
 
@@ -186,6 +187,35 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   encoding.free();
   return res.status(200).json({ tokens });
 }
+```
+
+### [Create React App](#create-react-app)
+
+By default, the Webpack configugration found in Create React App does not support WASM ESM modules. To add support, please do the following:
+
+1. Swap `react-scripts` with `craco`, using the guide found here: https://craco.js.org/docs/getting-started/.
+2. Add the following to `craco.config.js`:
+
+```js
+module.exports = {
+  webpack: {
+    configure: (config) => {
+      config.experiments = {
+        asyncWebAssembly: true,
+        layers: true,
+      };
+
+      // turn off static file serving of WASM files
+      // we need to let Webpack handle WASM import
+      config.module.rules
+        .find((i) => "oneOf" in i)
+        .oneOf.find((i) => i.type === "asset/resource")
+        .exclude.push(/\.wasm$/);
+
+      return config;
+    },
+  },
+};
 ```
 
 ### [Vercel Edge Runtime](#vercel-edge-runtime)
