@@ -1,0 +1,24 @@
+PATH
+  remote: .
+  specs:
+    tiktoken (0.1.0)
+      rb_sys
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rake (13.0.6)
+    rake-compiler (1.2.1)
+      rake
+    rb_sys (0.9.68)
+
+PLATFORMS
+  arm64-darwin-21
+
+DEPENDENCIES
+  rake
+  rake-compiler
+  tiktoken!
+
+BUNDLED WITH
+   2.4.6

@@ -1,0 +1,23 @@
+[package]
+name = "tiktoken"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.57.0"
+
+[lib]
+name = "tiktoken"
+crate-type = ["cdylib"]
+
+[dependencies]
+tiktoken_core = { path = "../../../core", features = ["multithreading"] }
+rustc-hash = "1.1.0"
+magnus = "0.5.1"
+serde_magnus = "0.2.1"
+fancy-regex = "0.10.0"
+regex = "1.7.0"
+base64 = "0.21.0"
+anyhow = "1.0.69"
+
+
+[build-dependencies]
+json = "0.12.4"

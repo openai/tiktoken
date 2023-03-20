@@ -2,9 +2,10 @@
 
 members = [
     "core",
-    "python",
-    "js",
     "jni",
+    "js",
+    "python",
+    "ruby",
 ]
 
 [profile.release]

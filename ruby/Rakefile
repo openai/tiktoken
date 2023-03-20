@@ -1,0 +1,37 @@
+require "bundler/gem_tasks"
+require "rake/extensiontask"
+
+platforms = [
+  "x86_64-linux",
+  "x86_64-linux-musl",
+  "aarch64-linux",
+  "x86_64-darwin",
+  "arm64-darwin",
+  "x64-mingw-ucrt",
+  "x64-mingw32"
+]
+
+gemspec = Bundler.load_gemspec("tiktoken.gemspec")
+Rake::ExtensionTask.new("tiktoken", gemspec) do |ext|
+  ext.lib_dir = "lib/tiktoken"
+  ext.cross_compile = true
+  ext.cross_platform = platforms
+  ext.cross_compiling do |spec|
+    spec.dependencies.reject! { |dep| dep.name == "rb_sys" }
+    spec.files.reject! { |file| File.fnmatch?("ext/*", file, File::FNM_EXTGLOB) }
+  end
+end
+
+task :rank do
+  Dir.chdir('../js') do
+    system("npx tsx scripts/inline_ranks.ts")
+    system("mv ranks ../ruby")
+  end
+end
+
+task :remove_ext do
+  path = "lib/tiktoken/tiktoken.bundle"
+  File.unlink(path) if File.exist?(path)
+end
+
+Rake::Task["build"].enhance [:remove_ext]
