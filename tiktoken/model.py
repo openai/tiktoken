@@ -14,6 +14,7 @@ MODEL_TO_ENCODING: dict[str, str] = {
     # chat
     "gpt-4": "cl100k_base",
     "gpt-3.5-turbo": "cl100k_base",
+    "gpt-35-turbo": "cl100k_base", # making it compatible with Azure's naming restrictions
     # text
     "text-davinci-003": "p50k_base",
     "text-davinci-002": "p50k_base",
