@@ -1,0 +1,107 @@
+name: Build ruby gem
+on: workflow_dispatch
+env:
+  CACHE_VERSION: "v0"
+  CARGO_CACHE_CLEAN: "true"
+  RUBY_VERSIONS: "3.2"
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x86_64-linux
+            target: x86_64-unknown-linux-gnu
+          - platform: x86_64-linux-musl
+            target: x86_64-unknown-linux-musl
+          - platform: aarch64-linux
+            target: aarch64-unknown-linux-gnu
+          - platform: x86_64-darwin
+            target: x86_64-apple-darwin
+            # Rust uses external command to strip symbols and debuginfo on Mac
+            # Do not do for arm64 since it interferes with code signing
+            # and codesign binary is not present to re-sign
+            setup: sudo ln -s /opt/osxcross/target/bin/x86_64-apple-darwin-strip /usr/local/bin/strip
+          - platform: arm64-darwin
+            target: aarch64-apple-darwin
+          # - platform: x64-mingw-ucrt
+          #   target: x86_64-pc-windows-gnu
+          # - platform: x64-mingw32
+          #   target: x86_64-pc-windows-gnu
+    runs-on: ubuntu-latest
+    name: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+      - name: generate rank
+        run: bundle install && bundle exec rake rank
+        working-directory: "ruby"
+
+      # Didn't use https://github.com/oxidize-rb/actions/tree/main/cross-gem due to weird directory structure, but this code is adapted from there.
+      - name: Configure environment
+        run: |
+          : Configure environment
+          echo "RB_SYS_DOCK_UID=$(id -u)" >> $GITHUB_ENV
+          echo "RB_SYS_DOCK_GID=$(id -g)" >> $GITHUB_ENV
+          rb_sys_dock_cache_dir="$HOME/.cache/rb-sys-dock"
+          mkdir -p "$rb_sys_dock_cache_dir"
+          echo "RB_SYS_DOCK_CACHE_DIR=$rb_sys_dock_cache_dir" >> $GITHUB_ENV
+      - name: Setup caching
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ env.RB_SYS_DOCK_CACHE_DIR }}
+            ${{ github.workspace }}/ruby/tmp/rb-sys-dock/${{ matrix.platform }}/target
+          key: rb-sys-dock-${{ env.CACHE_VERSION }}-${{ matrix.platform }}-${{ hashFiles('**/Gemfile.lock', '**/Cargo.lock') }}
+          restore-keys: |
+            rb-sys-dock-${{ env.CACHE_VERSION }}-${{ matrix.platform }}-
+      - name: Install cargo-cache
+        uses: oxidize-rb/actions/cargo-binstall@v1
+        id: install-cargo-cache
+        if: env.CARGO_CACHE_CLEAN == 'true'
+        with:
+          crate: cargo-cache
+          version: 0.8.3
+          strategies: quick-install
+
+      - name: Clean the cargo cache
+        if: env.CARGO_CACHE_CLEAN == 'true'
+        uses: oxidize-rb/actions/post-run@v1
+        with:
+          run: cargo-cache --autoclean
+          cwd: ${{ github.workspace }}
+
+      #- name: Start SSH session
+      #  uses: luchihoratiu/debug-via-ssh@main
+      #  with:
+      #    NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+      #    SSH_PASS: ${{ secrets.SSH_PASS }}
+
+      - name: Build gem
+        env:
+          INPUT_RUBY_VERSIONS: "${{ env.RUBY_VERSIONS }}"
+          INPUT_PLATFORM: "${{ matrix.platform }}"
+        run: |
+          : Compile gem
+          set -x
+          args=()
+          args+=("--platform")
+          args+=("$INPUT_PLATFORM")
+          if [ "$INPUT_RUBY_VERSIONS" != "default" ]; then
+            args+=("--ruby-versions")
+            args+=("$INPUT_RUBY_VERSIONS")
+          fi
+          BUNDLE_GEMFILE=ruby/Gemfile bundle exec rb-sys-dock "${args[@]}" --build -- "cd ruby && bundle install"
+
+      - name: Set outputs
+        id: set-outputs
+        run: |
+          : Set output
+          echo "gem-path=$(find ${{ github.workspace }}/ruby/pkg -name '*-${{ matrix.platform }}.gem')" >> $GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: cross-gem
+          path: ${{ steps.set-outputs.outputs.gem-path }}

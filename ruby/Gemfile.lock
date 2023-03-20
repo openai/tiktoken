@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     tiktoken (0.1.0)
-      rb_sys
+      rb_sys (~> 0.9)
 
 GEM
   remote: https://rubygems.org/
@@ -14,6 +14,7 @@ GEM
 
 PLATFORMS
   arm64-darwin-21
+  x86_64-linux
 
 DEPENDENCIES
   rake
