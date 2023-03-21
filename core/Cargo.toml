@@ -14,7 +14,7 @@ fancy-regex = "0.10.0"
 regex = "1.7.0"
 rustc-hash = "1.1.0"
 bstr = "1.0.1"
-reqwest = { version = "0.11.14", features = ["blocking"] }
+reqwest = { version = "0.11.14", features = ["rustls-tls", "blocking"], default-features = false }
 sha1 = "0.10.5"
 json = "0.12.4"
 base64 = "0.21.0"

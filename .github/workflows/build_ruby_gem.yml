@@ -93,7 +93,7 @@ jobs:
             args+=("--ruby-versions")
             args+=("$INPUT_RUBY_VERSIONS")
           fi
-          BUNDLE_GEMFILE=ruby/Gemfile bundle exec rb-sys-dock "${args[@]}" --build -- "cd ruby && bundle install"
+          BUNDLE_GEMFILE=ruby/Gemfile bundle exec rb-sys-dock "${args[@]}" --build -- "cd ruby && bundle install && export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc && env | grep CARGO"
 
       - name: Set outputs
         id: set-outputs
