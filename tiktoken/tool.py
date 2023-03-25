@@ -29,7 +29,7 @@ def parse_args() -> argparse.Namespace:
         choices=list_encoding_names(),
         metavar="ENCODING",
         default=DEFAULT_ENCODING,
-        help="encoding to use",
+        help="encoding to use (default: %(default)s)",
     )
     encoding_group.add_argument(
         "-m",
