@@ -17,6 +17,11 @@ The open source version of `tiktoken` can be installed from PyPI:
 pip install tiktoken
 ```
 
+`tiktoken` can also be used from the command line:
+```sh
+echo 'hello world' | python -m tiktoken.tool --encoding cl100k_base -
+```
+
 The tokeniser API is documented in `tiktoken/core.py`.
 
 Example code using `tiktoken` can be found in the
