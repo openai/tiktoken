@@ -101,16 +101,7 @@ class Encoding:
         [27, 91, 437, 1659, 5239, 91, 29]
         ```
         """
-        if allowed_special == "all":
-            allowed_special = self.special_tokens_set
-        if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
-        if disallowed_special:
-            if not isinstance(disallowed_special, frozenset):
-                disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
-
+        allowed_special = self._determine_allowed_special_tokens(text, allowed_special, disallowed_special)
         return self._core_bpe.encode(text, allowed_special)
 
     def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
@@ -144,13 +135,6 @@ class Encoding:
         [[31373, 995], [11274, 16390, 995]]
         ```
         """
-        if allowed_special == "all":
-            allowed_special = self.special_tokens_set
-        if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
-        if not isinstance(disallowed_special, frozenset):
-            disallowed_special = frozenset(disallowed_special)
-
         encoder = functools.partial(
             self.encode, allowed_special=allowed_special, disallowed_special=disallowed_special
         )
@@ -182,16 +166,7 @@ class Encoding:
         >>> assert all(enc.decode_bytes(stable_tokens + seq).startswith(text.encode()) for seq in completions)
         ```
         """
-        if allowed_special == "all":
-            allowed_special = self.special_tokens_set
-        if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
-        if disallowed_special:
-            if not isinstance(disallowed_special, frozenset):
-                disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
-
+        allowed_special = self._determine_allowed_special_tokens(text, allowed_special, disallowed_special)
         return self._core_bpe.encode_with_unstable(text, allowed_special)
 
     def encode_single_token(self, text_or_bytes: Union[str, bytes]) -> int:
@@ -285,6 +260,24 @@ class Encoding:
     # ====================
     # Private
     # ====================
+
+    def _determine_allowed_special_tokens(
+        self,
+        text: str,
+        allowed_special: Union[Literal["all"], AbstractSet[str]],
+        disallowed_special: Union[Literal["all"], Collection[str]],
+    ):
+        if allowed_special == "all":
+            allowed_special = self.special_tokens_set
+        if disallowed_special == "all":
+            disallowed_special = self.special_tokens_set - allowed_special
+        if disallowed_special:
+            if not isinstance(disallowed_special, frozenset):
+                disallowed_special = frozenset(disallowed_special)
+            if match := _special_token_regex(disallowed_special).search(text):
+                raise_disallowed_special_token(match.group())
+
+        return allowed_special
 
     def _encode_single_piece(self, text_or_bytes: Union[str, bytes]) -> list[int]:
         """Encodes text corresponding to bytes without a regex split.
