@@ -2,6 +2,10 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.3.3]
+- `tiktoken` will now make a best effort attempt to replace surrogate pairs with the corresponding
+   Unicode character and will replace lone surrogates with the Unicode replacement character.
+
 ## [v0.3.2]
 - Add encoding for GPT-4
 

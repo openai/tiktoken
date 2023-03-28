@@ -65,7 +65,12 @@ class Encoding:
         >>> enc.encode_ordinary("hello world")
         [31373, 995]
         """
-        return self._core_bpe.encode_ordinary(text)
+        try:
+            return self._core_bpe.encode_ordinary(text)
+        except UnicodeEncodeError:
+            # See comment in encode
+            text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            return self._core_bpe.encode_ordinary(text)
 
     def encode(
         self,
@@ -111,7 +116,17 @@ class Encoding:
             if match := _special_token_regex(disallowed_special).search(text):
                 raise_disallowed_special_token(match.group())
 
-        return self._core_bpe.encode(text, allowed_special)
+        try:
+            return self._core_bpe.encode(text, allowed_special)
+        except UnicodeEncodeError:
+            # BPE operates on bytes, but the regex operates on unicode. If we pass a str that is
+            # invalid UTF-8 to Rust, it will rightfully complain. Here we do a quick and dirty
+            # fixup for any surrogate pairs that may have sneaked their way into the text.
+            # Technically, this introduces a place where encode + decode doesn't roundtrip a Python
+            # string, but given that this is input we want to support, maybe that's okay.
+            # Also we use errors="replace" to handle weird things like lone surrogates.
+            text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            return self._core_bpe.encode(text, allowed_special)
 
     def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
         """Encodes a list of strings into tokens, in parallel, ignoring special tokens.
