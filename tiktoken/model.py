@@ -69,7 +69,7 @@ def encoding_for_model(model_name: str) -> Encoding:
     if encoding_name is None:
         raise KeyError(
             f"Could not automatically map {model_name} to a tokeniser. "
-            "Please use `tiktok.get_encoding` to explicitly get the tokeniser you expect."
+            "Please use `tiktoken.get_encoding` to explicitly get the tokeniser you expect."
         ) from None
 
     return get_encoding(encoding_name)
