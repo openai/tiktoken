@@ -30,6 +30,36 @@ jobs:
           name: dist
           path: ./wheelhouse/*.whl
 
+  build_wheels_aarch64:
+    name: py${{ matrix.python-version }} on ${{ matrix.os }} (aarch64)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: [38, 39, 310, 311]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.11.3
+        env:
+          CIBW_BUILD: "cp${{ matrix.python-version}}-*"
+          CIBW_ARCHS: aarch64
+          CIBW_BUILD_VERBOSITY: 3
+          # https://github.com/rust-lang/cargo/issues/10583
+          CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
+      - uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: ./wheelhouse/*.whl
+
   build_sdist:
     name: sdist
     runs-on: ubuntu-latest
