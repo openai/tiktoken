@@ -283,6 +283,10 @@ for (const baseDir of [
       types: "./tiktoken_bg.wasm.d.ts",
       default: "./tiktoken_bg.wasm",
     },
+    "./tiktoken_bg.wasm?module": {
+      types: "./tiktoken_bg.wasm.d.ts",
+      default: "./tiktoken_bg.wasm?module",
+    },
     "./lite": {
       types: "./lite/tiktoken.d.ts",
       node: "./lite/tiktoken.cjs",
@@ -301,6 +305,10 @@ for (const baseDir of [
     "./lite/tiktoken_bg.wasm": {
       types: "./lite/tiktoken_bg.wasm.d.ts",
       default: "./lite/tiktoken_bg.wasm",
+    },
+    "./lite/tiktoken_bg.wasm?module": {
+      types: "./lite/tiktoken_bg.wasm.d.ts",
+      default: "./lite/tiktoken_bg.wasm?module",
     },
     "./model_to_encoding.json": "./model_to_encoding.json",
     "./registry.json": "./registry.json",
