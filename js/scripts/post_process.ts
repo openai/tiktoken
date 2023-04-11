@@ -10,6 +10,8 @@ import {
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import outdent from "outdent";
+
 for (const baseDir of [
   path.resolve(__dirname, "../dist"),
   path.resolve(__dirname, "../dist/lite"),
@@ -149,19 +151,57 @@ for (const baseDir of [
 
   // tiktoken.js
   {
+    const relativeDir = path.relative(
+      path.resolve(__dirname, "../dist"),
+      baseDir
+    );
+
     fs.writeFileSync(
       path.resolve(baseDir, "tiktoken.cjs"),
-      [
-        `const wasm = require("./tiktoken_bg.cjs");`,
-        `let imports = {};`,
-        `imports["./tiktoken_bg.js"] = wasm;`,
-        `const path = require("path").join(__dirname, "tiktoken_bg.wasm");`,
-        `const bytes = require("fs").readFileSync(path);`,
-        `const wasmModule = new WebAssembly.Module(bytes);`,
-        `const wasmInstance = new WebAssembly.Instance(wasmModule, imports);`,
-        `wasm.__wbg_set_wasm(wasmInstance.exports);`,
-        ...publicExports.map((name) => `exports["${name}"] = wasm["${name}"];`),
-      ].join("\n"),
+      outdent`
+        const wasm = require("./tiktoken_bg.cjs");
+        let imports = {};
+        imports["./tiktoken_bg.js"] = wasm;
+        const path = require("path");
+        const fs = require("fs");
+        
+        const candidates = __dirname
+          .split(path.sep)
+          .reduce((memo, _, index, array) => {
+            const prefix = array.slice(0, index + 1).join(path.sep) + path.sep;
+            memo.push(
+              prefix.includes("node_modules" + path.sep)
+                ? path.join(prefix, "./tiktoken_bg.wasm")
+                : path.join(
+                    prefix,
+                    "node_modules",
+                    "@dqbd",
+                    "tiktoken",
+                    "${relativeDir}",
+                    "./tiktoken_bg.wasm"
+                  )
+            );
+            return memo;
+          }, [])
+          .reverse();
+        
+        let bytes = null;
+        for (const candidate of candidates) {
+          try {
+            bytes = fs.readFileSync(candidate);
+            break;
+          } catch {}
+        }
+        
+        if (bytes == null) throw new Error("Missing tiktoken_bg.wasm");
+        const wasmModule = new WebAssembly.Module(bytes);
+        const wasmInstance = new WebAssembly.Instance(wasmModule, imports);
+        wasm.__wbg_set_wasm(wasmInstance.exports);
+      ` +
+        "\n" +
+        publicExports
+          .map((name) => `exports["${name}"] = wasm["${name}"];`)
+          .join("\n"),
       { encoding: "utf-8" }
     );
   }
