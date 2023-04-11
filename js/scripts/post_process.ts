@@ -169,21 +169,21 @@ for (const baseDir of [
           .split(path.sep)
           .reduce((memo, _, index, array) => {
             const prefix = array.slice(0, index + 1).join(path.sep) + path.sep;
-            memo.push(
-              prefix.includes("node_modules" + path.sep)
-                ? path.join(prefix, "./tiktoken_bg.wasm")
-                : path.join(
-                    prefix,
-                    "node_modules",
-                    "@dqbd",
-                    "tiktoken",
-                    "${relativeDir}",
-                    "./tiktoken_bg.wasm"
-                  )
-            );
+            if (!prefix.includes("node_modules" + path.sep)) {
+              memo.unshift(
+                path.join(
+                  prefix,
+                  "node_modules",
+                  "@dqbd",
+                  "tiktoken",
+                  "${relativeDir}",
+                  "./tiktoken_bg.wasm"
+                )
+              );
+            }
             return memo;
           }, [])
-          .reverse();
+        candidates.unshift(path.join(__dirname, "./tiktoken_bg.wasm"));
         
         let bytes = null;
         for (const candidate of candidates) {
