@@ -45,7 +45,9 @@ def read_file_cached(blobpath: str) -> bytes:
 
     contents = read_file(blobpath)
 
-    os.makedirs(cache_dir, exist_ok=True)
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+        os.chmod(cache_dir, 0o777) # available for all users ignoring umask
     tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"
     with open(tmp_filename, "wb") as f:
         f.write(contents)
