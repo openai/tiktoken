@@ -306,16 +306,19 @@ for (const baseDir of [
   pkg["exports"] = {
     ".": {
       types: "./tiktoken.d.ts",
+      "edge-light": "./tiktoken.js",
       node: "./tiktoken.cjs",
       default: "./tiktoken.js",
     },
     "./init": {
       types: "./init.d.ts",
+      "edge-light": "./init.js",
       node: "./init.cjs",
       default: "./init.js",
     },
     "./load": {
       types: "./load.d.ts",
+      "edge-light": "./load.js",
       node: "./load.cjs",
       default: "./load.js",
     },
@@ -329,16 +332,19 @@ for (const baseDir of [
     },
     "./lite": {
       types: "./lite/tiktoken.d.ts",
+      "edge-light": "./lite/tiktoken.js",
       node: "./lite/tiktoken.cjs",
       default: "./lite/tiktoken.js",
     },
     "./lite/init": {
       types: "./lite/init.d.ts",
+      "edge-light": "./lite/init.js",
       node: "./lite/init.cjs",
       default: "./lite/init.js",
     },
     "./lite/load": {
       types: "./lite/load.d.ts",
+      "edge-light": "./lite/load.js",
       node: "./lite/load.cjs",
       default: "./lite/load.js",
     },
