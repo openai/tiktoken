@@ -92,7 +92,14 @@ jobs:
       - run: |
           pip install pyodide-build==0.22.1
           echo EMSCRIPTEN_VERSION=$(pyodide config get emscripten_version) >> $GITHUB_ENV
+      - name: Install rustc toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            default: true
+            target: wasm32-unknown-unknown
       - uses: mymindstorm/setup-emsdk@v12
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
+          actions-cache-folder: 'emsdk-cache'
       - run: pyodide build
