@@ -34,23 +34,26 @@ def read_file_cached(blobpath: str) -> bytes:
     else:
         cache_dir = os.path.join(tempfile.gettempdir(), "data-gym-cache")
 
-    if cache_dir == "":
-        # disable caching
-        return read_file(blobpath)
-
     cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
-
     cache_path = os.path.join(cache_dir, cache_key)
+
+    # If the file is cached, use it.
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             return f.read()
 
+    # Otherwise, read it from source.
     contents = read_file(blobpath)
 
+    # Write it to the cache.
     os.makedirs(cache_dir, exist_ok=True)
+    
+    # Write it to a tmp file ...
     tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"
     with open(tmp_filename, "wb") as f:
         f.write(contents)
+        
+    # then rename it so the write is atomic.
     os.rename(tmp_filename, cache_path)
 
     return contents
