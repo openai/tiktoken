@@ -1,6 +1,10 @@
 name: Build wheels
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -107,16 +111,12 @@ jobs:
       # =====================================================
       # Commit wheel file to pyodide-wheel branch
       # =====================================================
-      # Name and email are needed to push.
-      - name: Configure git
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-
       - name: Push to pyodide-wheel branch
-        # if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/pyodide-build' && github.event_name == 'push'
         shell: bash
         run: |
+          git config --global user.name "${{ env.CI_COMMIT_AUTHOR }}"
+          git config --global user.email "username@users.noreply.github.com"
           export SHA_SHORT=$(git rev-parse --short HEAD)
           git checkout -B pyodide-wheel
           git add -f dist
