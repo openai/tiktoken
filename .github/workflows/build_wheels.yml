@@ -103,3 +103,23 @@ jobs:
           version: ${{ env.EMSCRIPTEN_VERSION }}
           actions-cache-folder: 'emsdk-cache'
       - run: pyodide build
+
+      # =====================================================
+      # Commit wheel file to pyodide-wheel branch
+      # =====================================================
+      # Name and email are needed to push.
+      - name: Configure git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Push to pyodide-wheel branch
+        # if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          export SHA_SHORT=$(git rev-parse --short HEAD)
+          git checkout -B pyodide-wheel
+          git add -f dist
+          git commit -m"Build pyodide wheel for $SHA_SHORT"
+          git log -n 4 --pretty=oneline --simplify-by-decoration
+          git push -f origin pyodide-wheel:pyodide-wheel
