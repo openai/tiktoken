@@ -97,7 +97,7 @@ jobs:
         with:
             toolchain: nightly
             default: true
-            target: wasm32-unknown-unknown
+            target: wasm32-unknown-emscripten
       - uses: mymindstorm/setup-emsdk@v12
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
