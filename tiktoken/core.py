@@ -276,6 +276,19 @@ class Encoding:
         """
         return [self.decode_single_token_bytes(token) for token in tokens]
 
+    def decode_batch(
+        self, batch: list[list[int]], *, errors: str = "replace", num_threads: int = 8
+    ) -> list[str]:
+        """Decodes a batch (list of lists of tokens) into a list of strings."""
+        decoder = functools.partial(self.decode, errors=errors)
+        with ThreadPoolExecutor(num_threads) as e:
+            return list(e.map(decoder, batch))
+
+    def decode_bytes_batch(self, batch: list[list[int]], *, num_threads: int = 8) -> list[bytes]:
+        """Decodes a batch (list of lists of tokens) into a list of bytes."""
+        with ThreadPoolExecutor(num_threads) as e:
+            return list(e.map(self.decode_bytes, batch))
+
     # ====================
     # Miscellaneous
     # ====================
@@ -325,6 +338,7 @@ class Encoding:
 
     def _encode_bytes(self, text: bytes) -> list[int]:
         return self._core_bpe._encode_bytes(text)
+
 
 
 @functools.lru_cache(maxsize=128)

@@ -14,10 +14,10 @@ def read_file(blobpath: str) -> bytes:
     if not blobpath.startswith("http://") and not blobpath.startswith("https://"):
         try:
             import blobfile
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "blobfile is not installed. Please install it by running `pip install blobfile`."
-            )
+            ) from e
         with blobfile.BlobFile(blobpath, "rb") as f:
             return f.read()
     # avoiding blobfile for public files helps avoid auth issues, like MFA prompts
@@ -102,10 +102,10 @@ def data_gym_to_mergeable_bpe_ranks(
 def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> None:
     try:
         import blobfile
-    except ImportError:
+    except ImportError as e:
         raise ImportError(
             "blobfile is not installed. Please install it by running `pip install blobfile`."
-        )
+        ) from e
     with blobfile.BlobFile(tiktoken_bpe_file, "wb") as f:
         for token, rank in sorted(bpe_ranks.items(), key=lambda x: x[1]):
             f.write(base64.b64encode(token) + b" " + str(rank).encode() + b"\n")
