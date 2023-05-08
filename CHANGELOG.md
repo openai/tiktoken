@@ -2,6 +2,10 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.4.0]
+- Add `decode_batch` and `decode_bytes_batch`
+- Improve error messages and handling
+
 ## [v0.3.3]
 - `tiktoken` will now make a best effort attempt to replace surrogate pairs with the corresponding
    Unicode character and will replace lone surrogates with the Unicode replacement character.

@@ -20,7 +20,7 @@ def redact_file(path: Path, dry_run: bool) -> None:
         return
 
     pattern = "|".join(
-        re.escape(x)
+        r" *" + re.escape(x)
         for x in [
             "# ===== redact-beg =====\n",
             "# ===== redact-end =====\n",
