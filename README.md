@@ -1,103 +1,285 @@
-# ⏳ tiktoken
+# ⏳ @dqbd/tiktoken
 
-tiktoken is a fast [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
-OpenAI's models.
+tiktoken is a [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
+OpenAI's models, forked from the original tiktoken library to provide NPM bindings for Node and other JS runtimes.
 
-```python
-import tiktoken
-enc = tiktoken.get_encoding("cl100k_base")
-assert enc.decode(enc.encode("hello world")) == "hello world"
+The open source version of `tiktoken` can be installed from NPM:
 
-# To get the tokeniser corresponding to a specific model in the OpenAI API:
-enc = tiktoken.encoding_for_model("gpt-4")
+```
+npm install @dqbd/tiktoken
 ```
 
-The open source version of `tiktoken` can be installed from PyPI:
-```
-pip install tiktoken
-```
+## Usage
 
-The tokeniser API is documented in `tiktoken/core.py`.
+Basic usage follows, which includes all the OpenAI encoders and ranks:
 
-Example code using `tiktoken` can be found in the
-[OpenAI Cookbook](https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb).
+```typescript
+import assert from "node:assert";
+import { get_encoding, encoding_for_model } from "@dqbd/tiktoken";
 
+const enc = get_encoding("gpt2");
+assert(
+  new TextDecoder().decode(enc.decode(enc.encode("hello world"))) ===
+    "hello world"
+);
 
-## Performance
+// To get the tokeniser corresponding to a specific model in the OpenAI API:
+const enc = encoding_for_model("text-davinci-003");
 
-`tiktoken` is between 3-6x faster than a comparable open source tokeniser:
+// Extend existing encoding with custom special tokens
+const enc = encoding_for_model("gpt2", {
+  "<|im_start|>": 100264,
+  "<|im_end|>": 100265,
+});
 
-![image](https://raw.githubusercontent.com/openai/tiktoken/main/perf.svg)
-
-Performance measured on 1GB of text using the GPT-2 tokeniser, using `GPT2TokenizerFast` from
-`tokenizers==0.13.2`, `transformers==4.24.0` and `tiktoken==0.2.0`.
-
-
-## Getting help
-
-Please post questions in the [issue tracker](https://github.com/openai/tiktoken/issues).
-
-If you work at OpenAI, make sure to check the internal documentation or feel free to contact
-@shantanu.
-
-
-## Extending tiktoken
-
-You may wish to extend `tiktoken` to support new encodings. There are two ways to do this.
-
-
-**Create your `Encoding` object exactly the way you want and simply pass it around.**
-
-```python
-cl100k_base = tiktoken.get_encoding("cl100k_base")
-
-# In production, load the arguments directly instead of accessing private attributes
-# See openai_public.py for examples of arguments for specific encodings
-enc = tiktoken.Encoding(
-    # If you're changing the set of special tokens, make sure to use a different name
-    # It should be clear from the name what behaviour to expect.
-    name="cl100k_im",
-    pat_str=cl100k_base._pat_str,
-    mergeable_ranks=cl100k_base._mergeable_ranks,
-    special_tokens={
-        **cl100k_base._special_tokens,
-        "<|im_start|>": 100264,
-        "<|im_end|>": 100265,
-    }
-)
+// don't forget to free the encoder after it is not used
+enc.free();
 ```
 
-**Use the `tiktoken_ext` plugin mechanism to register your `Encoding` objects with `tiktoken`.**
+In constrained environments (eg. Edge Runtime, Cloudflare Workers), where you don't want to load all the encoders at once, you can use the lightweight WASM binary via `@dqbd/tiktoken/lite`.
 
-This is only useful if you need `tiktoken.get_encoding` to find your encoding, otherwise prefer
-option 1.
+```typescript
+const { Tiktoken } = require("@dqbd/tiktoken/lite");
+const cl100k_base = require("@dqbd/tiktoken/encoders/cl100k_base.json");
 
-To do this, you'll need to create a namespace package under `tiktoken_ext`.
-
-Layout your project like this, making sure to omit the `tiktoken_ext/__init__.py` file:
-```
-my_tiktoken_extension
-├── tiktoken_ext
-│   └── my_encodings.py
-└── setup.py
-```
-
-`my_encodings.py` should be a module that contains a variable named `ENCODING_CONSTRUCTORS`.
-This is a dictionary from an encoding name to a function that takes no arguments and returns
-arguments that can be passed to `tiktoken.Encoding` to construct that encoding. For an example, see
-`tiktoken_ext/openai_public.py`. For precise details, see `tiktoken/registry.py`.
-
-Your `setup.py` should look something like this:
-```python
-from setuptools import setup, find_namespace_packages
-
-setup(
-    name="my_tiktoken_extension",
-    packages=find_namespace_packages(include=['tiktoken_ext*']),
-    install_requires=["tiktoken"],
-    ...
-)
+const encoding = new Tiktoken(
+  cl100k_base.bpe_ranks,
+  cl100k_base.special_tokens,
+  cl100k_base.pat_str
+);
+const tokens = encoding.encode("hello world");
+encoding.free();
 ```
 
-Then simply `pip install ./my_tiktoken_extension` and you should be able to use your
-custom encodings! Make sure **not** to use an editable install.
+If you want to fetch the latest ranks, use the `load` function:
+
+```typescript
+const { Tiktoken } = require("@dqbd/tiktoken/lite");
+const { load } = require("@dqbd/tiktoken/load");
+const registry = require("@dqbd/tiktoken/registry.json");
+const models = require("@dqbd/tiktoken/model_to_encoding.json");
+
+async function main() {
+  const model = await load(registry[models["gpt-3.5-turbo"]]);
+  const encoder = new Tiktoken(
+    model.bpe_ranks,
+    model.special_tokens,
+    model.pat_str
+  );
+  const tokens = encoding.encode("hello world");
+  encoder.free();
+}
+
+main();
+```
+
+If desired, you can create a Tiktoken instance directly with custom ranks, special tokens and regex pattern:
+
+```typescript
+import { Tiktoken } from "../pkg";
+import { readFileSync } from "fs";
+
+const encoder = new Tiktoken(
+  readFileSync("./ranks/gpt2.tiktoken").toString("utf-8"),
+  { "<|endoftext|>": 50256, "<|im_start|>": 100264, "<|im_end|>": 100265 },
+  "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+"
+);
+```
+
+Finally, you can a custom `init` function to override the WASM initialization logic for non-Node environments. This is useful if you are using a bundler that does not support WASM ESM integration.
+
+```typescript
+import { get_encoding, init } from "@dqbd/tiktoken/init";
+
+async function main() {
+  const wasm = "..."; // fetch the WASM binary somehow
+  await init((imports) => WebAssembly.instantiate(wasm, imports));
+
+  const encoding = get_encoding("cl100k_base");
+  const tokens = encoding.encode("hello world");
+  encoding.free();
+}
+
+main();
+```
+
+## Compatibility
+
+As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
+
+| Runtime                      | Status | Notes                                      |
+| ---------------------------- | ------ | ------------------------------------------ |
+| Node.js                      | ✅     |                                            |
+| Bun                          | ✅     |                                            |
+| Vite                         | ✅     | See [here](#vite) for notes                |
+| Next.js                      | ✅     | See [here](#nextjs) for notes              |
+| Create React App (via Craco) | ✅     | See [here](#create-react-app) for notes    |
+| Vercel Edge Runtime          | ✅     | See [here](#vercel-edge-runtime) for notes |
+| Cloudflare Workers           | ✅     | See [here](#cloudflare-workers) for notes  |
+| Deno                         | ❌     | Currently unsupported                      |
+
+### [Vite](#vite)
+
+If you are using Vite, you will need to add both the `vite-plugin-wasm` and `vite-plugin-top-level-await`. Add the following to your `vite.config.js`:
+
+```js
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [wasm(), topLevelAwait()],
+});
+```
+
+### [Next.js](#nextjs)
+
+Both API routes and `/pages` are supported with the following `next.config.js` configuration.
+
+```typescript
+// next.config.json
+const config = {
+  webpack(config, { isServer, dev }) {
+    config.experiments = {
+      asyncWebAssembly: true,
+      layers: true,
+    };
+
+    return config;
+  },
+};
+```
+
+Usage in pages:
+
+```tsx
+import { get_encoding } from "@dqbd/tiktoken";
+import { useState } from "react";
+
+const encoding = get_encoding("cl100k_base");
+
+export default function Home() {
+  const [input, setInput] = useState("hello world");
+  const tokens = encoding.encode(input);
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+      />
+      <div>{tokens.toString()}</div>
+    </div>
+  );
+}
+```
+
+Usage in API routes:
+
+```typescript
+import { get_encoding } from "@dqbd/tiktoken";
+import { NextApiRequest, NextApiResponse } from "next";
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  const encoding = get_encoding("cl100k_base");
+  const tokens = encoding.encode("hello world");
+  encoding.free();
+  return res.status(200).json({ tokens });
+}
+```
+
+### [Create React App](#create-react-app)
+
+By default, the Webpack configugration found in Create React App does not support WASM ESM modules. To add support, please do the following:
+
+1. Swap `react-scripts` with `craco`, using the guide found here: https://craco.js.org/docs/getting-started/.
+2. Add the following to `craco.config.js`:
+
+```js
+module.exports = {
+  webpack: {
+    configure: (config) => {
+      config.experiments = {
+        asyncWebAssembly: true,
+        layers: true,
+      };
+
+      // turn off static file serving of WASM files
+      // we need to let Webpack handle WASM import
+      config.module.rules
+        .find((i) => "oneOf" in i)
+        .oneOf.find((i) => i.type === "asset/resource")
+        .exclude.push(/\.wasm$/);
+
+      return config;
+    },
+  },
+};
+```
+
+### [Vercel Edge Runtime](#vercel-edge-runtime)
+
+Vercel Edge Runtime does support WASM modules by adding a `?module` suffix. Initialize the encoder with the following snippet:
+
+```typescript
+// @ts-expect-error
+import wasm from "@dqbd/tiktoken/lite/tiktoken_bg.wasm?module";
+import model from "@dqbd/tiktoken/encoders/cl100k_base.json";
+import { init, Tiktoken } from "@dqbd/tiktoken/lite/init";
+
+export const config = { runtime: "edge" };
+
+export default async function (req: Request) {
+  await init((imports) => WebAssembly.instantiate(wasm, imports));
+
+  const encoding = new Tiktoken(
+    model.bpe_ranks,
+    model.special_tokens,
+    model.pat_str
+  );
+
+  const tokens = encoding.encode("hello world");
+  encoding.free();
+
+  return new Response(`${tokens}`);
+}
+```
+
+### [Cloudflare Workers](#cloudflare-workers)
+
+Similar to Vercel Edge Runtime, Cloudflare Workers must import the WASM binary file manually and use the `@dqbd/tiktoken/lite` version to fit the 1 MB limit. However, users need to point directly at the WASM binary via a relative path (including `./node_modules/`).
+
+Add the following rule to the `wrangler.toml` to upload WASM during build:
+
+```toml
+[[rules]]
+globs = ["**/*.wasm"]
+type = "CompiledWasm"
+```
+
+Initialize the encoder with the following snippet:
+
+```javascript
+import { init, Tiktoken } from "@dqbd/tiktoken/lite/init";
+import wasm from "./node_modules/@dqbd/tiktoken/lite/tiktoken_bg.wasm";
+import model from "@dqbd/tiktoken/encoders/cl100k_base.json";
+
+export default {
+  async fetch() {
+    await init((imports) => WebAssembly.instantiate(wasm, imports));
+    const encoder = new Tiktoken(
+      model.bpe_ranks,
+      model.special_tokens,
+      model.pat_str
+    );
+    const tokens = encoder.encode("test");
+    encoder.free();
+    return new Response(`${tokens}`);
+  },
+};
+```
+
+## Acknowledgements
+
+- https://github.com/zurawiki/tiktoken-rs
