@@ -1,0 +1,15 @@
+{
+  "name": "tiktoken",
+  "version": "1.0.0",
+  "description": "Javascript port of tiktoken",
+  "license": "MIT",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dqbd/tiktoken"
+  },
+  "dependencies": {
+    "base64-js": "^1.5.1"
+  },
+  "devDependencies": {}
+}
