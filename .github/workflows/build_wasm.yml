@@ -1,4 +1,4 @@
-name: Build JS
+name: Build WASM
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -21,8 +21,8 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - run: yarn install --frozen-lockfile
-        working-directory: ./js
+        working-directory: ./wasm
       - run: yarn run build
-        working-directory: ./js
+        working-directory: ./wasm
       - run: yarn run test
-        working-directory: ./js
+        working-directory: ./wasm
