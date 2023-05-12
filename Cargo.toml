@@ -3,7 +3,7 @@
 members = [
     "core",
     "python",
-    "js"
+    "wasm"
 ]
 
 [profile.release]
