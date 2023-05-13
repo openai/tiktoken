@@ -1,7 +1,7 @@
 {
   "name": "tiktoken-js",
   "version": "1.0.0",
-  "description": "Javascript port of tiktoken",
+  "description": "JavaScript port of tiktoken",
   "license": "MIT",
   "scripts": {
     "build": "tsc",
