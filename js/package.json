@@ -1,5 +1,5 @@
 {
-  "name": "tiktoken-js",
+  "name": "js-tiktoken",
   "version": "1.0.0",
   "description": "JavaScript port of tiktoken",
   "license": "MIT",
@@ -7,12 +7,24 @@
     "build": "tsc",
     "test": "vitest run"
   },
+  "files": [
+    "dist/**/*"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/dqbd/tiktoken"
   },
   "dependencies": {
     "base64-js": "^1.5.1"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {}
 }

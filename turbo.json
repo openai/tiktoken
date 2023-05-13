@@ -12,8 +12,8 @@
     "deploy": {
       "dependsOn": ["test"]
     },
-    "tiktoken-js#test": {
-      "dependsOn": ["tiktoken#build", "tiktoken-js#build"]
+    "js-tiktoken#test": {
+      "dependsOn": ["tiktoken#build", "js-tiktoken#build"]
     }
   }
 }

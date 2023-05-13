@@ -19,5 +19,9 @@
   "dependencies": {},
   "devDependencies": {
     "ts-morph": "^17.0.1"
+  },
+  "publishConfig": {
+    "directory": "./dist",
+    "access": "public"
   }
 }
