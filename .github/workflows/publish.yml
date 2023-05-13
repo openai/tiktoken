@@ -1,4 +1,4 @@
-name: Publish
+name: Publish JS
 on:
   push:
     branches:
@@ -7,13 +7,17 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
+          node-version: 18
+          registry-url: "https://registry.npmjs.org"
           cache: yarn
+      - name: Install
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - run: yarn install --frozen-lockfile
       - name: Create Release Pull Request or Publish
         id: changesets
