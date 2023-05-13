@@ -1,4 +1,4 @@
-name: Build WASM
+name: Build and Test JS/WASM
 
 on: [push, pull_request, workflow_dispatch]
 
