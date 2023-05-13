@@ -3,6 +3,7 @@ import path from "node:path";
 import outdent from "outdent";
 import { fromByteArray } from "base64-js";
 import registry from "../tiktoken/registry.json";
+import modelToEncoding from "../tiktoken/model_to_encoding.json";
 
 // printable ascii characters according to python
 function isPrintable(u: number): boolean {
@@ -227,19 +228,20 @@ function combineInsensitive(value: string, acc: string[] = [""]): string[] {
 }
 
 async function main() {
-  for (const name in registry) {
-    console.log(name);
+  for (const lib of ["wasm", "js"]) {
+    const targetDir = path.resolve(__dirname, "../", lib, "src/ranks");
 
-    for (const lib of ["wasm", "js"]) {
-      const targetDir = path.resolve(__dirname, "../", lib, "src/ranks");
+    try {
+      await fs.mkdir(targetDir, { recursive: true });
+    } catch {}
 
-      try {
-        await fs.mkdir(targetDir, { recursive: true });
-      } catch {}
+    for (const name in registry) {
+      console.log(name);
 
       const data = registry[name as keyof typeof registry];
       const bpePath = path.resolve(targetDir, `${name}.tiktoken`);
       const compressPath = path.resolve(targetDir, `${name}.compress.tiktoken`);
+      const regexPath = path.resolve(targetDir, `${name}.regex.tiktoken`);
       const jsonPath = path.resolve(targetDir, `${name}.json`);
       const cjsPath = path.resolve(targetDir, `${name}.cjs`);
       const dtsPath = path.resolve(targetDir, `${name}.d.ts`);
@@ -250,6 +252,7 @@ async function main() {
           fs.stat(bpePath),
           fs.stat(jsonPath),
           fs.stat(compressPath),
+          fs.stat(regexPath),
           fs.stat(cjsPath),
           fs.stat(mjsPath),
           fs.stat(dtsPath),
@@ -279,6 +282,9 @@ async function main() {
       const compress = compressTiktokenBpe(bpe.bpe_ranks);
       await fs.writeFile(compressPath, compress, { encoding: "utf-8" });
 
+      const regex = bpe.pat_str;
+      await fs.writeFile(regexPath, regex, { encoding: "utf-8" });
+
       const json = JSON.stringify({ ...bpe, bpe_ranks: compress });
       await fs.writeFile(jsonPath, json, { encoding: "utf-8" });
 
@@ -299,6 +305,17 @@ async function main() {
 
       await fs.writeFile(dtsPath, dts, { encoding: "utf-8" });
     }
+
+    const indexPath = path.resolve(targetDir, "ranks.ts");
+    const indexMjs = outdent`
+      export type TiktokenEncoding = ${Object.keys(registry)
+        .map((i) => `"${i}"`)
+        .join(" | ")};
+      export type TiktokenModel = ${Object.keys(modelToEncoding)
+        .map((i) => `"${i}"`)
+        .join(" | ")};
+    `;
+    await fs.writeFile(indexPath, indexMjs, { encoding: "utf-8" });
   }
 }
 

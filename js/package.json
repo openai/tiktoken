@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "Javascript port of tiktoken",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/dqbd/tiktoken"

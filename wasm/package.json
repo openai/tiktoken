@@ -10,7 +10,7 @@
     "build:postprocess": "tsx scripts/postprocess.ts",
     "wasm:bundler": "wasm-pack build --target bundler --weak-refs --release --out-dir dist && rm -rf dist/.gitignore dist/README.md dist/package.json",
     "wasm:lite": "wasm-pack build --target bundler --weak-refs --release --out-dir dist/lite --no-default-features && rm -rf dist/lite/.gitignore dist/lite/README.md dist/lite/package.json",
-    "test": "yarn vitest"
+    "test": "yarn vitest run"
   },
   "repository": {
     "type": "git",

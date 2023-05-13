@@ -8,7 +8,8 @@
     "declaration": true,
     "outDir": "./dist",
     "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "stripInternal": true
   },
   "include": ["./src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

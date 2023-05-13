@@ -73,9 +73,9 @@ impl CoreBPEConstructor {
         special_tokens.insert(String::from(ENDOFTEXT), 50256);
 
         CoreBPEConstructor::new(
-            include_str!("../ranks/gpt2.compress.tiktoken"),
+            include_str!("./ranks/gpt2.compress.tiktoken"),
             Some(special_tokens),
-            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+            include_str!("./ranks/gpt2.regex.tiktoken"),
         )
     }
 
@@ -85,9 +85,9 @@ impl CoreBPEConstructor {
         special_tokens.insert(String::from(ENDOFTEXT), 50256);
 
         CoreBPEConstructor::new(
-            include_str!("../ranks/r50k_base.compress.tiktoken"),
+            include_str!("./ranks/r50k_base.compress.tiktoken"),
             Some(special_tokens),
-            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+            include_str!("./ranks/r50k_base.regex.tiktoken"),
         )
     }
 
@@ -97,9 +97,9 @@ impl CoreBPEConstructor {
         special_tokens.insert(String::from(ENDOFTEXT), 50256);
 
         CoreBPEConstructor::new(
-            include_str!("../ranks/p50k_base.compress.tiktoken"),
+            include_str!("./ranks/p50k_base.compress.tiktoken"),
             Some(special_tokens),
-            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+            include_str!("./ranks/p50k_base.regex.tiktoken"),
         )
     }
 
@@ -112,9 +112,9 @@ impl CoreBPEConstructor {
         special_tokens.insert(String::from(FIM_SUFFIX), 50283);
 
         CoreBPEConstructor::new(
-            include_str!("../ranks/p50k_base.compress.tiktoken"),
+            include_str!("./ranks/p50k_base.compress.tiktoken"),
             Some(special_tokens),
-            "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+            include_str!("./ranks/p50k_base.regex.tiktoken"),
         )
     }
 
@@ -128,9 +128,9 @@ impl CoreBPEConstructor {
         special_tokens.insert(String::from(ENDOFPROMPT), 100276);
 
         CoreBPEConstructor::new(
-            include_str!("../ranks/cl100k_base.compress.tiktoken"),
+            include_str!("./ranks/cl100k_base.compress.tiktoken"),
             Some(special_tokens),
-            "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+            include_str!("./ranks/cl100k_base.regex.tiktoken"),
         )
     }
 }
