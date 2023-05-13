@@ -9,6 +9,9 @@
     "test": {
       "dependsOn": ["build"]
     },
+    "deploy": {
+      "dependsOn": ["test"]
+    },
     "tiktoken#test": {
       "dependsOn": ["@dqbd/tiktoken#build", "tiktoken#build"]
     }

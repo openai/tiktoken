@@ -2,7 +2,8 @@
   "private": true,
   "workspaces": [
     "js",
-    "wasm"
+    "wasm",
+    "static"
   ],
   "scripts": {
     "postinstall": "tsx scripts/ranks",

@@ -1,0 +1,11 @@
+{
+  "name": "static",
+  "private": true,
+  "scripts": {
+    "build": "mkdir -p ./src/wasm ./src/js && cp -R ../js/src/ranks/*.json ./src/js && cp -R ../wasm/src/ranks/*.json ./src/wasm",
+    "deploy": "wrangler pages publish ./src"
+  },
+  "devDependencies": {
+    "wrangler": "^1.15.0"
+  }
+}
