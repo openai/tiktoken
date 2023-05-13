@@ -6,9 +6,8 @@
   "scripts": {
     "build": "run-s build:*",
     "build:cleanup": "rm -rf dist/",
-    "build:rank": "tsx scripts/inline_ranks.ts",
     "build:wasm": "run-s wasm:*",
-    "build:postprocess": "tsx scripts/post_process.ts",
+    "build:postprocess": "tsx scripts/postprocess.ts",
     "wasm:bundler": "wasm-pack build --target bundler --weak-refs --release --out-dir dist && rm -rf dist/.gitignore dist/README.md dist/package.json",
     "wasm:lite": "wasm-pack build --target bundler --weak-refs --release --out-dir dist/lite --no-default-features && rm -rf dist/lite/.gitignore dist/lite/README.md dist/lite/package.json",
     "test": "yarn vitest"
@@ -19,7 +18,6 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "outdent": "^0.8.0",
     "ts-morph": "^17.0.1"
   }
 }

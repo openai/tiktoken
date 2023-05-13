@@ -1,8 +1,8 @@
-import gpt2 from "../../wasm/dist/encoders/gpt2.json";
-import p50k_base from "../../wasm/dist/encoders/p50k_base.json";
-import p50k_edit from "../../wasm/dist/encoders/p50k_edit.json";
-import r50k_base from "../../wasm/dist/encoders/r50k_base.json";
-import cl100k_base from "../../wasm/dist/encoders/cl100k_base.json";
+import gpt2 from "./ranks/gpt2";
+import p50k_base from "./ranks/p50k_base";
+import p50k_edit from "./ranks/p50k_edit";
+import r50k_base from "./ranks/r50k_base";
+import cl100k_base from "./ranks/cl100k_base";
 
 import base64 from "base64-js";
 

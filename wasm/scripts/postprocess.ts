@@ -372,11 +372,32 @@ for (const baseDir of [
 
   for (const key in registry) {
     fs.copyFileSync(
-      path.resolve(__dirname, `../ranks/${key}.json`),
+      path.resolve(__dirname, `../src/ranks/${key}.json`),
       path.resolve(__dirname, `../dist/encoders/${key}.json`)
     );
 
     pkg["exports"][`./encoders/${key}.json`] = `./encoders/${key}.json`;
+
+    fs.copyFileSync(
+      path.resolve(__dirname, `../src/ranks/${key}.js`),
+      path.resolve(__dirname, `../dist/encoders/${key}.js`)
+    );
+
+    fs.copyFileSync(
+      path.resolve(__dirname, `../src/ranks/${key}.cjs`),
+      path.resolve(__dirname, `../dist/encoders/${key}.cjs`)
+    );
+
+    fs.copyFileSync(
+      path.resolve(__dirname, `../src/ranks/${key}.d.ts`),
+      path.resolve(__dirname, `../dist/encoders/${key}.d.ts`)
+    );
+    pkg["exports"][`./encoders/${key}`] = {
+      types: `./encoders/${key}.d.ts`,
+      "edge-light": `./encoders/${key}.js`,
+      node: `./encoders/${key}.cjs`,
+      default: `./encoders/${key}.js`,
+    };
   }
 
   fs.copyFileSync(
