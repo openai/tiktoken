@@ -8,7 +8,8 @@
   "scripts": {
     "postinstall": "tsx scripts/ranks",
     "build": "turbo run build",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "publish": "turbo run build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.26.1",
