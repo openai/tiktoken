@@ -86,7 +86,7 @@ for (const baseDir of [
       if (statements.length > 0) {
         call.insertStatements(
           0,
-          `if (wasm == null) throw new Error("@dqbd/tiktoken: WASM binary has not been propery initialized.");`
+          `if (wasm == null) throw new Error("tiktoken: WASM binary has not been propery initialized.");`
         );
       }
     }

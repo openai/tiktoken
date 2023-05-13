@@ -2,7 +2,7 @@ import { test, expect, describe, afterAll } from "vitest";
 import { get_encoding } from "../../wasm/dist";
 import { Tiktoken } from "../src/index";
 
-describe("LiteTokenizer matches the behavior of @dqbd/tiktoken", () => {
+describe("LiteTokenizer matches the behavior of tiktoken", () => {
   const lite = new Tiktoken();
   const full = get_encoding("cl100k_base");
 

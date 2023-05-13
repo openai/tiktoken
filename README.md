@@ -1,4 +1,4 @@
-# ⏳ @dqbd/tiktoken
+# ⏳ tiktoken
 
 tiktoken is a [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
 OpenAI's models, forked from the original tiktoken library to provide NPM bindings for Node and other JS runtimes.
@@ -6,7 +6,7 @@ OpenAI's models, forked from the original tiktoken library to provide NPM bindin
 The open source version of `tiktoken` can be installed from NPM:
 
 ```
-npm install @dqbd/tiktoken
+npm install tiktoken
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ Basic usage follows, which includes all the OpenAI encoders and ranks:
 
 ```typescript
 import assert from "node:assert";
-import { get_encoding, encoding_for_model } from "@dqbd/tiktoken";
+import { get_encoding, encoding_for_model } from "tiktoken";
 
 const enc = get_encoding("gpt2");
 assert(
@@ -36,11 +36,11 @@ const enc = encoding_for_model("gpt2", {
 enc.free();
 ```
 
-In constrained environments (eg. Edge Runtime, Cloudflare Workers), where you don't want to load all the encoders at once, you can use the lightweight WASM binary via `@dqbd/tiktoken/lite`.
+In constrained environments (eg. Edge Runtime, Cloudflare Workers), where you don't want to load all the encoders at once, you can use the lightweight WASM binary via `tiktoken/lite`.
 
 ```typescript
-const { Tiktoken } = require("@dqbd/tiktoken/lite");
-const cl100k_base = require("@dqbd/tiktoken/encoders/cl100k_base.json");
+const { Tiktoken } = require("tiktoken/lite");
+const cl100k_base = require("tiktoken/encoders/cl100k_base.json");
 
 const encoding = new Tiktoken(
   cl100k_base.bpe_ranks,
@@ -54,10 +54,10 @@ encoding.free();
 If you want to fetch the latest ranks, use the `load` function:
 
 ```typescript
-const { Tiktoken } = require("@dqbd/tiktoken/lite");
-const { load } = require("@dqbd/tiktoken/load");
-const registry = require("@dqbd/tiktoken/registry.json");
-const models = require("@dqbd/tiktoken/model_to_encoding.json");
+const { Tiktoken } = require("tiktoken/lite");
+const { load } = require("tiktoken/load");
+const registry = require("tiktoken/registry.json");
+const models = require("tiktoken/model_to_encoding.json");
 
 async function main() {
   const model = await load(registry[models["gpt-3.5-turbo"]]);
@@ -89,7 +89,7 @@ const encoder = new Tiktoken(
 Finally, you can a custom `init` function to override the WASM initialization logic for non-Node environments. This is useful if you are using a bundler that does not support WASM ESM integration.
 
 ```typescript
-import { get_encoding, init } from "@dqbd/tiktoken/init";
+import { get_encoding, init } from "tiktoken/init";
 
 async function main() {
   const wasm = "..."; // fetch the WASM binary somehow
@@ -153,7 +153,7 @@ const config = {
 Usage in pages:
 
 ```tsx
-import { get_encoding } from "@dqbd/tiktoken";
+import { get_encoding } from "tiktoken";
 import { useState } from "react";
 
 const encoding = get_encoding("cl100k_base");
@@ -178,7 +178,7 @@ export default function Home() {
 Usage in API routes:
 
 ```typescript
-import { get_encoding } from "@dqbd/tiktoken";
+import { get_encoding } from "tiktoken";
 import { NextApiRequest, NextApiResponse } from "next";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -224,9 +224,9 @@ Vercel Edge Runtime does support WASM modules by adding a `?module` suffix. Init
 
 ```typescript
 // @ts-expect-error
-import wasm from "@dqbd/tiktoken/lite/tiktoken_bg.wasm?module";
-import model from "@dqbd/tiktoken/encoders/cl100k_base.json";
-import { init, Tiktoken } from "@dqbd/tiktoken/lite/init";
+import wasm from "tiktoken/lite/tiktoken_bg.wasm?module";
+import model from "tiktoken/encoders/cl100k_base.json";
+import { init, Tiktoken } from "tiktoken/lite/init";
 
 export const config = { runtime: "edge" };
 
@@ -248,7 +248,7 @@ export default async function (req: Request) {
 
 ### [Cloudflare Workers](#cloudflare-workers)
 
-Similar to Vercel Edge Runtime, Cloudflare Workers must import the WASM binary file manually and use the `@dqbd/tiktoken/lite` version to fit the 1 MB limit. However, users need to point directly at the WASM binary via a relative path (including `./node_modules/`).
+Similar to Vercel Edge Runtime, Cloudflare Workers must import the WASM binary file manually and use the `tiktoken/lite` version to fit the 1 MB limit. However, users need to point directly at the WASM binary via a relative path (including `./node_modules/`).
 
 Add the following rule to the `wrangler.toml` to upload WASM during build:
 
@@ -261,9 +261,9 @@ type = "CompiledWasm"
 Initialize the encoder with the following snippet:
 
 ```javascript
-import { init, Tiktoken } from "@dqbd/tiktoken/lite/init";
-import wasm from "./node_modules/@dqbd/tiktoken/lite/tiktoken_bg.wasm";
-import model from "@dqbd/tiktoken/encoders/cl100k_base.json";
+import { init, Tiktoken } from "tiktoken/lite/init";
+import wasm from "./node_modules/tiktoken/lite/tiktoken_bg.wasm";
+import model from "tiktoken/encoders/cl100k_base.json";
 
 export default {
   async fetch() {

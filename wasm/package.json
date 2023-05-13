@@ -1,5 +1,5 @@
 {
-  "name": "@dqbd/tiktoken",
+  "name": "tiktoken",
   "version": "1.0.7",
   "description": "Javascript bindings for tiktoken",
   "license": "MIT",
