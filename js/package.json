@@ -4,7 +4,7 @@
   "description": "JavaScript port of tiktoken",
   "license": "MIT",
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsup",
     "test": "vitest run"
   },
   "files": [
@@ -26,5 +26,14 @@
   "publishConfig": {
     "access": "public"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "tsup": "^6.7.0"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts"
+    ],
+    "dts": true,
+    "clean": true
+  }
 }
