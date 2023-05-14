@@ -66,7 +66,7 @@ async function main() {
     model.special_tokens,
     model.pat_str
   );
-  const tokens = encoding.encode("hello world");
+  const tokens = encoder.encode("hello world");
   encoder.free();
 }
 
