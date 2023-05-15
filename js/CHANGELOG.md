@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.3
+
+### Patch Changes
+
+- de929d4: Add disallowed tokens
+
 ## 1.0.2
 
 ### Patch Changes
