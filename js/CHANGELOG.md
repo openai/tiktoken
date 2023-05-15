@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.5
+
+### Patch Changes
+
+- Use require instead for exports, add lite entrypoint
+
 ## 1.0.4
 
 ### Patch Changes

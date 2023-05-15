@@ -1,6 +1,6 @@
 {
   "name": "js-tiktoken",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "JavaScript port of tiktoken",
   "license": "MIT",
   "scripts": {
@@ -16,32 +16,37 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "node": "./dist/index.cjs",
+      "require": "./dist/index.cjs",
       "default": "./dist/index.js"
+    },
+    "./lite": {
+      "types": "./dist/lite.d.ts",
+      "require": "./dist/lite.cjs",
+      "default": "./dist/lite.js"
     },
     "./ranks/cl100k_base": {
       "types": "./dist/ranks/cl100k_base.d.ts",
-      "node": "./dist/ranks/cl100k_base.cjs",
+      "require": "./dist/ranks/cl100k_base.cjs",
       "default": "./dist/ranks/cl100k_base.js"
     },
     "./ranks/gpt2": {
       "types": "./dist/ranks/gpt2.d.ts",
-      "node": "./dist/ranks/gpt2.cjs",
+      "require": "./dist/ranks/gpt2.cjs",
       "default": "./dist/ranks/gpt2.js"
     },
     "./ranks/p50k_base": {
       "types": "./dist/ranks/p50k_base.d.ts",
-      "node": "./dist/ranks/p50k_base.cjs",
+      "require": "./dist/ranks/p50k_base.cjs",
       "default": "./dist/ranks/p50k_base.js"
     },
     "./ranks/p50k_edit": {
       "types": "./dist/ranks/p50k_edit.d.ts",
-      "node": "./dist/ranks/p50k_edit.cjs",
+      "require": "./dist/ranks/p50k_edit.cjs",
       "default": "./dist/ranks/p50k_edit.js"
     },
     "./ranks/r50k_base": {
       "types": "./dist/ranks/r50k_base.d.ts",
-      "node": "./dist/ranks/r50k_base.cjs",
+      "require": "./dist/ranks/r50k_base.cjs",
       "default": "./dist/ranks/r50k_base.js"
     }
   },
@@ -61,6 +66,7 @@
   "tsup": {
     "entry": [
       "src/index.ts",
+      "src/lite.ts",
       "src/ranks/cl100k_base.ts",
       "src/ranks/gpt2.ts",
       "src/ranks/p50k_base.ts",
