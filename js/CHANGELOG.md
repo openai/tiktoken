@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.2
+
+### Patch Changes
+
+- 2ba9a78: Add missing main and types for compat
+
 ## 1.0.1
 
 ### Patch Changes
