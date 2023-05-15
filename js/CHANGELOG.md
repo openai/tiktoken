@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.4
+
+### Patch Changes
+
+- 265e01d: Expose ranks
+
 ## 1.0.3
 
 ### Patch Changes
