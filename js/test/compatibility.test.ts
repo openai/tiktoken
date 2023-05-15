@@ -1,9 +1,9 @@
 import { test, expect, describe, afterAll } from "vitest";
 import { get_encoding } from "../../wasm/dist";
-import { Tiktoken } from "../src/index";
+import { getEncoding } from "../src/index";
 
 describe("LiteTokenizer matches the behavior of tiktoken", () => {
-  const lite = new Tiktoken();
+  const lite = getEncoding("cl100k_base");
   const full = get_encoding("cl100k_base");
 
   afterAll(() => full.free());
@@ -15,9 +15,26 @@ describe("LiteTokenizer matches the behavior of tiktoken", () => {
 
   test("Magic tokens", () => {
     const text = "<|fim_prefix|>test<|fim_suffix|>";
+
+    expect(() => lite.encode(text)).toThrowError(
+      "The text contains a special token that is not allowed: <|fim_prefix|>"
+    );
+
+    expect(() => lite.encode(text, [], "all")).toThrowError(
+      "The text contains a special token that is not allowed: <|fim_prefix|>"
+    );
+
     expect([...lite.encode(text, "all")]).toEqual([
       ...full.encode(text, "all"),
     ]);
+
+    expect(() => [...lite.encode(text, ["<|fim_prefix|>"])]).toThrowError(
+      "The text contains a special token that is not allowed: <|fim_suffix|>"
+    );
+
+    expect([
+      ...lite.encode(text, ["<|fim_prefix|>", "<|fim_suffix|>"]),
+    ]).toEqual([...full.encode(text, ["<|fim_prefix|>", "<|fim_suffix|>"])]);
   });
 
   test("Emojis and non-latin characters", () => {

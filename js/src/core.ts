@@ -104,21 +104,48 @@ export class Tiktoken {
     }, {});
   }
 
-  encode(text: string, allowedSpecial: Set<string> | "all" = new Set()) {
+  private static specialTokenRegex = (tokens: string[]) => {
+    return new RegExp(tokens.map((i) => escapeRegex(i)).join("|"), "g");
+  };
+
+  encode(
+    text: string,
+    allowedSpecial: Array<string> | "all" = [],
+    disallowedSpecial: Array<string> | "all" = "all"
+  ) {
     const regexes = new RegExp(this.patStr, "ug");
-    const specialRegex = new RegExp(
+    const specialRegex = Tiktoken.specialTokenRegex(
       Object.keys(this.specialTokens)
-        .map((i) => escapeRegex(i))
-        .join("|"),
-      "g"
     );
 
     const ret: number[] = [];
 
-    const allowedSpecialSet =
+    const allowedSpecialSet = new Set(
       allowedSpecial === "all"
-        ? new Set(Object.keys(this.specialTokens))
-        : allowedSpecial;
+        ? Object.keys(this.specialTokens)
+        : allowedSpecial
+    );
+
+    const disallowedSpecialSet = new Set(
+      disallowedSpecial === "all"
+        ? Object.keys(this.specialTokens).filter(
+            (x) => !allowedSpecialSet.has(x)
+          )
+        : disallowedSpecial
+    );
+
+    if (disallowedSpecialSet.size > 0) {
+      const disallowedSpecialRegex = Tiktoken.specialTokenRegex([
+        ...disallowedSpecialSet,
+      ]);
+
+      const specialMatch = text.match(disallowedSpecialRegex);
+      if (specialMatch != null) {
+        throw new Error(
+          `The text contains a special token that is not allowed: ${specialMatch[0]}`
+        );
+      }
+    }
 
     let start = 0;
     while (true) {
