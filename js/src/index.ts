@@ -11,7 +11,7 @@ import { never } from "./utils";
 export function getEncoding(
   encoding: TiktokenEncoding,
   extendSpecialTokens?: Record<string, number>
-) {
+): Tiktoken {
   switch (encoding) {
     case "gpt2":
       return new Tiktoken(gpt2, extendSpecialTokens);
@@ -24,17 +24,15 @@ export function getEncoding(
     case "cl100k_base":
       return new Tiktoken(cl100k_base, extendSpecialTokens);
     default:
-      never("Unknown encoding", encoding);
+      never(encoding);
+      throw new Error("Unknown encoding");
   }
 }
 
-export function encodingForModel(
-  model: TiktokenModel,
-  extendSpecialTokens?: Record<string, number>
-) {
+export function getEncodingNameForModel(model: TiktokenModel) {
   switch (model) {
     case "gpt2": {
-      return getEncoding("gpt2", extendSpecialTokens);
+      return "gpt2";
     }
     case "code-cushman-001":
     case "code-cushman-002":
@@ -44,11 +42,11 @@ export function encodingForModel(
     case "davinci-codex":
     case "text-davinci-002":
     case "text-davinci-003": {
-      return getEncoding("p50k_base", extendSpecialTokens);
+      return "p50k_base";
     }
     case "code-davinci-edit-001":
     case "text-davinci-edit-001": {
-      return getEncoding("p50k_edit", extendSpecialTokens);
+      return "p50k_edit";
     }
     case "ada":
     case "babbage":
@@ -68,7 +66,7 @@ export function encodingForModel(
     case "text-similarity-babbage-001":
     case "text-similarity-curie-001":
     case "text-similarity-davinci-001": {
-      return getEncoding("r50k_base", extendSpecialTokens);
+      return "r50k_base";
     }
     case "gpt-3.5-turbo-0301":
     case "gpt-3.5-turbo":
@@ -77,11 +75,19 @@ export function encodingForModel(
     case "gpt-4-32k":
     case "gpt-4":
     case "text-embedding-ada-002": {
-      return getEncoding("cl100k_base", extendSpecialTokens);
+      return "cl100k_base";
     }
     default:
-      never("Unknown model", model);
+      never(model);
+      throw new Error("Unknown model");
   }
+}
+
+export function encodingForModel(
+  model: TiktokenModel,
+  extendSpecialTokens?: Record<string, number>
+) {
+  return getEncoding(getEncodingNameForModel(model), extendSpecialTokens);
 }
 
 export { Tiktoken, TiktokenBPE } from "./core";

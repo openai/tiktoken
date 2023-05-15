@@ -7,12 +7,14 @@
     "build": "rm -rf dist && tsup",
     "test": "vitest run"
   },
+  "type": "module",
   "files": [
     "dist/**/*"
   ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "node": "./dist/index.cjs",
       "default": "./dist/index.js"
     }
   },
@@ -33,7 +35,12 @@
     "entry": [
       "src/index.ts"
     ],
+    "format": [
+      "cjs",
+      "esm"
+    ],
     "dts": true,
-    "clean": true
+    "clean": true,
+    "treeshake": true
   }
 }
