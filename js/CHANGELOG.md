@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.6
+
+### Patch Changes
+
+- Add entrypoints for Jest in CRA
+
 ## 1.0.5
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "js-tiktoken",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "JavaScript port of tiktoken",
   "license": "MIT",
   "scripts": {
@@ -11,7 +11,11 @@
   "main": "./dist/index.cjs",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist/**/*"
+    "dist/**/*",
+    "index.js",
+    "index.d.ts",
+    "lite.js",
+    "lite.d.ts"
   ],
   "exports": {
     ".": {
