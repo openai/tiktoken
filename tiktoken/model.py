@@ -9,6 +9,11 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "gpt-4-": "cl100k_base",  # e.g., gpt-4-0314, etc., plus gpt-4-32k
     "gpt-3.5-turbo-": "cl100k_base",  # e.g, gpt-3.5-turbo-0301, -0401, etc.
     "gpt-35-turbo": "cl100k_base",  # Azure deployment name
+    # fine-tuned models
+    "davinci": "r50k_base",
+    "curie": "r50k_base",
+    "babbage": "r50k_base",
+    "ada": "r50k_base",
 }
 
 MODEL_TO_ENCODING: dict[str, str] = {
