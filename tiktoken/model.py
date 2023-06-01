@@ -8,12 +8,14 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     # chat
     "gpt-4-": "cl100k_base",  # e.g., gpt-4-0314, etc., plus gpt-4-32k
     "gpt-3.5-turbo-": "cl100k_base",  # e.g, gpt-3.5-turbo-0301, -0401, etc.
+    "gpt-35-turbo": "cl100k_base",  # Azure deployment name
 }
 
 MODEL_TO_ENCODING: dict[str, str] = {
     # chat
     "gpt-4": "cl100k_base",
     "gpt-3.5-turbo": "cl100k_base",
+    "gpt-35-turbo": "cl100k_base",  # Azure deployment name
     # text
     "text-davinci-003": "p50k_base",
     "text-davinci-002": "p50k_base",
@@ -69,7 +71,7 @@ def encoding_for_model(model_name: str) -> Encoding:
     if encoding_name is None:
         raise KeyError(
             f"Could not automatically map {model_name} to a tokeniser. "
-            "Please use `tiktok.get_encoding` to explicitly get the tokeniser you expect."
+            "Please use `tiktoken.get_encoding` to explicitly get the tokeniser you expect."
         ) from None
 
     return get_encoding(encoding_name)
