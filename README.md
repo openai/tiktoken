@@ -107,16 +107,19 @@ main();
 
 As this is a WASM library, there might be some issues with specific runtimes. If you encounter any issues, please open an issue.
 
-| Runtime                      | Status | Notes                                      |
-| ---------------------------- | ------ | ------------------------------------------ |
-| Node.js                      | ✅     |                                            |
-| Bun                          | ✅     |                                            |
-| Vite                         | ✅     | See [here](#vite) for notes                |
-| Next.js                      | ✅     | See [here](#nextjs) for notes              |
-| Create React App (via Craco) | ✅     | See [here](#create-react-app) for notes    |
-| Vercel Edge Runtime          | ✅     | See [here](#vercel-edge-runtime) for notes |
-| Cloudflare Workers           | ✅     | See [here](#cloudflare-workers) for notes  |
-| Deno                         | ❌     | Currently unsupported                      |
+| Runtime                      | Status | Notes                                                                                      |
+| ---------------------------- | ------ | ------------------------------------------------------------------------------------------ |
+| Node.js                      | ✅     |                                                                                            |
+| Bun                          | ✅     |                                                                                            |
+| Vite                         | ✅     | See [here](#vite) for notes                                                                |
+| Next.js                      | ✅     | See [here](#nextjs) for notes                                                              |
+| Create React App (via Craco) | ✅     | See [here](#create-react-app) for notes                                                    |
+| Vercel Edge Runtime          | ✅     | See [here](#vercel-edge-runtime) for notes                                                 |
+| Cloudflare Workers           | ✅     | See [here](#cloudflare-workers) for notes                                                  |
+| Deno                         | ❌     | Currently unsupported (see [dqbd/tiktoken#22](https://github.com/dqbd/tiktoken/issues/22)) |
+| Svelte + Cloudflare Workers  | ❌     | Currently unsupported (see [dqbd/tiktoken#37](https://github.com/dqbd/tiktoken/issues/37)) |
+
+For unsupported runtimes, consider using [`js-tiktoken`](https://www.npmjs.com/package/js-tiktoken), which is a pure JS implementation of the tokeniser.
 
 ### [Vite](#vite)
 
