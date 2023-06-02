@@ -6,15 +6,15 @@ OpenAI's models, forked from the original tiktoken library to provide JS/WASM bi
 This repository contains the following packages:
 
 - `tiktoken` (formally hosted at `@dqbd/tiktoken`): WASM bindings for the original Python library, providing full 1-to-1 feature parity.
-- `js-tiktoken`: Pure JavaScript port of the original library with the core functionality, suitable for environments where WASM is not well supported or not desired (such as edge runtimes).
+- `js-tiktoken`: Pure JavaScript port of the original library with the core functionality, suitable for environments where WASM is not well supported or not desired (such as edge runtimes). 
+
+Documentation for `js-tiktoken` can be found in [here](https://github.com/dqbd/tiktoken/blob/main/js/README.md). Documentation for the `tiktoken` can be found here below.
 
 The WASM version of `tiktoken` can be installed from NPM:
 
 ```
 npm install tiktoken
 ```
-
-Documentation for `js-tiktoken` can be found in [here](https://github.com/dqbd/tiktoken/blob/main/js/README.md).
 
 ## Usage
 
