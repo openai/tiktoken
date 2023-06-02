@@ -1,13 +1,20 @@
 # ⏳ tiktoken
 
 tiktoken is a [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
-OpenAI's models, forked from the original tiktoken library to provide NPM bindings for Node and other JS runtimes.
+OpenAI's models, forked from the original tiktoken library to provide JS/WASM bindings for NodeJS and other JS runtimes.
 
-The open source version of `tiktoken` can be installed from NPM:
+This repository contains the following packages:
+
+- `tiktoken` (formally hosted at `@dqbd/tiktoken`): WASM bindings for the original Python library, providing full 1-to-1 feature parity.
+- `js-tiktoken`: Pure JavaScript port of the original library with the core functionality, suitable for environments where WASM is not well supported or not desired (such as edge runtimes).
+
+The WASM version of `tiktoken` can be installed from NPM:
 
 ```
 npm install tiktoken
 ```
+
+Documentation for `js-tiktoken` can be found in [here](https://github.com/dqbd/tiktoken/blob/main/js/README.md).
 
 ## Usage
 
