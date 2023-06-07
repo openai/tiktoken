@@ -36,6 +36,6 @@ macos.archs = ["x86_64", "arm64"]
 # Warnings will be silenced with following CIBW_TEST_SKIP
 test-skip = "*-macosx_arm64"
 
-before-test = "pip install pytest"
+before-test = "pip install pytest hypothesis"
 test-command = "pytest {project}/tests"
 

@@ -33,6 +33,7 @@ MANIFEST
 # Tools
 .mypy_cache
 .coverage
+.hypothesis
 htmlcov
 
 # General
