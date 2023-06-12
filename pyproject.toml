@@ -37,5 +37,5 @@ macos.archs = ["x86_64", "arm64"]
 test-skip = "*-macosx_arm64"
 
 before-test = "pip install pytest hypothesis"
-test-command = "pytest {project}/tests"
+test-command = "pytest {project}/tests --import-mode=append"
 
