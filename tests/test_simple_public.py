@@ -32,6 +32,16 @@ def test_encoding_for_model():
     enc = tiktoken.encoding_for_model("gpt-3.5-turbo-0301")
     assert enc.name == "cl100k_base"
 
+    # fine-tuned models
+    enc = tiktoken.encoding_for_model("davinci:ft-personal:finetunedmodel-2023-05-23-20-00-00")
+    assert enc.name == "r50k_base"
+    enc = tiktoken.encoding_for_model("curie:ft-personal:finetunedmodel-2023-05-23-20-00-00")
+    assert enc.name == "r50k_base"
+    enc = tiktoken.encoding_for_model("babbage:ft-personal:finetunedmodel-2023-05-23-20-00-00")
+    assert enc.name == "r50k_base"
+    enc = tiktoken.encoding_for_model("ada:ft-personal:finetunedmodel-2023-05-23-20-00-00")
+    assert enc.name == "r50k_base"
+
 
 def test_optional_blobfile_dependency():
     prog = """
