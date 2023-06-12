@@ -1,4 +1,6 @@
 """This is an educational implementation of the byte pair encoding algorithm."""
+from __future__ import annotations
+
 import collections
 import itertools
 from typing import Optional
