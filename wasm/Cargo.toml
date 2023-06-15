@@ -11,10 +11,10 @@ crate-type = ["cdylib"]
 [dependencies]
 tiktoken_core = { path = "../core", features = [] }
 # tiktoken dependencies
-fancy-regex = "0.10.0"
-regex = "1.7.0"
+fancy-regex = "0.11.0"
+regex = "1.8.3"
 rustc-hash = "1.1.0"
-bstr = "1.0.1"
+bstr = "1.5.0"
 wasm-bindgen = "0.2.83"
 anyhow = "1.0.69"
 base64 = "0.21.0"
