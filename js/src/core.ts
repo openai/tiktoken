@@ -247,11 +247,16 @@ export function getEncodingNameForModel(model: TiktokenModel) {
     case "text-similarity-davinci-001": {
       return "r50k_base";
     }
+    case "gpt-3.5-turbo-16k-0613":
+    case "gpt-3.5-turbo-16k":
+    case "gpt-3.5-turbo-0613":
     case "gpt-3.5-turbo-0301":
     case "gpt-3.5-turbo":
-    case "gpt-4-0314":
+    case "gpt-4-32k-0613":
     case "gpt-4-32k-0314":
     case "gpt-4-32k":
+    case "gpt-4-0613":
+    case "gpt-4-0314":
     case "gpt-4":
     case "text-embedding-ada-002": {
       return "cl100k_base";
