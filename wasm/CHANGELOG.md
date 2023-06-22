@@ -1,5 +1,11 @@
 # tiktoken
 
+## 1.0.9
+
+### Patch Changes
+
+- Fix missing types for 0613 models
+
 ## 1.0.8
 
 ### Patch Changes
