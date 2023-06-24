@@ -174,7 +174,6 @@ for (const baseDir of [
                 path.join(
                   prefix,
                   "node_modules",
-                  "@dqbd",
                   "tiktoken",
                   "${relativeDir}",
                   "./tiktoken_bg.wasm"
