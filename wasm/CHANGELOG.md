@@ -1,5 +1,11 @@
 # tiktoken
 
+## 1.0.10
+
+### Patch Changes
+
+- a691152: Fix invalid prefix for resolving broken resolution
+
 ## 1.0.9
 
 ### Patch Changes
