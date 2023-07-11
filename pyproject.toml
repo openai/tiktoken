@@ -7,7 +7,7 @@ license = {file = "LICENSE"}
 authors = [{name = "Shantanu Jain"}, {email = "shantanu@openai.com"}]
 dependencies = ["regex>=2022.1.18", "requests>=2.26.0"]
 optional-dependencies = {blobfile = ["blobfile>=2"]}
-requires-python = ">=3.8"
+requires-python = ">=3.7"
 
 [project.urls]
 homepage = "https://github.com/openai/tiktoken"
