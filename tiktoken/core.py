@@ -329,6 +329,7 @@ class Encoding:
     def eot_token(self) -> int:
         return self._special_tokens["<|endoftext|>"]
 
+    @property
     def special_tokens_set(self) -> set[str]:
         return set(self._special_tokens.keys())
 
