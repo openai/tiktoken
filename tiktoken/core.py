@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import functools
 from concurrent.futures import ThreadPoolExecutor
-from typing import AbstractSet, Collection, Literal, NoReturn, Optional, Union
+from typing import AbstractSet, Collection, NoReturn, Optional, Union
+from typing_extensions import Literal
 
 import regex
 

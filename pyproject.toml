@@ -16,7 +16,7 @@ changelog = "https://github.com/openai/tiktoken/blob/main/CHANGELOG.md"
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=62.4", "wheel", "setuptools-rust>=1.5.2"]
+requires = ["setuptools>=62.4", "wheel", "setuptools-rust>=1.5.2", "typing_extensions>=4.7.1"]
 
 [tool.cibuildwheel]
 build-frontend = "build"
