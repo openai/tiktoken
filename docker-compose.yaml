@@ -1,0 +1,8 @@
+services:
+  tiktoken:
+    build:
+      context: ./
+      dockerfile: dev.Dockerfile
+    volumes:
+      - ./:/mnt
+    restart: always
