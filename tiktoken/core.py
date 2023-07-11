@@ -113,7 +113,8 @@ class Encoding:
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
+            match = _special_token_regex(disallowed_special).search(text)
+            if match:
                 raise_disallowed_special_token(match.group())
 
         try:
@@ -204,7 +205,8 @@ class Encoding:
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
+            match = _special_token_regex(disallowed_special).search(text)
+            if match:
                 raise_disallowed_special_token(match.group())
 
         return self._core_bpe.encode_with_unstable(text, allowed_special)
@@ -326,7 +328,6 @@ class Encoding:
     def eot_token(self) -> int:
         return self._special_tokens["<|endoftext|>"]
 
-    @functools.cached_property
     def special_tokens_set(self) -> set[str]:
         return set(self._special_tokens.keys())
 
