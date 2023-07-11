@@ -16,8 +16,6 @@ ENV PYTHONUNBUFFERED=1
 ENV PATH="${PATH}:/home/tiktoken/.local/bin"
 
 RUN pip3 install --upgrade pip
-RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/home/tiktoken/.local python3 - --version 1.3.2
-RUN poetry config virtualenvs.in-project true
 
 USER tiktoken
 
