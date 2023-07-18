@@ -3,14 +3,13 @@
 
 use std::collections::HashSet;
 
-use fancy_regex::Regex;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::PyResult;
 use pyo3::types::{PyBytes, PyList, PyTuple};
 use rustc_hash::FxHashMap as HashMap;
 
-use crate::tiktoken::{byte_pair_encode, CoreBPE, MAX_NUM_THREADS};
+use tiktoken::core::{byte_pair_encode, CoreBPE};
 
 #[pyclass]
 pub struct PyCoreBPE {
@@ -26,47 +25,10 @@ impl PyCoreBPE {
         special_tokens_encoder: HashMap<String, usize>,
         pattern: &str,
     ) -> PyResult<Self> {
-        let regex = Regex::new(pattern)
-            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
-
-        let special_regex = {
-            let _parts = special_tokens_encoder
-                .keys()
-                .map(|s| fancy_regex::escape(s))
-                .collect::<Vec<_>>();
-            Regex::new(&_parts.join("|"))
-                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?
-        };
-
-        let decoder: HashMap<usize, Vec<u8>> =
-            encoder.iter().map(|(k, v)| (*v, k.clone())).collect();
-
-        assert!(
-            encoder.len() == decoder.len(),
-            "Encoder and decoder must be of equal length; maybe you had duplicate token indices in your encoder?"
-        );
-
-        let special_tokens_decoder: HashMap<usize, Vec<u8>> = special_tokens_encoder
-            .iter()
-            .map(|(k, v)| (*v, k.as_bytes().to_vec()))
-            .collect();
-
-        // Clone because I don't know how to tell Rust I'm not going to change the map
-        let mut sorted_token_bytes: Vec<Vec<u8>> = encoder.keys().cloned().collect();
-        sorted_token_bytes.sort();
-
-        let core_bpe = CoreBPE {
-            encoder,
-            special_tokens_encoder,
-            decoder,
-            special_tokens_decoder,
-            regex_tls: (0..MAX_NUM_THREADS).map(|_| regex.clone()).collect(),
-            special_regex_tls: (0..MAX_NUM_THREADS)
-                .map(|_| special_regex.clone())
-                .collect(),
-            sorted_token_bytes,
-        };
-        Ok(PyCoreBPE { core_bpe })
+        println!("encoder: {:?}", encoder);
+        CoreBPE::new(encoder, special_tokens_encoder, pattern)
+            .map(|core_bpe| PyCoreBPE { core_bpe })
+            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))
     }
 
     // ====================
@@ -82,30 +44,7 @@ impl PyCoreBPE {
     }
 
     fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<usize> {
-        py.allow_threads(|| {
-            match std::str::from_utf8(bytes) {
-                Ok(text) => self.core_bpe._encode_ordinary_native(text),
-                Err(e) => {
-                    let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
-                    let (tokens, last_piece_token_len) = self.core_bpe._encode_native(text, &HashSet::new());
-                    let (mut tokens, last_piece_token_len) =
-                        self.core_bpe._increase_last_piece_token_len(tokens, last_piece_token_len);
-                    if !tokens.is_empty() && last_piece_token_len > 0 {
-                        // Lop off the tokens from the last piece and run BPE on the remaining bytes
-                        // Somewhat niche, but this may not be correct if we'd have had a regex
-                        // split between the valid UTF-8 and the invalid bytes, which is why this
-                        // method is private
-                        let mut unstable_bytes =
-                            self.core_bpe._decode_native(&tokens[tokens.len() - last_piece_token_len..]);
-                        unstable_bytes.extend_from_slice(&bytes[e.valid_up_to()..]);
-
-                        tokens.truncate(tokens.len() - last_piece_token_len);
-                        tokens.extend(byte_pair_encode(&unstable_bytes, &self.core_bpe.encoder));
-                    }
-                    tokens
-                }
-            }
-        })
+        py.allow_threads(|| self.core_bpe._encode_bytes(bytes))
     }
 
     fn encode_with_unstable(
@@ -181,7 +120,7 @@ pub fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
 mod tests {
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::tiktoken::byte_pair_split;
+    use tiktoken::core::byte_pair_split;
 
     #[test]
     fn very_simple_test() {

@@ -5,11 +5,12 @@ setup(
     name="tiktoken",
     rust_extensions=[
         RustExtension(
-            "tiktoken._tiktoken",
+            target="tiktoken._tiktoken",
             binding=Binding.PyO3,
             # Between our use of editable installs and wanting to use Rust for performance sensitive
             # code, it makes sense to just always use --release
             debug=False,
+            path="py-tiktoken/Cargo.toml",
         )
     ],
     package_data={"tiktoken": ["py.typed"]},
