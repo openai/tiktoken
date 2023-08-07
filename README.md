@@ -123,6 +123,7 @@ As this is a WASM library, there might be some issues with specific runtimes. If
 | Create React App (via Craco) | ✅     | See [here](#create-react-app) for notes                                                    |
 | Vercel Edge Runtime          | ✅     | See [here](#vercel-edge-runtime) for notes                                                 |
 | Cloudflare Workers           | ✅     | See [here](#cloudflare-workers) for notes                                                  |
+| Electron                     | ✅     | See [here](#electron) for notes                                                            |
 | Deno                         | ❌     | Currently unsupported (see [dqbd/tiktoken#22](https://github.com/dqbd/tiktoken/issues/22)) |
 | Svelte + Cloudflare Workers  | ❌     | Currently unsupported (see [dqbd/tiktoken#37](https://github.com/dqbd/tiktoken/issues/37)) |
 
@@ -287,6 +288,27 @@ export default {
     encoder.free();
     return new Response(`${tokens}`);
   },
+};
+```
+
+### [Electron](#electron)
+
+To use tiktoken in your Electron main process, you need to make sure the WASM binary gets copied into your application package.
+
+Assuming a setup with [Electron Forge](https://www.electronforge.io) and [`@electron-forge/plugin-webpack`](https://www.npmjs.com/package/@electron-forge/plugin-webpack), add the following to your `webpack.main.config.js`:
+
+```javascript
+const CopyPlugin = require("copy-webpack-plugin");
+
+module.exports = {
+  // ...
+  plugins: [
+    new CopyPlugin({
+      patterns: [
+        { from: "./node_modules/tiktoken/tiktoken_bg.wasm" },
+      ],
+    }),
+  ],
 };
 ```
 
