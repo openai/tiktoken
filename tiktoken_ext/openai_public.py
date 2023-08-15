@@ -7,10 +7,18 @@ FIM_SUFFIX = "<|fim_suffix|>"
 ENDOFPROMPT = "<|endofprompt|>"
 
 
-def gpt2():
+def gpt2(local_vocab_bpe_path: str = None, local_encoding_path: str = None):
+    if local_vocab_bpe_path:
+        vocab_bpe_file = local_vocab_bpe_path
+    else:
+        vocab_bpe_file = "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe"
+    if local_encoding_path:
+        encoder_json_file = local_encoding_path
+    else:
+        encoder_json_file = "https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json"
     mergeable_ranks = data_gym_to_mergeable_bpe_ranks(
-        vocab_bpe_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe",
-        encoder_json_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json",
+        vocab_bpe_file=vocab_bpe_file,
+        encoder_json_file=encoder_json_file,
     )
     return {
         "name": "gpt2",
@@ -60,10 +68,12 @@ def p50k_edit():
     }
 
 
-def cl100k_base():
-    mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken"
-    )
+def cl100k_base(local_encoding_path: str = None):
+    if local_encoding_path:
+        bpe_file = local_encoding_path
+    else:
+        bpe_file = "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken"
+    mergeable_ranks = load_tiktoken_bpe(bpe_file)
     special_tokens = {
         ENDOFTEXT: 100257,
         FIM_PREFIX: 100258,

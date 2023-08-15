@@ -44,7 +44,7 @@ def _find_constructors() -> None:
                 ENCODING_CONSTRUCTORS[enc_name] = constructor
 
 
-def get_encoding(encoding_name: str) -> Encoding:
+def get_encoding(encoding_name: str, local_vocab_bpe_path: str = None, local_encoding_path: str = None) -> Encoding:
     if encoding_name in ENCODINGS:
         return ENCODINGS[encoding_name]
 
@@ -60,7 +60,12 @@ def get_encoding(encoding_name: str) -> Encoding:
             raise ValueError(f"Unknown encoding {encoding_name}")
 
         constructor = ENCODING_CONSTRUCTORS[encoding_name]
-        enc = Encoding(**constructor())
+        if encoding_name == "gpt2":
+            enc = Encoding(**constructor(local_vocab_bpe_path = local_vocab_bpe_path, local_encoding_path=local_encoding_path))
+        elif encoding_name == "cl100k_base":
+            enc = Encoding(**constructor(local_encoding_path=local_encoding_path))
+        else:
+            enc = Encoding(**constructor())
         ENCODINGS[encoding_name] = enc
         return enc
 
