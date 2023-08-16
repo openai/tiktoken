@@ -61,7 +61,7 @@ def get_encoding(encoding_name: str, local_vocab_bpe_path: str = None, local_enc
 
         constructor = ENCODING_CONSTRUCTORS[encoding_name]
         if encoding_name == "gpt2":
-            enc = Encoding(**constructor(local_vocab_bpe_path = local_vocab_bpe_path, local_encoding_path=local_encoding_path))
+            enc = Encoding(**constructor(local_vocab_bpe_path=local_vocab_bpe_path, local_encoding_path=local_encoding_path))
         elif encoding_name == "cl100k_base":
             enc = Encoding(**constructor(local_encoding_path=local_encoding_path))
         else:
