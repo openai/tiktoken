@@ -17,6 +17,8 @@ MODEL_TO_ENCODING: dict[str, str] = {
     "gpt-3.5-turbo": "cl100k_base",
     "gpt-35-turbo": "cl100k_base",  # Azure deployment name
     # text
+    "davinci-002": "cl100k_base",
+    "babbage-002": "cl100k_base",
     "text-davinci-003": "p50k_base",
     "text-davinci-002": "p50k_base",
     "text-davinci-001": "r50k_base",
