@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 from concurrent.futures import ThreadPoolExecutor
-from typing import AbstractSet, Collection, Literal, NoReturn, Optional, Union
+from typing import AbstractSet, Collection, Literal, NoReturn, Optional, Union, Callable
 
 import regex
 
@@ -51,6 +51,9 @@ class Encoding:
 
     def __repr__(self) -> str:
         return f"<Encoding {self.name!r}>"
+
+    def __reduce__(self) -> tuple[Callable[[], Encoding], tuple[()]]:
+        return functools.partial(Encoding, self.name, pat_str=self._pat_str, mergeable_ranks=self._mergeable_ranks, special_tokens=self._special_tokens), ()
 
     # ====================
     # Encoding
