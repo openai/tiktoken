@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import functools
 import importlib
 import pkgutil
 import threading
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Sequence
 
 import tiktoken_ext
 
@@ -14,6 +15,20 @@ ENCODINGS: dict[str, Encoding] = {}
 ENCODING_CONSTRUCTORS: Optional[dict[str, Callable[[], dict[str, Any]]]] = None
 
 
+@functools.lru_cache()
+def _available_plugin_modules() -> Sequence[str]:
+    # tiktoken_ext is a namespace package
+    # submodules inside tiktoken_ext will be inspected for ENCODING_CONSTRUCTORS attributes
+    # - we use namespace package pattern so `pkgutil.iter_modules` is fast
+    # - it's a separate top-level package because namespace subpackages of non-namespace
+    #   packages don't quite do what you want with editable installs
+    mods = []
+    plugin_mods = pkgutil.iter_modules(tiktoken_ext.__path__, tiktoken_ext.__name__ + ".")
+    for _, mod_name, _ in plugin_mods:
+        mods.append(mod_name)
+    return mods
+
+
 def _find_constructors() -> None:
     global ENCODING_CONSTRUCTORS
     with _lock:
@@ -21,14 +36,7 @@ def _find_constructors() -> None:
             return
         ENCODING_CONSTRUCTORS = {}
 
-        # tiktoken_ext is a namespace package
-        # submodules inside tiktoken_ext will be inspected for ENCODING_CONSTRUCTORS attributes
-        # - we use namespace package pattern so `pkgutil.iter_modules` is fast
-        # - it's a separate top-level package because namespace subpackages of non-namespace
-        #   packages don't quite do what you want with editable installs
-        plugin_mods = pkgutil.iter_modules(tiktoken_ext.__path__, tiktoken_ext.__name__ + ".")
-
-        for _, mod_name, _ in plugin_mods:
+        for mod_name in _available_plugin_modules():
             mod = importlib.import_module(mod_name)
             try:
                 constructors = mod.ENCODING_CONSTRUCTORS
@@ -57,7 +65,9 @@ def get_encoding(encoding_name: str) -> Encoding:
             assert ENCODING_CONSTRUCTORS is not None
 
         if encoding_name not in ENCODING_CONSTRUCTORS:
-            raise ValueError(f"Unknown encoding {encoding_name}")
+            raise ValueError(
+                f"Unknown encoding {encoding_name}. Plugins found: {_available_plugin_modules()}"
+            )
 
         constructor = ENCODING_CONSTRUCTORS[encoding_name]
         enc = Encoding(**constructor())

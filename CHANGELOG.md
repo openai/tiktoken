@@ -2,6 +2,14 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.5.0]
+- Add `tiktoken._educational` submodule to better document how byte pair encoding works
+- Ensure `encoding_for_model` knows about several new models
+- Add `decode_with_offets`
+- Better error for failures with the plugin mechanism
+- Make more tests public
+- Update versions of dependencies
+
 ## [v0.4.0]
 - Add `decode_batch` and `decode_bytes_batch`
 - Improve error messages and handling
