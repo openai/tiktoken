@@ -39,3 +39,6 @@ test-skip = "*-macosx_arm64"
 before-test = "pip install pytest hypothesis"
 test-command = "pytest {project}/tests --import-mode=append"
 
+[[tool.cibuildwheel.overrides]]
+select = "*linux_aarch64"
+test-command = """python -c 'import tiktoken; enc = tiktoken.get_encoding("gpt2"); assert enc.encode("hello world") == [31373, 995]'"""
