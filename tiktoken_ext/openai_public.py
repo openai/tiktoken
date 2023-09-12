@@ -17,7 +17,7 @@ def gpt2():
         "explicit_n_vocab": 50257,
         "pat_str": r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
         "mergeable_ranks": mergeable_ranks,
-        "special_tokens": {"<|endoftext|>": 50256},
+        "special_tokens": {ENDOFTEXT: 50256},
     }
 
 
