@@ -2,6 +2,9 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.5.1]
+- Add `encoding_name_for_model`, undo some renames to variables that are implementation details
+
 ## [v0.5.0]
 - Add `tiktoken._educational` submodule to better document how byte pair encoding works
 - Ensure `encoding_for_model` knows about several new models
