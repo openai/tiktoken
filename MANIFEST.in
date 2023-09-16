@@ -2,7 +2,11 @@ include *.svg
 include *.toml
 include *.md
 include Makefile
+include py-tiktoken/*.toml
+include rs-tiktoken/*.toml
+include rs-tiktoken/tests/gpt2_encoder
 global-include py.typed
 recursive-include scripts *.py
 recursive-include tests *.py
-recursive-include src *.rs
+recursive-include py-tiktoken *.rs
+recursive-include rs-tiktoken *.rs

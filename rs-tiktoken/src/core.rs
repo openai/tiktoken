@@ -2,14 +2,13 @@
 #![allow(clippy::borrow_deref_ref)]
 
 use std::collections::HashSet;
+use std::num::NonZeroU64;
 use std::thread;
 
 use fancy_regex::Regex;
-use pyo3::exceptions;
-use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyList, PyTuple};
-use pyo3::PyResult;
 use rustc_hash::FxHashMap as HashMap;
+
+use crate::error::TiktokenError;
 
 fn _byte_pair_merge<T>(
     piece: &[u8],
@@ -152,7 +151,6 @@ pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, usize>) -> 
 // The current implementation ends up doing a lot of hashing of bytes. In theory, this could be made
 // to be hashing of two-tuples of ints, which looks like it may also be a couple percent faster.
 
-use std::num::NonZeroU64;
 pub struct FakeThreadId(NonZeroU64);
 
 fn hash_current_thread() -> usize {
@@ -168,31 +166,82 @@ fn hash_current_thread() -> usize {
     u64::from(x) as usize
 }
 
-const MAX_NUM_THREADS: usize = 128;
-#[pyclass]
-struct CoreBPE {
-    encoder: HashMap<Vec<u8>, usize>,
-    special_tokens_encoder: HashMap<String, usize>,
-    decoder: HashMap<usize, Vec<u8>>,
-    special_tokens_decoder: HashMap<usize, Vec<u8>>,
-    regex_tls: Vec<Regex>,
-    special_regex_tls: Vec<Regex>,
-    sorted_token_bytes: Vec<Vec<u8>>,
+pub const MAX_NUM_THREADS: usize = 128;
+
+pub struct CoreBPE {
+    pub encoder: HashMap<Vec<u8>, usize>,
+    pub special_tokens_encoder: HashMap<String, usize>,
+    pub decoder: HashMap<usize, Vec<u8>>,
+    pub special_tokens_decoder: HashMap<usize, Vec<u8>>,
+    pub regex_tls: Vec<Regex>,
+    pub special_regex_tls: Vec<Regex>,
+    pub sorted_token_bytes: Vec<Vec<u8>>,
 }
 
 impl CoreBPE {
-    fn _get_tl_regex(&self) -> &Regex {
+    /// Create a new BPE model.
+    ///
+    /// * `encoder` - A mapping from byte sequences to their rank (python field Encoding.mergeable_ranks).
+    /// * `special_tokens_encoder` - A mapping from special tokens to their rank (python field Encoding.special_tokens).
+    /// * `pattern` - A regex pattern that matches all tokens (python field Encoding.pat_str).
+    pub fn new(
+        encoder: HashMap<Vec<u8>, usize>,
+        special_tokens_encoder: HashMap<String, usize>,
+        pattern: &str,
+    ) -> Result<Self, TiktokenError> {
+        let regex = Regex::new(pattern)?;
+
+        let special_regex = {
+            let _parts = special_tokens_encoder
+                .keys()
+                .map(|s| fancy_regex::escape(s))
+                .collect::<Vec<_>>();
+            Regex::new(&_parts.join("|"))?
+        };
+
+        let decoder: HashMap<usize, Vec<u8>> =
+            encoder.iter().map(|(k, v)| (*v, k.clone())).collect();
+
+        assert!(
+            encoder.len() == decoder.len(),
+            "Encoder and decoder must be of equal length; maybe you had duplicate token indices in your encoder?"
+        );
+
+        let special_tokens_decoder: HashMap<usize, Vec<u8>> = special_tokens_encoder
+            .iter()
+            .map(|(k, v)| (*v, k.as_bytes().to_vec()))
+            .collect();
+
+        // Clone because I don't know how to tell Rust I'm not going to change the map
+        let mut sorted_token_bytes: Vec<Vec<u8>> = encoder.keys().cloned().collect();
+        sorted_token_bytes.sort();
+
+        let core_bpe = CoreBPE {
+            encoder,
+            special_tokens_encoder,
+            decoder,
+            special_tokens_decoder,
+            regex_tls: (0..MAX_NUM_THREADS).map(|_| regex.clone()).collect(),
+            special_regex_tls: (0..MAX_NUM_THREADS)
+                .map(|_| special_regex.clone())
+                .collect(),
+            sorted_token_bytes,
+        };
+        Ok(core_bpe)
+    }
+
+    pub fn _get_tl_regex(&self) -> &Regex {
         // See performance notes above for what this is about
         // It's also a little janky, please make a better version of it!
         // However, it's nice that this doesn't leak memory to short-lived threads
         &self.regex_tls[hash_current_thread() % MAX_NUM_THREADS]
     }
 
-    fn _get_tl_special_regex(&self) -> &Regex {
+    pub fn _get_tl_special_regex(&self) -> &Regex {
         &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
     }
 
-    fn _decode_native(&self, tokens: &[usize]) -> Vec<u8> {
+    pub fn _decode_native(&self, tokens: &[usize]) -> Vec<u8> {
         let mut ret = Vec::with_capacity(tokens.len() * 2);
         for token in tokens {
             let token_bytes = self
@@ -204,7 +253,7 @@ impl CoreBPE {
         ret
     }
 
-    fn _encode_ordinary_native(&self, text: &str) -> Vec<usize> {
+    pub fn _encode_ordinary_native(&self, text: &str) -> Vec<usize> {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
         let regex = self._get_tl_regex();
@@ -220,7 +269,32 @@ impl CoreBPE {
         ret
     }
 
-    fn _encode_native(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<usize>, usize) {
+    pub fn _encode_bytes(&self, bytes: &[u8]) -> Vec<usize> {
+        match std::str::from_utf8(bytes) {
+            Ok(text) => self._encode_ordinary_native(text),
+            Err(e) => {
+                let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
+                let (tokens, last_piece_token_len) = self._encode_native(text, &HashSet::new());
+                let (mut tokens, last_piece_token_len) =
+                    self._increase_last_piece_token_len(tokens, last_piece_token_len);
+                if !tokens.is_empty() && last_piece_token_len > 0 {
+                    // Lop off the tokens from the last piece and run BPE on the remaining bytes
+                    // Somewhat niche, but this may not be correct if we'd have had a regex
+                    // split between the valid UTF-8 and the invalid bytes, which is why this
+                    // method is private
+                    let mut unstable_bytes =
+                        self._decode_native(&tokens[tokens.len() - last_piece_token_len..]);
+                    unstable_bytes.extend_from_slice(&bytes[e.valid_up_to()..]);
+
+                    tokens.truncate(tokens.len() - last_piece_token_len);
+                    tokens.extend(byte_pair_encode(&unstable_bytes, &self.encoder));
+                }
+                tokens
+            }
+        }
+    }
+
+    pub fn _encode_native(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<usize>, usize) {
         let special_regex = self._get_tl_special_regex();
         let regex = self._get_tl_regex();
         let mut ret = vec![];
@@ -276,7 +350,7 @@ impl CoreBPE {
         (ret, last_piece_token_len)
     }
 
-    fn _increase_last_piece_token_len(
+    pub fn _increase_last_piece_token_len(
         &self,
         tokens: Vec<usize>,
         mut last_piece_token_len: usize,
@@ -315,7 +389,7 @@ impl CoreBPE {
         (tokens, last_piece_token_len)
     }
 
-    fn _encode_unstable_native(
+    pub fn _encode_unstable_native(
         &self,
         text: &str,
         allowed_special: &HashSet<&str>,
@@ -432,177 +506,76 @@ impl CoreBPE {
     }
 }
 
-#[pymethods]
-impl CoreBPE {
-    #[new]
-    fn new(
-        encoder: HashMap<Vec<u8>, usize>,
-        special_tokens_encoder: HashMap<String, usize>,
-        pattern: &str,
-    ) -> PyResult<Self> {
-        let regex = Regex::new(pattern)
-            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
-
-        let special_regex = {
-            let _parts = special_tokens_encoder
-                .keys()
-                .map(|s| fancy_regex::escape(s))
-                .collect::<Vec<_>>();
-            Regex::new(&_parts.join("|"))
-                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?
-        };
-
-        let decoder: HashMap<usize, Vec<u8>> =
-            encoder.iter().map(|(k, v)| (*v, k.clone())).collect();
-
-        assert!(
-            encoder.len() == decoder.len(),
-            "Encoder and decoder must be of equal length; maybe you had duplicate token indices in your encoder?"
-        );
-
-        let special_tokens_decoder: HashMap<usize, Vec<u8>> = special_tokens_encoder
-            .iter()
-            .map(|(k, v)| (*v, k.as_bytes().to_vec()))
-            .collect();
-
-        // Clone because I don't know how to tell Rust I'm not going to change the map
-        let mut sorted_token_bytes: Vec<Vec<u8>> = encoder.keys().cloned().collect();
-        sorted_token_bytes.sort();
-
-        Ok(CoreBPE {
-            encoder,
-            special_tokens_encoder,
-            decoder,
-            special_tokens_decoder,
-            regex_tls: (0..MAX_NUM_THREADS).map(|_| regex.clone()).collect(),
-            special_regex_tls: (0..MAX_NUM_THREADS)
-                .map(|_| special_regex.clone())
-                .collect(),
-            sorted_token_bytes,
-        })
-    }
-
-    // ====================
-    // Encoding
-    // ====================
-
-    fn encode_ordinary(&self, py: Python, text: &str) -> Vec<usize> {
-        py.allow_threads(|| self._encode_ordinary_native(text))
-    }
-
-    fn encode(&self, py: Python, text: &str, allowed_special: HashSet<&str>) -> Vec<usize> {
-        py.allow_threads(|| self._encode_native(text, &allowed_special).0)
-    }
-
-    fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<usize> {
-        py.allow_threads(|| {
-            match std::str::from_utf8(bytes) {
-                Ok(text) => self._encode_ordinary_native(text),
-                Err(e) => {
-                    let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
-                    let (tokens, last_piece_token_len) = self._encode_native(text, &HashSet::new());
-                    let (mut tokens, last_piece_token_len) =
-                        self._increase_last_piece_token_len(tokens, last_piece_token_len);
-                    if !tokens.is_empty() && last_piece_token_len > 0 {
-                        // Lop off the tokens from the last piece and run BPE on the remaining bytes
-                        // Somewhat niche, but this may not be correct if we'd have had a regex
-                        // split between the valid UTF-8 and the invalid bytes, which is why this
-                        // method is private
-                        let mut unstable_bytes =
-                            self._decode_native(&tokens[tokens.len() - last_piece_token_len..]);
-                        unstable_bytes.extend_from_slice(&bytes[e.valid_up_to()..]);
-
-                        tokens.truncate(tokens.len() - last_piece_token_len);
-                        tokens.extend(byte_pair_encode(&unstable_bytes, &self.encoder));
-                    }
-                    tokens
-                }
-            }
-        })
-    }
-
-    fn encode_with_unstable(
-        &self,
-        py: Python,
-        text: &str,
-        allowed_special: HashSet<&str>,
-    ) -> Py<PyTuple> {
-        let (tokens, completions) =
-            py.allow_threads(|| self._encode_unstable_native(text, &allowed_special));
-        let py_completions =
-            PyList::new(py, completions.iter().map(|seq| PyList::new(py, &seq[..])));
-        (tokens, py_completions).into_py(py)
-    }
-
-    fn encode_single_token(&self, piece: &[u8]) -> PyResult<usize> {
-        if let Some(token) = self.encoder.get(piece).copied() {
-            return Ok(token);
-        }
-        if let Ok(piece_str) = std::str::from_utf8(piece) {
-            if let Some(token) = self.special_tokens_encoder.get(piece_str).copied() {
-                return Ok(token);
-            }
-        }
-        Err(PyErr::new::<exceptions::PyKeyError, _>(piece.to_owned()))
-    }
-
-    fn encode_single_piece(&self, piece: &[u8]) -> Vec<usize> {
-        if let Some(token) = self.encoder.get(piece) {
-            return vec![*token];
-        }
-        byte_pair_encode(piece, &self.encoder)
-    }
-
-    // ====================
-    // Decoding
-    // ====================
-
-    fn decode_bytes(&self, py: Python, tokens: Vec<usize>) -> Py<PyBytes> {
-        let bytes = py.allow_threads(|| self._decode_native(&tokens));
-        PyBytes::new(py, &bytes).into()
-    }
-
-    fn decode_single_token_bytes(&self, py: Python, token: usize) -> PyResult<Py<PyBytes>> {
-        if let Some(bytes) = self.decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
-        }
-        if let Some(bytes) = self.special_tokens_decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
-        }
-        Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string()))
-    }
-
-    // ====================
-    // Miscellaneous
-    // ====================
-
-    fn token_byte_values(&self, py: Python) -> Vec<Py<PyBytes>> {
-        self.sorted_token_bytes
-            .iter()
-            .map(|x| PyBytes::new(py, x).into())
-            .collect()
-    }
-}
-
-#[pymodule]
-fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<CoreBPE>()?;
-    Ok(())
-}
 
 #[cfg(test)]
-mod tests {
-    use rustc_hash::FxHashMap as HashMap;
+mod test {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+    use once_cell::sync::Lazy;
+    use super::*;
 
-    use crate::byte_pair_split;
+    static GPT2_CORE_BPE: Lazy<CoreBPE> = Lazy::new(|| {
+        println!("Loading GPT2 BPE");
+
+        let mut encoder: HashMap<Vec<u8>, usize> = Default::default();
+        let file = File::open("tests/gpt2_encoder").unwrap();
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            let line = line.unwrap();
+            let line = line.split(": ").collect::<Vec<&str>>();
+
+            let key = line[0];
+            let key = &key[1..key.len()-1];
+            let key = key
+                .split(", ")
+                .map(|n| n.parse::<u8>().unwrap())
+                .collect::<Vec<u8>>();
+
+            let value = line[1].parse::<usize>().unwrap();
+            encoder.insert(key, value);
+        };
+
+        let mut special_tokens_encoder: HashMap<String, usize> = Default::default();
+        special_tokens_encoder.insert("<|endoftext|>".to_string(), 50256);
+
+        let pattern = "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+";
+
+        CoreBPE::new(
+            encoder,
+            special_tokens_encoder,
+            pattern,
+        ).unwrap()
+    });
+
 
     #[test]
-    fn very_simple_test() {
-        let mut ranks = HashMap::default();
-        ranks.insert(b"ab".to_vec(), 1);
-        ranks.insert(b"cd".to_vec(), 2);
+    fn test_simple_gpt2() {
+        let (tokens, _last_piece_token_len) = GPT2_CORE_BPE._encode_native("hello world", &Default::default());
 
-        let res = byte_pair_split(b"abcd", &ranks);
-        assert_eq!(res, vec![b"ab", b"cd"]);
+        assert_eq!(tokens, vec![31373, 995]);
+    }
+
+    #[test]
+    fn test_simple_repeated_gpt2() {
+
+        let allowed_special: &HashSet<&str> = &Default::default();
+
+        assert_eq!(GPT2_CORE_BPE._encode_native("0", allowed_special).0, vec![15]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("00", allowed_special).0, vec![405]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("000", allowed_special).0, vec![830]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("0000", allowed_special).0, vec![2388]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("00000", allowed_special).0, vec![20483]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("000000", allowed_special).0, vec![10535]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("0000000", allowed_special).0, vec![24598]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("00000000", allowed_special).0, vec![8269]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("000000000", allowed_special).0, vec![10535, 830]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("0000000000", allowed_special).0, vec![8269, 405]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("00000000000", allowed_special).0, vec![8269, 830]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("000000000000", allowed_special).0, vec![8269, 2388]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("0000000000000", allowed_special).0, vec![8269, 20483]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("00000000000000", allowed_special).0, vec![8269, 10535]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("000000000000000", allowed_special).0, vec![8269, 24598]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("0000000000000000", allowed_special).0, vec![25645]);
+        assert_eq!(GPT2_CORE_BPE._encode_native("00000000000000000", allowed_special).0, vec![8269, 10535, 830]);
     }
 }
