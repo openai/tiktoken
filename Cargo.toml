@@ -9,6 +9,7 @@ name = "tiktoken"
 
 [dev-dependencies]
 criterion = "0.4"
+tiktoken-rs = "0.5.4"
 
 [dependencies]
 fancy-regex = "0.10.0"

@@ -3,10 +3,8 @@ use tiktoken::{EncodingFactory, SpecialTokenHandling, SpecialTokenAction};
 
 fn cl100k_base_benchmark(c: &mut Criterion) {
     let x = EncodingFactory::cl100k_base().unwrap();
-    let t = "This feature allows you to pause the execution of your JavaScript code whenever an exception occurs, without moving the focus away from the current context. You can then inspect the current state of your application at the moment the exception was thrown.
-    ";
-    // repeat t 200 times
-    let t = std::iter::repeat(t).take(200).collect::<String>();
+    let y = tiktoken_rs::cl100k_base().unwrap();
+    let t = include_str!("test.txt");
     c.bench_function("cl100k_base", |b| {
         b.iter(|| {
             black_box(x.encode(
@@ -17,6 +15,13 @@ fn cl100k_base_benchmark(c: &mut Criterion) {
                 }
             )
             .unwrap());
+        });
+    });
+    c.bench_function("cl100k_base_tiktoken-rs", |b| {
+        b.iter(|| {
+            black_box(y.encode_with_special_tokens(
+                &t
+            ));
         });
     });
     c.bench_function("cl100k_base_50atatime", |b| {
