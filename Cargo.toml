@@ -16,3 +16,8 @@ hex = "0.4.3"
 sha2 = "0.10.6"
 base64 = "0.21.0"
 thiserror = "1.0.38"
+criterion = "0.4"
+
+[[bench]]
+name = "bench"
+harness = false
