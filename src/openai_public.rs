@@ -69,30 +69,29 @@ impl EncodingFactory {
         .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
     }
 
+    // we're just mirroring the official tiktoken. but i think this is slightly wrong for the latest models. in particular the end of text token appears to not be translated by the production tokenizer anymore
     pub fn cl100k_base() -> Result<Encoding, EncodingFactoryError> {
-        let mergeable_ranks = load_tiktoken_bpe(
-            include_bytes!("../data/cl100k_base.tiktoken"),
-            "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
-        )
-        .map_err(|_| EncodingFactoryError::FailedToLoadEncoding)?;
-        let special_tokens: HashMap<String, usize> = [
+        EncodingFactory::cl100k_with_special_tokens(&[
             (ENDOFTEXT.to_string(), 100257),
             (FIM_PREFIX.to_string(), 100258),
             (FIM_MIDDLE.to_string(), 100259),
             (FIM_SUFFIX.to_string(), 100260),
             (ENDOFPROMPT.to_string(), 100276),
-        ]
-        .iter()
-        .cloned()
-        .collect();
-        Encoding::new(
-            "cl100k_base",
-            r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+",
-            mergeable_ranks,
-            special_tokens,
-            None,
-        )
-        .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
+        ])
+    }
+
+    pub fn cl100k_im() -> Result<Encoding, EncodingFactoryError> {
+        EncodingFactory::cl100k_with_special_tokens(&[
+            // end of text actually doesn't appear to be supported by the latest models! you can try by sending it in in the completion model and counting tokens
+            // (ENDOFTEXT.to_string(), 100257),
+            (FIM_PREFIX.to_string(), 100258),
+            (FIM_MIDDLE.to_string(), 100259),
+            (FIM_SUFFIX.to_string(), 100260),
+            (IM_START.to_string(), 100264),
+            (IM_END.to_string(), 100265),
+            (IM_SEP.to_string(), 100266),
+            (ENDOFPROMPT.to_string(), 100276),
+        ])
     }
 
     pub fn cl100k_with_special_tokens(special_tokens: &[(String, usize)]) -> Result<Encoding, EncodingFactoryError> {
