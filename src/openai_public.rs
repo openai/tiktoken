@@ -18,6 +18,10 @@ const FIM_MIDDLE: &str = "<|fim_middle|>";
 const FIM_SUFFIX: &str = "<|fim_suffix|>";
 const ENDOFPROMPT: &str = "<|endofprompt|>";
 
+const IM_START: &str = "<|im_start|>";
+const IM_END: &str = "<|im_end|>";
+const IM_SEP: &str = "<|im_sep|>";
+
 #[derive(Clone, Debug, Copy)]
 pub struct EncodingFactory {}
 impl EncodingFactory {
@@ -78,6 +82,26 @@ impl EncodingFactory {
             (FIM_SUFFIX.to_string(), 100260),
             (ENDOFPROMPT.to_string(), 100276),
         ]
+        .iter()
+        .cloned()
+        .collect();
+        Encoding::new(
+            "cl100k_base",
+            r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+",
+            mergeable_ranks,
+            special_tokens,
+            None,
+        )
+        .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
+    }
+
+    pub fn cl100k_with_special_tokens(special_tokens: &[(String, usize)]) -> Result<Encoding, EncodingFactoryError> {
+        let mergeable_ranks = load_tiktoken_bpe(
+            include_bytes!("../data/cl100k_base.tiktoken"),
+            "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
+        )
+        .map_err(|_| EncodingFactoryError::FailedToLoadEncoding)?;
+        let special_tokens: HashMap<String, usize> = special_tokens 
         .iter()
         .cloned()
         .collect();
