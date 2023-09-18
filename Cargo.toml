@@ -7,6 +7,9 @@ rust-version = "1.57.0"
 [lib]
 name = "tiktoken"
 
+[dev-dependencies]
+criterion = "0.4"
+
 [dependencies]
 fancy-regex = "0.11.0"
 regex = "1.8.3"
@@ -16,7 +19,6 @@ hex = "0.4.3"
 sha2 = "0.10.6"
 base64 = "0.21.0"
 thiserror = "1.0.38"
-criterion = "0.4"
 
 [[bench]]
 name = "bench"
