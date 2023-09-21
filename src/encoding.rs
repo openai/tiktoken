@@ -14,6 +14,8 @@ pub struct Encoding {
     pat_str: String,
     /// The map from mergeable byte sequences to their ranks.
     mergeable_ranks: HashMap<Vec<u8>, usize>,
+    /// All prefixes of the mergeable ranks. May or may not be tokens themselves!
+    prefixes_of_mergeable_ranks: HashSet<Vec<u8>>,
     /// The map from special token strings to their values.
     special_tokens: HashMap<String, usize>,
     /// The maximum token value in the encoding.
@@ -88,10 +90,21 @@ impl Encoding {
         )
         .map_err(|e| EncodingError::GenericEncodingError(format!("Error creating core BPE: {}", e)))?;
 
+        let mut prefixes_of_mergeable_ranks = mergeable_ranks
+            .keys()
+            .flat_map(|bytes| {
+                (1..=bytes.len())
+                    .map(|i| bytes[..i].to_vec())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<HashSet<_>>();
+        prefixes_of_mergeable_ranks.insert(Vec::new());
+
         Ok(Self {
             name: name.to_string(),
             pat_str: pat_str.to_string(),
             mergeable_ranks,
+            prefixes_of_mergeable_ranks,
             special_tokens,
             max_token_value,
             core_bpe: Arc::new(core_bpe),
@@ -101,6 +114,68 @@ impl Encoding {
     /// Encodes a string into tokens, ignoring special tokens.
     pub fn encode_ordinary(&self, text: &str) -> Vec<usize> {
         self.core_bpe.encode_ordinary(text)
+    }
+
+    pub fn estimate_num_tokens_no_special_tokens_fast(&self, text: &str) -> usize {
+        let mut token_count = 0;
+        let mut current_token = Vec::new();
+        let mut new_current_token = Vec::new();
+
+        for byte in text.bytes() {
+            current_token.push(byte);
+            while !self.prefixes_of_mergeable_ranks.contains(&current_token) {
+                if current_token.len() > 1 {
+                    new_current_token.clear();
+                    new_current_token.push(current_token.pop().unwrap());
+                    while !self.mergeable_ranks.contains_key(&current_token) {
+                        if current_token.len() == 1 {
+                            break;
+                        }
+                        new_current_token.push(current_token.pop().unwrap());
+                    }
+
+                    current_token.clear();
+                    // reverse new_current_token
+                    new_current_token.reverse();
+                    // swap new_current_token and current_token
+                    std::mem::swap(&mut new_current_token, &mut current_token);
+                } else {
+                    current_token.clear();
+                }
+                token_count += 1;
+            }
+        }
+
+        while !self.mergeable_ranks.contains_key(&current_token) {
+            if current_token.len() == 0 {
+                break;
+            }
+            if current_token.len() > 1 {
+                new_current_token.clear();
+                new_current_token.push(current_token.pop().unwrap());
+                while !self.mergeable_ranks.contains_key(&current_token) {
+                    if current_token.len() == 1 {
+                        break;
+                    }
+                    new_current_token.push(current_token.pop().unwrap());
+                }
+
+                current_token.clear();
+                // reverse new_current_token
+                new_current_token.reverse();
+                // swap new_current_token and current_token
+                std::mem::swap(&mut new_current_token, &mut current_token);
+            } else {
+                current_token.clear();
+            }
+            token_count += 1;
+        }
+
+        if current_token.len() > 0 {
+            token_count += 1;
+        }
+
+        token_count
     }
 
     /// Encodes a string into tokens.

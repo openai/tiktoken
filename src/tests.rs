@@ -126,3 +126,64 @@ fn test_simple() {
         );
     }
 }
+
+
+#[test]
+fn estimation_is_close() {
+    let enc = EncodingFactory::cl100k_base().unwrap();
+
+    let big = include_str!("big.txt");
+    let test = include_str!("test.txt");
+    let test2 = include_str!("test2.txt");
+
+
+    let files = [&big, &test, &test2];
+    for file in files.iter() {
+        let real_count =
+            enc
+                .encode(
+                    file,
+                    &SpecialTokenHandling {
+                        default: SpecialTokenAction::NormalText,
+                        ..Default::default()
+                    }
+                )
+                .unwrap()
+                .len();
+
+        let estimated_count = enc.estimate_num_tokens_no_special_tokens_fast(file);
+
+        println!("Real count: {}", real_count);
+        println!("Estimated count: {}", estimated_count);
+
+        assert!((real_count as f64 - estimated_count as f64).abs() < 0.05 * real_count as f64);
+    }
+}
+
+#[test]
+fn simple_estimation_is_close() {
+    let enc = EncodingFactory::cl100k_base().unwrap();
+
+    let test = include_str!("tiny.txt");
+
+    {
+        let real_count =
+            enc
+                .encode(
+                    &test,
+                    &SpecialTokenHandling {
+                        default: SpecialTokenAction::NormalText,
+                        ..Default::default()
+                    }
+                )
+                .unwrap()
+                .len();
+
+        let estimated_count = enc.estimate_num_tokens_no_special_tokens_fast(&test);
+
+        println!("Real count: {}", real_count);
+        println!("Estimated count: {}", estimated_count);
+
+        assert!((real_count as f64 - estimated_count as f64).abs() < 0.05 * real_count as f64);
+    }
+}
