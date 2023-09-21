@@ -15,7 +15,7 @@ pub struct Encoding {
     /// The map from mergeable byte sequences to their ranks.
     mergeable_ranks: HashMap<Vec<u8>, usize>,
     /// All prefixes of the mergeable ranks. May or may not be tokens themselves!
-    prefixes_of_mergeable_ranks: HashSet<Vec<u8>>,
+    prefixes_of_mergeable_ranks: HashSet<i64>,
     /// The map from special token strings to their values.
     special_tokens: HashMap<String, usize>,
     /// The maximum token value in the encoding.
@@ -94,11 +94,11 @@ impl Encoding {
             .keys()
             .flat_map(|bytes| {
                 (1..=bytes.len())
-                    .map(|i| bytes[..i].to_vec())
+                    .map(|i| roll_hash_slice(&bytes[..i]))
                     .collect::<Vec<_>>()
             })
             .collect::<HashSet<_>>();
-        prefixes_of_mergeable_ranks.insert(Vec::new());
+        prefixes_of_mergeable_ranks.insert(0);
 
         Ok(Self {
             name: name.to_string(),
@@ -119,11 +119,13 @@ impl Encoding {
     pub fn estimate_num_tokens_no_special_tokens_fast(&self, text: &str) -> usize {
         let mut token_count = 0;
         let mut current_token = Vec::new();
+        let mut current_token_hash: i64 = 0;
         let mut new_current_token = Vec::new();
 
         for byte in text.bytes() {
             current_token.push(byte);
-            while !self.prefixes_of_mergeable_ranks.contains(&current_token) {
+            current_token_hash = roll_hash(current_token_hash, byte);
+            while !self.prefixes_of_mergeable_ranks.contains(&current_token_hash) {
                 if current_token.len() > 1 {
                     new_current_token.clear();
                     new_current_token.push(current_token.pop().unwrap());
@@ -133,14 +135,15 @@ impl Encoding {
                         }
                         new_current_token.push(current_token.pop().unwrap());
                     }
-
                     current_token.clear();
                     // reverse new_current_token
                     new_current_token.reverse();
                     // swap new_current_token and current_token
                     std::mem::swap(&mut new_current_token, &mut current_token);
+                    current_token_hash = roll_hash_slice(&current_token);
                 } else {
                     current_token.clear();
+                    current_token_hash = 0;
                 }
                 token_count += 1;
             }
@@ -464,4 +467,40 @@ impl Default for Encoding {
     fn default() -> Self {
         crate::openai_public::EncodingFactory::cl100k_base().unwrap()
     }
+}
+
+
+
+
+const PRIME: i64 = 31;
+const PRIME_INVERSE: i64 = 838709685;
+const MODULUS: i64 = 1e9 as i64 + 9;
+
+fn roll_hash(old: i64, new: u8) -> i64 {
+    (((old * PRIME) % MODULUS) + (new as i64)) % MODULUS
+}
+
+fn roll_hash_back(old: i64, new: u8) -> i64 {
+    ((((old + MODULUS) - (new as i64)) % MODULUS) * PRIME_INVERSE) % MODULUS
+}
+
+
+fn roll_hash_slice(slice: &[u8]) -> i64 {
+    let mut hash = 0;
+    for &byte in slice {
+        hash = roll_hash(hash, byte);
+    }
+    hash
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_roll_hash() {
+        let result = roll_hash_back(roll_hash(roll_hash(0, 10), 17), 17);
+        let r2 = roll_hash(0, 10);
+        assert_eq!(result, r2);
+    }
+
 }
