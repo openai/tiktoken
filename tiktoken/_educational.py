@@ -1,8 +1,5 @@
 """This is an educational implementation of the byte pair encoding algorithm."""
-from __future__ import annotations
-
 import collections
-import itertools
 from typing import Optional
 
 import regex
@@ -187,11 +184,23 @@ def bpe_train(
 
 
 def visualise_tokens(token_values: list[bytes]) -> None:
-    backgrounds = itertools.cycle(
-        [f"\u001b[48;5;{i}m".encode() for i in [167, 179, 185, 77, 80, 68, 134]]
-    )
-    interleaved = itertools.chain.from_iterable(zip(backgrounds, token_values))
-    print((b"".join(interleaved) + "\u001b[0m".encode()).decode("utf-8"))
+    background = [f"\u001b[48;5;{i}m" for i in [167, 179, 185, 77, 80, 68, 134]]
+    # If token boundaries do not occur at unicode character boundaries, it's unclear how best to
+    # visualise the token. Here, we'll just use the unicode replacement character to represent some
+    # fraction of a character.
+    unicode_token_values = [x.decode("utf-8", errors="replace") for x in token_values]
+
+    running_length = 0
+    last_color = None
+    for token in unicode_token_values:
+        color = background[running_length % len(background)]
+        if color == last_color:
+            color = background[(running_length + 1) % len(background)]
+            assert color != last_color
+        last_color = color
+        running_length += len(token)
+        print(color + token, end="")
+    print("\u001b[0m")
 
 
 def train_simple_encoding():
