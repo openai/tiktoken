@@ -22,7 +22,6 @@ The tokeniser API is documented in `tiktoken/core.py`.
 Example code using `tiktoken` can be found in the
 [OpenAI Cookbook](https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb).
 
-
 ## Performance
 
 `tiktoken` is between 3-6x faster than a comparable open source tokeniser:
@@ -31,7 +30,6 @@ Example code using `tiktoken` can be found in the
 
 Performance measured on 1GB of text using the GPT-2 tokeniser, using `GPT2TokenizerFast` from
 `tokenizers==0.13.2`, `transformers==4.24.0` and `tiktoken==0.2.0`.
-
 
 ## Getting help
 
@@ -42,7 +40,7 @@ If you work at OpenAI, make sure to check the internal documentation or feel fre
 
 ## What is BPE anyway?
 
-Models don't see text like you and I, instead they see a sequence of numbers (known as tokens).
+Large language models don't see text like you and I, instead they see a sequence of numbers (known as tokens).
 Byte pair encoding (BPE) is a way of converting text into tokens. It has a couple desirable
 properties:
 1) It's reversible and lossless, so you can convert tokens back into the original text
@@ -67,11 +65,9 @@ enc = SimpleBytePairEncoding.from_tiktoken("cl100k_base")
 enc.encode("hello world aaaaaaaaaaaa")
 ```
 
-
 ## Extending tiktoken
 
 You may wish to extend `tiktoken` to support new encodings. There are two ways to do this.
-
 
 **Create your `Encoding` object exactly the way you want and simply pass it around.**
 
