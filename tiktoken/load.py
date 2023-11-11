@@ -7,7 +7,7 @@ import os
 import tempfile
 import uuid
 
-import requests
+import httpx
 
 
 def read_file(blobpath: str) -> bytes:
@@ -21,7 +21,7 @@ def read_file(blobpath: str) -> bytes:
         with blobfile.BlobFile(blobpath, "rb") as f:
             return f.read()
     # avoiding blobfile for public files helps avoid auth issues, like MFA prompts
-    resp = requests.get(blobpath)
+    resp = httpx.get(blobpath)
     resp.raise_for_status()
     return resp.content
 
