@@ -19,6 +19,7 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
 MODEL_TO_ENCODING: dict[str, str] = {
     # chat
     "gpt-4": "cl100k_base",
+    "gpt-4-1106-preview": "cl100k_base",
     "gpt-3.5-turbo": "cl100k_base",
     "gpt-35-turbo": "cl100k_base",  # Azure deployment name
     # base
