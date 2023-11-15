@@ -29,7 +29,7 @@ async function encodingForModel(
 }
 
 async function main() {
-  const encodings = await encodingForModel("gpt-4");
+  const encodings = await encodingForModel("gpt-4-1106-preview");
   const text = "function foo() { return 1; }";
   const tokens = encodings.encode(text);
   console.log(tokens);
