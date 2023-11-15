@@ -1,0 +1,20 @@
+[package]
+name = "tiktoken_core"
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.57.0"
+
+[lib]
+name = "_tiktoken_core"
+crate-type = ["lib"]
+
+[dependencies]
+# tiktoken dependencies
+fancy-regex = "0.11.0"
+regex = "1.8.3"
+rustc-hash = "1.1.0"
+bstr = "1.5.0"
+
+[features]
+default = []
+multithreading = []

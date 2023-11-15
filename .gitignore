@@ -41,3 +41,7 @@ htmlcov
 
 Cargo.lock
 target/
+
+ranks/
+node_modules
+.turbo
