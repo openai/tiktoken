@@ -219,6 +219,7 @@ export function getEncodingNameForModel(model: TiktokenModel) {
     case "code-davinci-002":
     case "cushman-codex":
     case "davinci-codex":
+    case "davinci-002":
     case "text-davinci-002":
     case "text-davinci-003": {
       return "p50k_base";
@@ -229,6 +230,7 @@ export function getEncodingNameForModel(model: TiktokenModel) {
     }
     case "ada":
     case "babbage":
+    case "babbage-002":
     case "code-search-ada-code-001":
     case "code-search-babbage-code-001":
     case "curie":
@@ -258,6 +260,10 @@ export function getEncodingNameForModel(model: TiktokenModel) {
     case "gpt-4-0613":
     case "gpt-4-0314":
     case "gpt-4":
+    case "gpt-3.5-turbo-1106":
+    case "gpt-35-turbo":
+    case "gpt-4-1106-preview":
+    case "gpt-4-vision-preview":
     case "text-embedding-ada-002": {
       return "cl100k_base";
     }

@@ -350,6 +350,8 @@ pub fn get_encoding(encoding: &str, extend_special_tokens: JsValue) -> Result<Ti
 #[wasm_bindgen(typescript_custom_section)]
 const _: &'static str = r#"
 export type TiktokenModel =
+    | "davinci-002"
+    | "babbage-002"
     | "text-davinci-003"
     | "text-davinci-002"
     | "text-davinci-001"
@@ -387,10 +389,14 @@ export type TiktokenModel =
     | "gpt-4-32k-0314"
     | "gpt-4-32k-0613"
     | "gpt-3.5-turbo"
+    | "gpt-35-turbo"
     | "gpt-3.5-turbo-0301"
     | "gpt-3.5-turbo-0613"
+    | "gpt-3.5-turbo-1106"
     | "gpt-3.5-turbo-16k"
-    | "gpt-3.5-turbo-16k-0613";
+    | "gpt-3.5-turbo-16k-0613"
+    | "gpt-4-1106-preview"
+    | "gpt-4-vision-preview"
 
 /**
  * @param {TiktokenModel} encoding
@@ -407,6 +413,7 @@ pub fn encoding_for_model(
     extend_special_tokens: JsValue,
 ) -> Result<Tiktoken, JsError> {
     let encoding = match model {
+        "davinci" => Ok("p50k_base"),
         "text-davinci-003" => Ok("p50k_base"),
         "text-davinci-002" => Ok("p50k_base"),
         "text-davinci-001" => Ok("r50k_base"),
@@ -416,6 +423,7 @@ pub fn encoding_for_model(
         "davinci" => Ok("r50k_base"),
         "curie" => Ok("r50k_base"),
         "babbage" => Ok("r50k_base"),
+        "babbage-002" => Ok("r50k_base"),
         "ada" => Ok("r50k_base"),
         "code-davinci-002" => Ok("p50k_base"),
         "code-davinci-001" => Ok("p50k_base"),
@@ -448,6 +456,10 @@ pub fn encoding_for_model(
         "gpt-4-32k" => Ok("cl100k_base"),
         "gpt-4-32k-0314" => Ok("cl100k_base"),
         "gpt-4-32k-0613" => Ok("cl100k_base"),
+        "gpt-3.5-turbo-1106" => Ok("cl100k_base"),
+        "gpt-35-turbo" => Ok("cl100k_base"),
+        "gpt-4-1106-preview" => Ok("cl100k_base"),
+        "gpt-4-vision-preview" => Ok("cl100k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),
