@@ -1,5 +1,11 @@
 # tiktoken
 
+## 1.0.11
+
+### Patch Changes
+
+- bd3a360: Add new GPT models
+
 ## 1.0.10
 
 ### Patch Changes
