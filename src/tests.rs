@@ -175,3 +175,20 @@ fn test_tokenization_of_numbers() {
 
   assert_eq!(real_count, 900);
 }
+
+#[test]
+fn test_tokenization_of_numbers_all() {
+  let enc = EncodingFactory::cl100k_base().unwrap();
+
+  let test = (0..1000).map(|i| format!("{:03}", i)).collect::<String>();
+
+  let real_count = enc
+    .encode(
+      &test,
+      &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() },
+    )
+    .unwrap()
+    .len();
+
+  assert_eq!(real_count, 1000);
+}
