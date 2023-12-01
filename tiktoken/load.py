@@ -32,7 +32,7 @@ def read_file_cached(blobpath: str) -> bytes:
     elif "DATA_GYM_CACHE_DIR" in os.environ:
         cache_dir = os.environ["DATA_GYM_CACHE_DIR"]
     else:
-        cache_dir = os.path.join(tempfile.gettempdir(), "data-gym-cache")
+        cache_dir = tempfile.mkdtemp(prefix="tiktoken-cache")
 
     if cache_dir == "":
         # disable caching
