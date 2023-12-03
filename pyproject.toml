@@ -1,6 +1,6 @@
 [project]
 name = "tiktoken"
-version = "0.5.1"
+version = "0.5.2"
 description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -42,3 +42,4 @@ test-command = "pytest {project}/tests --import-mode=append"
 [[tool.cibuildwheel.overrides]]
 select = "*linux_aarch64"
 test-command = """python -c 'import tiktoken; enc = tiktoken.get_encoding("gpt2"); assert enc.encode("hello world") == [31373, 995]'"""
+
