@@ -27,12 +27,14 @@ def read_file(blobpath: str) -> bytes:
 
 
 def read_file_cached(blobpath: str) -> bytes:
+    user_specified_cache = True
     if "TIKTOKEN_CACHE_DIR" in os.environ:
         cache_dir = os.environ["TIKTOKEN_CACHE_DIR"]
     elif "DATA_GYM_CACHE_DIR" in os.environ:
         cache_dir = os.environ["DATA_GYM_CACHE_DIR"]
     else:
         cache_dir = os.path.join(tempfile.gettempdir(), "data-gym-cache")
+        user_specified_cache = False
 
     if cache_dir == "":
         # disable caching
@@ -47,11 +49,16 @@ def read_file_cached(blobpath: str) -> bytes:
 
     contents = read_file(blobpath)
 
-    os.makedirs(cache_dir, exist_ok=True)
-    tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"
-    with open(tmp_filename, "wb") as f:
-        f.write(contents)
-    os.rename(tmp_filename, cache_path)
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"
+        with open(tmp_filename, "wb") as f:
+            f.write(contents)
+        os.rename(tmp_filename, cache_path)
+    except OSError:
+        # don't raise if we can't write to the default cache, e.g. issue #75
+        if user_specified_cache:
+            raise
 
     return contents
 

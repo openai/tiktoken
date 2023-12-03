@@ -5,6 +5,7 @@ This is the changelog for the open source version of tiktoken.
 ## [v0.5.2]
 - Build wheels for Python 3.12
 - Update version of PyO3 to allow multiple imports
+- Avoid permission errors when using default cache logic
 
 ## [v0.5.1]
 - Add `encoding_name_for_model`, undo some renames to variables that are implementation details
