@@ -46,7 +46,9 @@ def read_file_cached(blobpath: str) -> bytes:
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             return f.read()
-
+    elif os.environ.get("TIKTOKEN_FORCE_CACHE") == "1":
+        raise FileNotFoundError(f"Cache for: {blobpath} not found in tiktoken cache dir: {cache_dir}")
+    
     contents = read_file(blobpath)
 
     try:
