@@ -22,10 +22,8 @@ def _available_plugin_modules() -> Sequence[str]:
     # - we use namespace package pattern so `pkgutil.iter_modules` is fast
     # - it's a separate top-level package because namespace subpackages of non-namespace
     #   packages don't quite do what you want with editable installs
-    mods = []
     plugin_mods = pkgutil.iter_modules(tiktoken_ext.__path__, tiktoken_ext.__name__ + ".")
-    for _, mod_name, _ in plugin_mods:
-        mods.append(mod_name)
+    mods = [mod_name for _, mod_name, _ in plugin_mods]
     return mods
 
 
@@ -53,9 +51,6 @@ def _find_constructors() -> None:
 
 
 def get_encoding(encoding_name: str) -> Encoding:
-    if encoding_name in ENCODINGS:
-        return ENCODINGS[encoding_name]
-
     with _lock:
         if encoding_name in ENCODINGS:
             return ENCODINGS[encoding_name]
