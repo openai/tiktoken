@@ -205,7 +205,7 @@ def visualise_tokens(token_values: list[bytes]) -> None:
 
 def train_simple_encoding():
     gpt2_pattern = (
-        r"""'s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+        r"""'(?:[sdmt]|ll|ve|re)| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     )
     with open(__file__, "r") as f:
         data = f.read()
