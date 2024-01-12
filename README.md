@@ -128,3 +128,9 @@ setup(
 
 Then simply `pip install ./my_tiktoken_extension` and you should be able to use your
 custom encodings! Make sure **not** to use an editable install.
+
+**Hosting your own encodings for enterprise usage.**
+
+For most use cases, the default public OpenAI encodings are enabled by default and no changes are needed. However, for organizations operating in an enterprise setting, existing network configurations may necessitate hosting encodings internally.
+
+To change the host which is serving encodings files for populating the plugin modules, simply set the `ENCODINGS_HOST` environmental variable. The default is the public OpenAI hosted file server. Enterprises hosting their own encodings can see which encodings and files are supported and the routing involved by viewing the [source directly](./tiktoken_ext/openai_public.py).
