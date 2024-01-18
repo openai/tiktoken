@@ -1,7 +1,7 @@
 import json
 
 def solar():
-    with open("/Users/junhyunpark/playground/just_pr/tiktoken/vocab/tiktoken_solar_en.json") as f:
+    with open("./vocab/tiktoken_solar_en.json") as f:
         raw_json = json.load(f)
     mergeable_ranks = {k.replace("▁", ' ').encode(): v for k,v in raw_json.items()}
 
