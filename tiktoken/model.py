@@ -26,6 +26,8 @@ MODEL_TO_ENCODING: dict[str, str] = {
     "babbage-002": "cl100k_base",
     # embeddings
     "text-embedding-ada-002": "cl100k_base",
+    "text-embedding-3-small": "cl100k_base",
+    "text-embedding-3-large": "cl100k_base",
     # DEPRECATED MODELS
     # text (DEPRECATED)
     "text-davinci-003": "p50k_base",
