@@ -7,7 +7,7 @@ async function createAlias() {
 
   await fs.cp(srcDist, targetDist, { recursive: true });
 
-  const pkgPath = path.resolve(srcDist, "package.json");
+  const pkgPath = path.resolve(targetDist, "package.json");
 
   const pkg = JSON.parse(await fs.readFile(pkgPath, { encoding: "utf-8" }));
   pkg["name"] = "@dqbd/tiktoken";
