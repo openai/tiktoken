@@ -453,6 +453,8 @@ pub fn encoding_for_model(
         "gpt-3.5-turbo-0613" => Ok("cl100k_base"),
         "gpt-3.5-turbo-16k" => Ok("cl100k_base"),
         "gpt-3.5-turbo-16k-0613" => Ok("cl100k_base"),
+        "gpt-3.5-turbo-instruct" => Ok("clk100k_base")
+        "gpt-3.5-turbo-instruct-0914" => Ok("cl100k_base"),
         "gpt-4" => Ok("cl100k_base"),
         "gpt-4-0314" => Ok("cl100k_base"),
         "gpt-4-0613" => Ok("cl100k_base"),
