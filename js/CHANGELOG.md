@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.9
+
+### Patch Changes
+
+- 43e99b4: Add support for new models, instruct models
+
 ## 1.0.8
 
 ### Patch Changes
