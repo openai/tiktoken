@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.10
+
+### Patch Changes
+
+- d54f04c: Fix invalid model when requesting an instruct model
+
 ## 1.0.9
 
 ### Patch Changes
