@@ -312,6 +312,14 @@ module.exports = {
 };
 ```
 
+## Development
+
+To build the `tiktoken` library, make sure to have:
+- Rust and [`wasm-pack`](https://github.com/rustwasm/wasm-pack) installed.
+- Node.js 18+ is required to build the JS bindings and fetch the latest encoder ranks via `fetch`.
+
+Install all the dev-dependencies with `yarn install` and build both WASM binary and JS bindings with `yarn build`.
+
 ## Acknowledgements
 
 - https://github.com/zurawiki/tiktoken-rs
