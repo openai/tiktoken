@@ -393,9 +393,12 @@ export type TiktokenModel =
     | "gpt-3.5-turbo-0301"
     | "gpt-3.5-turbo-0613"
     | "gpt-3.5-turbo-1106"
+    | "gpt-3.5-turbo-0125"
     | "gpt-3.5-turbo-16k"
     | "gpt-3.5-turbo-16k-0613"
+    | "gpt-4-turbo-preview"
     | "gpt-4-1106-preview"
+    | "gpt-4-0125-preview"
     | "gpt-4-vision-preview"
 
 /**
@@ -460,6 +463,9 @@ pub fn encoding_for_model(
         "gpt-35-turbo" => Ok("cl100k_base"),
         "gpt-4-1106-preview" => Ok("cl100k_base"),
         "gpt-4-vision-preview" => Ok("cl100k_base"),
+        "gpt-3.5-turbo-0125" => Ok("cl100k_base"),
+        "gpt-4-turbo-preview" => Ok("cl100k_base"),
+        "gpt-4-0125-preview" => Ok("cl100k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),
