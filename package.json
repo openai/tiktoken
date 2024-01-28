@@ -3,6 +3,7 @@
   "workspaces": [
     "js",
     "wasm",
+    "wasm/alias",
     "static"
   ],
   "scripts": {
