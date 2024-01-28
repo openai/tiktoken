@@ -1,5 +1,11 @@
 # tiktoken
 
+## 1.0.12
+
+### Patch Changes
+
+- 43e99b4: Add support for new models, instruct models
+
 ## 1.0.11
 
 ### Patch Changes
