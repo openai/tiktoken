@@ -42,7 +42,7 @@ If you work at OpenAI, make sure to check the internal documentation or feel fre
 
 ## What is BPE anyway?
 
-Models don't see text like you and I, instead they see a sequence of numbers (known as tokens).
+Language models don't see text like you and I, instead they see a sequence of numbers (known as tokens).
 Byte pair encoding (BPE) is a way of converting text into tokens. It has a couple desirable
 properties:
 1) It's reversible and lossless, so you can convert tokens back into the original text
@@ -128,4 +128,3 @@ setup(
 
 Then simply `pip install ./my_tiktoken_extension` and you should be able to use your
 custom encodings! Make sure **not** to use an editable install.
-
