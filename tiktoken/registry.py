@@ -9,6 +9,7 @@ from typing import Any, Callable, Optional, Sequence
 import tiktoken_ext
 
 from tiktoken.core import Encoding
+from functools import lru_cache
 
 _lock = threading.RLock()
 ENCODINGS: dict[str, Encoding] = {}
@@ -51,7 +52,7 @@ def _find_constructors() -> None:
                     )
                 ENCODING_CONSTRUCTORS[enc_name] = constructor
 
-
+@lru_cache(maxsize=None)
 def get_encoding(encoding_name: str) -> Encoding:
     if encoding_name in ENCODINGS:
         return ENCODINGS[encoding_name]
