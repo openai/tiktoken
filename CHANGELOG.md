@@ -3,7 +3,7 @@
 This is the changelog for the open source version of tiktoken.
 
 ## [v0.6.0]
-- Optimise regular expressions for a 20% performance improvement
+- Optimise regular expressions for a 20% performance improvement, thanks to @paplorinc!
 - Add `text-embedding-3-*` models to `encoding_for_model`
 - Check content hash for downloaded files
 - Allow pickling `Encoding` objects. Registered `Encoding` will be pickled by reference
