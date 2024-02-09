@@ -27,12 +27,12 @@ def read_file(blobpath: str) -> bytes:
     return resp.content
 
 
-def check_hash(data: bytes, hash: str) -> bool:
-    data_hash = hashlib.sha256(data).hexdigest()
-    return data_hash == hash
+def check_hash(data: bytes, expected_hash: str) -> bool:
+    actual_hash = hashlib.sha256(data).hexdigest()
+    return actual_hash == expected_hash
 
 
-def read_file_cached(blobpath: str, expected_hash: Optional[str]=None) -> bytes:
+def read_file_cached(blobpath: str, expected_hash: Optional[str] = None) -> bytes:
     user_specified_cache = True
     if "TIKTOKEN_CACHE_DIR" in os.environ:
         cache_dir = os.environ["TIKTOKEN_CACHE_DIR"]
@@ -52,12 +52,14 @@ def read_file_cached(blobpath: str, expected_hash: Optional[str]=None) -> bytes:
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             data = f.read()
-            if expected_hash and not check_hash(data, expected_hash):
-                raise ValueError(
-                    f"Hash mismatch for cached data from {blobpath} (expected {expected_hash}). "
-                    f"Please delete the cache file at {cache_path} and try again."
-                )
+        if expected_hash is None or check_hash(data, expected_hash):
             return data
+
+        # the cached file does not match the hash, remove it and re-fetch
+        try:
+            os.remove(cache_path)
+        except OSError:
+            pass
 
     contents = read_file(blobpath)
     if expected_hash and not check_hash(contents, expected_hash):
@@ -81,7 +83,10 @@ def read_file_cached(blobpath: str, expected_hash: Optional[str]=None) -> bytes:
 
 
 def data_gym_to_mergeable_bpe_ranks(
-    vocab_bpe_file: str, encoder_json_file: str, vocab_bpe_hash: Optional[str]=None, encoder_json_hash: Optional[str]=None
+    vocab_bpe_file: str,
+    encoder_json_file: str,
+    vocab_bpe_hash: Optional[str] = None,
+    encoder_json_hash: Optional[str] = None,
 ) -> dict[bytes, int]:
     # NB: do not add caching to this function
     rank_to_intbyte = [b for b in range(2**8) if chr(b).isprintable() and chr(b) != " "]
@@ -135,7 +140,9 @@ def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> No
             f.write(base64.b64encode(token) + b" " + str(rank).encode() + b"\n")
 
 
-def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: Optional[str]=None) -> dict[bytes, int]:
+def load_tiktoken_bpe(
+    tiktoken_bpe_file: str, expected_hash: Optional[str] = None
+) -> dict[bytes, int]:
     # NB: do not add caching to this function
     contents = read_file_cached(tiktoken_bpe_file, expected_hash)
     return {

@@ -2,6 +2,15 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.6.0]
+- Optimise regular expressions for a 20% performance improvement
+- Add `text-embedding-3-*` models to `encoding_for_model`
+- Check content hash for downloaded files
+- Allow pickling `Encoding` objects. Registered `Encoding` will be pickled by reference
+- Workaround PyO3 bug for frozenset conversion
+
+Thank you to @paplorinc, @mdwelsh, @Praneet460!
+
 ## [v0.5.2]
 - Build wheels for Python 3.12
 - Update version of PyO3 to allow multiple imports
