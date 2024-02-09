@@ -116,6 +116,10 @@ class Encoding:
             if match := _special_token_regex(disallowed_special).search(text):
                 raise_disallowed_special_token(match.group())
 
+        # https://github.com/PyO3/pyo3/pull/3632
+        if isinstance(allowed_special, frozenset):
+            allowed_special = set(allowed_special)
+
         try:
             return self._core_bpe.encode(text, allowed_special)
         except UnicodeEncodeError:
@@ -364,6 +368,26 @@ class Encoding:
     def _encode_bytes(self, text: bytes) -> list[int]:
         return self._core_bpe._encode_bytes(text)
 
+    def __getstate__(self) -> object:
+        import tiktoken.registry
+
+        # As an optimisation, pickle registered encodings by reference
+        if self is tiktoken.registry.ENCODINGS.get(self.name):
+            return self.name
+        return {
+            "name": self.name,
+            "pat_str": self._pat_str,
+            "mergeable_ranks": self._mergeable_ranks,
+            "special_tokens": self._special_tokens,
+        }
+
+    def __setstate__(self, value: object) -> None:
+        import tiktoken.registry
+
+        if isinstance(value, str):
+            self.__dict__ = tiktoken.registry.get_encoding(value).__dict__
+            return
+        self.__init__(**value)
 
 
 @functools.lru_cache(maxsize=128)

@@ -20,12 +20,15 @@ MODEL_TO_ENCODING: dict[str, str] = {
     # chat
     "gpt-4": "cl100k_base",
     "gpt-3.5-turbo": "cl100k_base",
+    "gpt-3.5": "cl100k_base",  # Common shorthand
     "gpt-35-turbo": "cl100k_base",  # Azure deployment name
     # base
     "davinci-002": "cl100k_base",
     "babbage-002": "cl100k_base",
     # embeddings
     "text-embedding-ada-002": "cl100k_base",
+    "text-embedding-3-small": "cl100k_base",
+    "text-embedding-3-large": "cl100k_base",
     # DEPRECATED MODELS
     # text (DEPRECATED)
     "text-davinci-003": "p50k_base",
@@ -61,6 +64,7 @@ MODEL_TO_ENCODING: dict[str, str] = {
     "code-search-ada-code-001": "r50k_base",
     # open source
     "gpt2": "gpt2",
+    "gpt-2": "gpt2",  # Maintains consistency with gpt-4
 }
 
 
