@@ -17,6 +17,9 @@ def gpt2():
     return {
         "name": "gpt2",
         "explicit_n_vocab": 50257,
+        # The pattern in the original GPT-2 release is:
+        # r"""'s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+        # This is equivalent, but executes faster:
         "pat_str": r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
         "mergeable_ranks": mergeable_ranks,
         "special_tokens": {ENDOFTEXT: 50256},
