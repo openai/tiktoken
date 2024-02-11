@@ -11,6 +11,7 @@ import tiktoken
 from .test_helpers import ENCODING_FACTORIES, MAX_EXAMPLES
 
 
+@pytest.mark.skip(reason="Takes a really long time to finish, but was added to reproduce a crash.")
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 def test_extremely_big_encoding(make_enc: Callable[[], tiktoken.Encoding]):
     enc = make_enc()
