@@ -22,6 +22,7 @@ MODEL_TO_ENCODING: dict[str, str] = {
     "gpt-3.5-turbo": "cl100k_base",
     "gpt-3.5": "cl100k_base",  # Common shorthand
     "gpt-35-turbo": "cl100k_base",  # Azure deployment name
+    "gpt-35-turbo-16k": "cl100k_base",  # Azure deployment name for 16k token context model
     # base
     "davinci-002": "cl100k_base",
     "babbage-002": "cl100k_base",
