@@ -6,6 +6,7 @@ use std::num::NonZeroU64;
 use std::thread;
 
 use fancy_regex::Regex;
+use fancy_regex::RegexBuilder;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::pyclass;
@@ -417,7 +418,7 @@ impl CoreBPE {
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
     ) -> PyResult<Self> {
-        let regex = Regex::new(pattern)
+        let regex = RegexBuilder::new(pattern).backtrack_limit(10_000).build()
             .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
 
         let special_regex = {
@@ -572,6 +573,7 @@ fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
+    use fancy_regex::RegexBuilder;
     use rustc_hash::FxHashMap as HashMap;
 
     use crate::{byte_pair_split, Rank};
@@ -595,5 +597,17 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
+    }
+
+    #[test]
+    fn test_effect_of_backtrack_limit() {
+        let regex = RegexBuilder::new(r"(a|b|ab)*(?=c)")
+            .backtrack_limit(10)
+            .build()
+            .expect("Failed to build regex")
+            .clone();
+
+        let input = "ab".repeat(100) + "c";
+        assert!(regex.is_match(&input).is_err(), "Should throw");
     }
 }
