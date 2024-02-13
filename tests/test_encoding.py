@@ -14,7 +14,7 @@ from .test_helpers import ENCODING_FACTORIES, MAX_EXAMPLES
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 def test_extremely_big_encoding(make_enc: Callable[[], tiktoken.Encoding]):
     enc = make_enc()
-    for c in ["^", "0", "a", "'s"]: # TODO " ", "\n" are still failing
+    for c in ["^", "0", "a", "'s", " ", "\n"]:
         print(f"Validating `{c}`")
 
         big_value = c * 10_000
