@@ -69,9 +69,44 @@ MODEL_TO_ENCODING: dict[str, str] = {
 
 
 def encoding_name_for_model(model_name: str) -> str:
-    """Returns the name of the encoding used by a model.
+    """
+    Returns the name of the encoding used by a model.
 
-    Raises a KeyError if the model name is not recognised.
+    Parameters
+    ----------
+    model_name : str
+        The name of the model.
+
+    Returns
+    -------
+    encoding_name : str
+        The name of the encoding used by the model.
+
+    Raises
+    ------
+    KeyError
+        If the model name is not recognized or cannot be mapped to an encoding.
+
+    Notes
+    -----
+    This function checks if the provided model name is directly mapped to an encoding in MODEL_TO_ENCODING.
+    If not, it attempts to match the model name with known prefixes in MODEL_PREFIX_TO_ENCODING.
+    If a match is found, it returns the corresponding encoding name.
+
+    If the model name cannot be mapped to any encoding, it raises a KeyError.
+
+    Examples
+    --------
+    >>> encoding_name_for_model("gpt2")
+    'gpt2'
+
+    >>> encoding_name_for_model("roberta-large")
+    'roberta'
+
+    >>> encoding_name_for_model("nonexistent-model")
+    Traceback (most recent call last):
+        ...
+    KeyError: "Could not automatically map nonexistent-model to a tokeniser. Please use `tiktoken.get_encoding` to explicitly get the tokeniser you expect."
     """
     encoding_name = None
     if model_name in MODEL_TO_ENCODING:
@@ -94,8 +129,22 @@ def encoding_name_for_model(model_name: str) -> str:
 
 
 def encoding_for_model(model_name: str) -> Encoding:
-    """Returns the encoding used by a model.
+    """
+    Returns the encoding used by a model.
 
-    Raises a KeyError if the model name is not recognised.
+    Parameters
+    ----------
+    model_name : str
+        The name of the model.
+
+    Returns
+    -------
+    encoding : Encoding
+        The encoding used by the model.
+
+    Raises
+    ------
+    KeyError
+        If the model name is not recognized or cannot be mapped to an encoding.
     """
     return get_encoding(encoding_name_for_model(model_name))
