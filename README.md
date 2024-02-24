@@ -25,7 +25,7 @@ Example code using `tiktoken` can be found in the
 
 ## Performance
 
-`tiktoken` is between 3-6x faster than a comparable open source tokeniser:
+`tiktoken` is between 3-6x faster than a comparable open source tokenizer:
 
 ![image](https://raw.githubusercontent.com/openai/tiktoken/main/perf.svg)
 
