@@ -254,43 +254,41 @@ impl CoreBPE {
     }
 
     fn _increase_last_piece_token_len(
-        &self,
-        tokens: Vec<Rank>,
-        mut last_piece_token_len: usize,
-    ) -> (Vec<Rank>, usize) {
-        // Unfortunately, the locations where our regex splits can be unstable.
-        // For the purposes of determining unstable tokens, unstable regex splitting
-        // is only a problem if a split that was present disappears, since this can
-        // lead to merging of tokens otherwise thought to be stable.
-        // cl100k_base makes our life hard by including the \s*[\r\n]+
-        // pattern. This can e.g. cause "\n" + " " to become "\n \n".
-        // Here is a quick and dirty fix:
-        {
-            let token_is_all_space = |token| {
-                self.decoder
-                    .get(token)
-                    .map(|token_bytes| {
-                        token_bytes
-                            .iter()
-                            .rev()
-                            .all(|&b| [b' ', b'\n', b'\t'].contains(&b))
-                    })
-                    .unwrap_or(false)
-            };
-            if last_piece_token_len > 0
-                && token_is_all_space(&tokens[tokens.len() - last_piece_token_len])
-            {
-                while (last_piece_token_len < tokens.len())
-                    && token_is_all_space(&tokens[tokens.len() - last_piece_token_len - 1])
-                {
-                    last_piece_token_len += 1;
-                }
-            }
-        }
-        debug_assert!(last_piece_token_len <= tokens.len());
+	    &self,
+	    mut tokens: Vec<Rank>,
+	    mut last_piece_token_len: usize,
+	) -> (Vec<Rank>, usize) {
+	    // Closure to check if a token represents all whitespace.
+	    // Used a reference to &Rank to avoid copying the value.
+	    let token_is_all_space = |token: &Rank| -> bool {
+	        self.decoder
+	            .get(token)
+	            .map_or(false, |token_bytes| {
+	                token_bytes.iter().all(|&b| matches!(b, b' ' | b'\n' | b'\t'))
+	            })
+	    };
 
-        (tokens, last_piece_token_len)
-    }
+	    // If the last token considered is whitespace, may need to expand the range of tokens considered.
+	    if last_piece_token_len > 0 && tokens.get(tokens.len() - last_piece_token_len).map_or(false, |t| token_is_all_space(t)) {
+	        // Check preceding tokens to see if they're also all whitespace,
+	        // extending the range as far back as necessary.
+	        for i in (0..tokens.len() - last_piece_token_len).rev() {
+	            if token_is_all_space(&tokens[i]) {
+	                // If the token is all whitespace, include it in the range of last piece tokens.
+	                last_piece_token_len += 1;
+	            } else {
+	                // Once it hit a token that isn't all whitespace, stop checking.
+	                break;
+	            }
+	        }
+	    }
+
+	    // Assert the logic correctness: last_piece_token_len should never exceed the number of tokens.
+	    debug_assert!(last_piece_token_len <= tokens.len(), "Last piece token length exceeds total number of tokens");
+
+	    (tokens, last_piece_token_len)
+	}
+
 
     fn _encode_unstable_native(
         &self,
