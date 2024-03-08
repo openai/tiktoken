@@ -32,7 +32,11 @@ def check_hash(data: bytes, expected_hash: str) -> bool:
     return actual_hash == expected_hash
 
 
-def read_file_cached(blobpath: str, expected_hash: Optional[str] = None) -> bytes:
+def read_file_cached(
+    blobpath: str,
+    expected_hash: Optional[str] = None,
+    is_self_hosting: Optional[bool] = False
+) -> bytes:
     user_specified_cache = True
     if "TIKTOKEN_CACHE_DIR" in os.environ:
         cache_dir = os.environ["TIKTOKEN_CACHE_DIR"]
@@ -52,8 +56,19 @@ def read_file_cached(blobpath: str, expected_hash: Optional[str] = None) -> byte
     if os.path.exists(cache_path):
         with open(cache_path, "rb") as f:
             data = f.read()
-        if expected_hash is None or check_hash(data, expected_hash):
+        if expected_hash is None:
             return data
+
+        if check_hash(data, expected_hash):
+            return data
+        
+        if is_self_hosting:
+            raise ValueError(
+                f"Hash mismatch for data from {blobpath} (expected {expected_hash}). "
+                f"This may indicate change in the `tiktoken` encodings for this version. "
+                f"Please update the hosted encodings or remove/unset the `ENCODINGS_HOST` "
+                "to attempt to refresh the cache from the central host (`openaipublic`)."
+            )
 
         # the cached file does not match the hash, remove it and re-fetch
         try:
@@ -83,10 +98,8 @@ def read_file_cached(blobpath: str, expected_hash: Optional[str] = None) -> byte
 
 
 def data_gym_to_mergeable_bpe_ranks(
-    vocab_bpe_file: str,
-    encoder_json_file: str,
-    vocab_bpe_hash: Optional[str] = None,
-    encoder_json_hash: Optional[str] = None,
+    vocab_bpe_contents: str,
+    encoder_json_contents: str,
 ) -> dict[bytes, int]:
     # NB: do not add caching to this function
     rank_to_intbyte = [b for b in range(2**8) if chr(b).isprintable() and chr(b) != " "]
@@ -101,7 +114,6 @@ def data_gym_to_mergeable_bpe_ranks(
     assert len(rank_to_intbyte) == 2**8
 
     # vocab_bpe contains the merges along with associated ranks
-    vocab_bpe_contents = read_file_cached(vocab_bpe_file, vocab_bpe_hash).decode()
     bpe_merges = [tuple(merge_str.split()) for merge_str in vocab_bpe_contents.split("\n")[1:-1]]
 
     def decode_data_gym(value: str) -> bytes:
@@ -118,7 +130,7 @@ def data_gym_to_mergeable_bpe_ranks(
     # check that the encoder file matches the merges file
     # this sanity check is important since tiktoken assumes that ranks are ordered the same
     # as merge priority
-    encoder_json = json.loads(read_file_cached(encoder_json_file, encoder_json_hash))
+    encoder_json = json.loads(encoder_json_contents)
     encoder_json_loaded = {decode_data_gym(k): v for k, v in encoder_json.items()}
     # drop these two special tokens if present, since they're not mergeable bpe tokens
     encoder_json_loaded.pop(b"<|endoftext|>", None)
@@ -141,10 +153,9 @@ def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> No
 
 
 def load_tiktoken_bpe(
-    tiktoken_bpe_file: str, expected_hash: Optional[str] = None
+    contents:bytes
 ) -> dict[bytes, int]:
     # NB: do not add caching to this function
-    contents = read_file_cached(tiktoken_bpe_file, expected_hash)
     return {
         base64.b64decode(token): int(rank)
         for token, rank in (line.split() for line in contents.splitlines() if line)
