@@ -1,7 +1,7 @@
 """This is an educational implementation of the byte pair encoding algorithm."""
 import collections
 from typing import Optional
-
+from itertools import chain
 import regex
 
 import tiktoken
@@ -137,11 +137,9 @@ def bpe_train(
     # Now, use our data to figure out which merges we should make
     while len(ranks) < vocab_size:
         # Find the most common pair. This will become our next token
-        stats = collections.Counter()
-        for piece in words:
-            for pair in zip(piece[:-1], piece[1:]):
-                stats[pair] += 1
-
+        pairs = chain.from_iterable(zip(word:[-1], word[1:] for word in words))
+        stats = Counter(pairs)
+        
         most_common_pair = max(stats, key=lambda x: stats[x])
         token_bytes = most_common_pair[0] + most_common_pair[1]
         token = len(ranks)
