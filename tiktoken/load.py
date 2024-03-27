@@ -42,7 +42,7 @@ def read_file_cached(blobpath: str, expected_hash: Optional[str] = None) -> byte
         cache_dir = os.path.join(tempfile.gettempdir(), "data-gym-cache")
         user_specified_cache = False
 
-    if cache_dir == "":
+    if not cache_dir:
         # disable caching
         return read_file(blobpath)
 
