@@ -106,6 +106,8 @@ class Encoding:
         [27, 91, 437, 1659, 5239, 91, 29]
         ```
         """
+        if not text:
+            return self._special_tokens['ENDOFTEXT']
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
