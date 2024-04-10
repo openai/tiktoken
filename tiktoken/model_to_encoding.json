@@ -47,6 +47,8 @@
     "gpt-4-32k": "cl100k_base",
     "gpt-4-32k-0314": "cl100k_base",
     "gpt-4-32k-0613": "cl100k_base",
+    "gpt-4-turbo": "cl100k_base",
+    "gpt-4-turbo-2024-04-09": "cl100k_base",
     "gpt-4-turbo-preview": "cl100k_base",
     "gpt-4-1106-preview": "cl100k_base",
     "gpt-4-0125-preview": "cl100k_base",

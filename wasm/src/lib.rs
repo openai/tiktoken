@@ -398,6 +398,8 @@ export type TiktokenModel =
     | "gpt-4-32k"
     | "gpt-4-32k-0314"
     | "gpt-4-32k-0613"
+    | "gpt-4-turbo"
+    | "gpt-4-turbo-2024-04-09"
     | "gpt-4-turbo-preview"
     | "gpt-4-1106-preview"
     | "gpt-4-0125-preview"
@@ -468,6 +470,8 @@ pub fn encoding_for_model(
         "gpt-4-1106-preview" => Ok("cl100k_base"),
         "gpt-4-vision-preview" => Ok("cl100k_base"),
         "gpt-3.5-turbo-0125" => Ok("cl100k_base"),
+        "gpt-4-turbo" => Ok("cl100k_base"),
+        "gpt-4-turbo-2024-04-09" => Ok("cl100k_base"),
         "gpt-4-turbo-preview" => Ok("cl100k_base"),
         "gpt-4-0125-preview" => Ok("cl100k_base"),
         model => Err(JsError::new(
