@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.11
+
+### Patch Changes
+
+- f386b28: Add new GPT-4-turbo models
+
 ## 1.0.10
 
 ### Patch Changes
