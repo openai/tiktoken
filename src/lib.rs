@@ -7,6 +7,7 @@ mod openai_public;
 mod tests;
 
 pub use encoding::Encoding;
+pub use encoding::EncodingError;
 pub use encoding::SpecialTokenAction;
 pub use encoding::SpecialTokenHandling;
 pub use openai_public::EncodingFactory;
