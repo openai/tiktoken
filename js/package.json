@@ -80,7 +80,8 @@
       "src/ranks/gpt2.ts",
       "src/ranks/p50k_base.ts",
       "src/ranks/p50k_edit.ts",
-      "src/ranks/r50k_base.ts"
+      "src/ranks/r50k_base.ts",
+      "src/ranks/o200k_base.ts"
     ],
     "format": [
       "cjs",
