@@ -15,13 +15,13 @@ jobs:
       matrix:
         # cibuildwheel builds linux wheels inside a manylinux container
         # it also takes care of procuring the correct python version for us
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-13]
         python-version: [38, 39, 310, 311, 312]
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pypa/cibuildwheel@v2.16.5
+      - uses: pypa/cibuildwheel@v2.18.0
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
 
@@ -48,7 +48,7 @@ jobs:
           platforms: arm64
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.16.5
+        uses: pypa/cibuildwheel@v2.18.0
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
