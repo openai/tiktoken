@@ -133,6 +133,19 @@ impl CoreBPEConstructor {
             include_str!("./ranks/cl100k_base.regex.tiktoken"),
         )
     }
+
+    #[cfg(feature = "inline")]
+    fn o200k_base() -> Self {
+        let mut special_tokens = HashMap::default();
+        special_tokens.insert(String::from(ENDOFTEXT), 199999);
+        special_tokens.insert(String::from(ENDOFPROMPT), 200018);
+
+        CoreBPEConstructor::new(
+            include_str!("./ranks/o200k_base.compress.tiktoken"),
+            Some(special_tokens),
+            include_str!("./ranks/o200k_base.regex.tiktoken"),
+        )
+    }
 }
 
 #[wasm_bindgen]
@@ -179,6 +192,7 @@ impl Tiktoken {
             "p50k_base" => Ok(CoreBPEConstructor::p50k_base()),
             "p50k_edit" => Ok(CoreBPEConstructor::p50k_edit()),
             "cl100k_base" => Ok(CoreBPEConstructor::cl100k_base()),
+            "o200k_base" => Ok(CoreBPEConstructor::o200k_base()),
             &_ => Err(JsError::new("Invalid encoding")),
         }?;
 
@@ -325,7 +339,7 @@ impl Tiktoken {
 #[cfg(feature = "inline")]
 #[wasm_bindgen(typescript_custom_section)]
 const _: &'static str = r#"
-export type TiktokenEncoding = "gpt2" | "r50k_base" | "p50k_base" | "p50k_edit" | "cl100k_base"; 
+export type TiktokenEncoding = "gpt2" | "r50k_base" | "p50k_base" | "p50k_edit" | "cl100k_base" | "o200k_base";
 
 /**
  * @param {TiktokenEncoding} encoding
@@ -404,6 +418,8 @@ export type TiktokenModel =
     | "gpt-4-1106-preview"
     | "gpt-4-0125-preview"
     | "gpt-4-vision-preview"
+    | "gpt-4o"
+    | "gpt-4o-2024-05-13"
 
 /**
  * @param {TiktokenModel} encoding
@@ -474,6 +490,8 @@ pub fn encoding_for_model(
         "gpt-4-turbo-2024-04-09" => Ok("cl100k_base"),
         "gpt-4-turbo-preview" => Ok("cl100k_base"),
         "gpt-4-0125-preview" => Ok("cl100k_base"),
+        "gpt-4o" => Ok("o200k_base"),
+        "gpt-4o-2024-05-13" => Ok("o200k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),

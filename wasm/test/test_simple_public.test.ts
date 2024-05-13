@@ -59,6 +59,28 @@ describe("cl100k_base", () => {
   });
 });
 
+describe("o200k_base", () => {
+  const enc = get_encoding("o200k_base");
+
+  it("encodes hello world string", () => {
+    expect(enc.encode("hello world")).toStrictEqual(
+      new Uint32Array([24912, 2375])
+    );
+  });
+
+  it("decodes hello world string", () => {
+    expect(
+      new TextDecoder().decode(enc.decode(new Uint32Array([24912, 2375])))
+    ).toStrictEqual("hello world");
+  });
+
+  it("encodes hello world string, all allowed special characters", () => {
+    expect(enc.encode("hello <|endoftext|>", "all")).toStrictEqual(
+      new Uint32Array([24912, 220, 199999])
+    );
+  });
+});
+
 it("test_simple", () => {
   const encodings = [
     "gpt2",

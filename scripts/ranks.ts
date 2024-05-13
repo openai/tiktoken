@@ -264,8 +264,8 @@ async function main() {
       const bpe = await downloadBpe(data);
 
       if (lib === "js") {
-        bpe.pat_str = bpe.pat_str.replace(
-          /\(\?i:(.*?)\)/,
+        bpe.pat_str = bpe.pat_str.replaceAll(
+          /\(\?i:(.*?)\)/g,
           (_, match: string) =>
             `(${match
               .split("|")

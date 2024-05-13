@@ -274,6 +274,10 @@ export function getEncodingNameForModel(model: TiktokenModel) {
     case "text-embedding-ada-002": {
       return "cl100k_base";
     }
+    case "gpt-4o":
+    case "gpt-4o-2024-05-13": {
+      return "o200k_base";
+    }
     default:
       never(model);
       throw new Error("Unknown model");
