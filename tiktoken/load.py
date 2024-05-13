@@ -8,7 +8,7 @@ import tempfile
 import uuid
 from typing import Optional
 
-import requests
+import urllib.request
 
 
 def read_file(blobpath: str) -> bytes:
@@ -22,9 +22,9 @@ def read_file(blobpath: str) -> bytes:
         with blobfile.BlobFile(blobpath, "rb") as f:
             return f.read()
     # avoiding blobfile for public files helps avoid auth issues, like MFA prompts
-    resp = requests.get(blobpath)
-    resp.raise_for_status()
-    return resp.content
+    with urllib.request.urlopen(blobpath) as response:
+        resp = response.read()
+    return resp
 
 
 def check_hash(data: bytes, expected_hash: str) -> bool:
