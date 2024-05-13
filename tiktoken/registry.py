@@ -17,6 +17,14 @@ ENCODING_CONSTRUCTORS: Optional[dict[str, Callable[[], dict[str, Any]]]] = None
 
 @functools.lru_cache()
 def _available_plugin_modules() -> Sequence[str]:
+    """
+    Returns a sequence of available plugin modules.
+
+    Returns
+    -------
+    Sequence[str]
+        A sequence of available plugin modules.
+    """
     # tiktoken_ext is a namespace package
     # submodules inside tiktoken_ext will be inspected for ENCODING_CONSTRUCTORS attributes
     # - we use namespace package pattern so `pkgutil.iter_modules` is fast
@@ -30,6 +38,22 @@ def _available_plugin_modules() -> Sequence[str]:
 
 
 def _find_constructors() -> None:
+    """
+    Finds encoding constructors from available plugin modules and populates the ENCODING_CONSTRUCTORS dictionary.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If a plugin module does not define ENCODING_CONSTRUCTORS or if there are duplicate encoding names.
+    """
     global ENCODING_CONSTRUCTORS
     with _lock:
         if ENCODING_CONSTRUCTORS is not None:
@@ -53,6 +77,24 @@ def _find_constructors() -> None:
 
 
 def get_encoding(encoding_name: str) -> Encoding:
+    """
+    Retrieves an Encoding object for the specified encoding name.
+
+    Parameters
+    ----------
+    encoding_name : str
+        The name of the encoding.
+
+    Returns
+    -------
+    Encoding
+        The Encoding object for the specified encoding name.
+
+    Raises
+    ------
+    ValueError
+        If the specified encoding name is unknown.
+    """
     if encoding_name in ENCODINGS:
         return ENCODINGS[encoding_name]
 
@@ -76,6 +118,18 @@ def get_encoding(encoding_name: str) -> Encoding:
 
 
 def list_encoding_names() -> list[str]:
+    """
+    Lists available encoding names.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    list[str]
+        A list of available encoding names.
+    """
     with _lock:
         if ENCODING_CONSTRUCTORS is None:
             _find_constructors()
