@@ -2,6 +2,10 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.7.0]
+- Support for `gpt-4o`
+- Performance improvements
+
 ## [v0.6.0]
 - Optimise regular expressions for a 20% performance improvement, thanks to @paplorinc!
 - Add `text-embedding-3-*` models to `encoding_for_model`
