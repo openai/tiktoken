@@ -1,5 +1,11 @@
 # @dqbd/tiktoken
 
+## 1.0.15
+
+### Patch Changes
+
+- 791cf62: Add gpt-4o support
+
 ## 1.0.14
 
 ### Patch Changes
