@@ -52,6 +52,11 @@
       "types": "./dist/ranks/r50k_base.d.ts",
       "require": "./dist/ranks/r50k_base.cjs",
       "default": "./dist/ranks/r50k_base.js"
+    },
+    "./ranks/o200k_base": {
+      "types": "./dist/ranks/o200k_base.d.ts",
+      "require": "./dist/ranks/o200k_base.cjs",
+      "default": "./dist/ranks/o200k_base.js"
     }
   },
   "repository": {
