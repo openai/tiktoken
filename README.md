@@ -5,11 +5,11 @@ OpenAI's models.
 
 ```python
 import tiktoken
-enc = tiktoken.get_encoding("cl100k_base")
+enc = tiktoken.get_encoding("o200k_base")
 assert enc.decode(enc.encode("hello world")) == "hello world"
 
 # To get the tokeniser corresponding to a specific model in the OpenAI API:
-enc = tiktoken.encoding_for_model("gpt-4")
+enc = tiktoken.encoding_for_model("gpt-4o")
 ```
 
 The open source version of `tiktoken` can be installed from PyPI:
