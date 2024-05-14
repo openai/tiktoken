@@ -11,6 +11,22 @@ import tiktoken
 from .test_helpers import ENCODING_FACTORIES, MAX_EXAMPLES
 
 
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_extremely_big_encoding(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    for c in ["^", "0", "a", "'s", " ", "\n"]:
+        print(f"Validating `{c}`")
+
+        big_value = c * 10_000
+        assert big_value == enc.decode(enc.encode(big_value))
+
+        big_value = " " + big_value
+        assert big_value == enc.decode(enc.encode(big_value))
+
+        big_value = big_value + "\n"
+        assert big_value == enc.decode(enc.encode(big_value))
+
+
 def test_simple():
     enc = tiktoken.get_encoding("gpt2")
     assert enc.encode("hello world") == [31373, 995]
