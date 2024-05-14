@@ -1,4 +1,5 @@
-from tiktoken.load import data_gym_to_mergeable_bpe_ranks, load_tiktoken_bpe
+import os
+from tiktoken.load import data_gym_to_mergeable_bpe_ranks, load_tiktoken_bpe, read_file_cached
 
 ENDOFTEXT = "<|endoftext|>"
 FIM_PREFIX = "<|fim_prefix|>"
@@ -6,13 +7,40 @@ FIM_MIDDLE = "<|fim_middle|>"
 FIM_SUFFIX = "<|fim_suffix|>"
 ENDOFPROMPT = "<|endofprompt|>"
 
+ENCODINGS_HOST = os.getenv("ENCODINGS_HOST", None)
+
+if "ENCODINGS_HOST" in os.environ:
+    ENCODINGS_HOST = os.environ["ENCODINGS_HOST"]
+    IS_HOSTING_ENCODINGS = True
+else:
+    ENCODINGS_HOST = "https://openaipublic.blob.core.windows.net"
+    IS_HOSTING_ENCODINGS = False
+
+VOCAB_BPE_FILE = f"{ENCODINGS_HOST}/gpt-2/encodings/main/vocab.bpe"
+VOCAB_BPE_HASH = "1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5"
+ENCODER_JSON_FILE = f"{ENCODINGS_HOST}/gpt-2/encodings/main/encoder.json"
+ENCODER_JSON_HASH = "196139668be63f3b5d6574427317ae82f612a97c5d1cdaf36ed2256dbf636783"
+R50K_BASE_FILE = f"{ENCODINGS_HOST}/encodings/r50k_base.tiktoken"
+R50K_BASE_HASH = "306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930"
+P50K_BASE_FILE = f"{ENCODINGS_HOST}/encodings/p50k_base.tiktoken"
+P50K_BASE_HASH = "94b5ca7dff4d00767bc256fdd1b27e5b17361d7b8a5f968547f9f23eb70d2069"
+CL100K_BASE_FILE = f"{ENCODINGS_HOST}/encodings/cl100k_base.tiktoken"
+CL100K_BASE_HASH = "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7"
 
 def gpt2():
+    vocab_bpe_contents = read_file_cached(
+        VOCAB_BPE_FILE,
+        VOCAB_BPE_HASH,
+        IS_HOSTING_ENCODINGS
+    ).decode()
+    encoder_json_contents = read_file_cached(
+        ENCODER_JSON_FILE,
+        ENCODER_JSON_HASH,
+        IS_HOSTING_ENCODINGS
+    )
     mergeable_ranks = data_gym_to_mergeable_bpe_ranks(
-        vocab_bpe_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe",
-        encoder_json_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json",
-        vocab_bpe_hash="1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5",
-        encoder_json_hash="196139668be63f3b5d6574427317ae82f612a97c5d1cdaf36ed2256dbf636783",
+        vocab_bpe_contents= vocab_bpe_contents,
+        encoder_json_contents=encoder_json_contents
     )
     return {
         "name": "gpt2",
@@ -27,10 +55,8 @@ def gpt2():
 
 
 def r50k_base():
-    mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken",
-        expected_hash="306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930",
-    )
+    contents = read_file_cached(R50K_BASE_FILE, R50K_BASE_HASH, IS_HOSTING_ENCODINGS)
+    mergeable_ranks = load_tiktoken_bpe(contents)
     return {
         "name": "r50k_base",
         "explicit_n_vocab": 50257,
@@ -41,10 +67,8 @@ def r50k_base():
 
 
 def p50k_base():
-    mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
-        expected_hash="94b5ca7dff4d00767bc256fdd1b27e5b17361d7b8a5f968547f9f23eb70d2069",
-    )
+    contents = read_file_cached(P50K_BASE_FILE, P50K_BASE_HASH, IS_HOSTING_ENCODINGS)
+    mergeable_ranks = load_tiktoken_bpe(contents)
     return {
         "name": "p50k_base",
         "explicit_n_vocab": 50281,
@@ -55,10 +79,8 @@ def p50k_base():
 
 
 def p50k_edit():
-    mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
-        expected_hash="94b5ca7dff4d00767bc256fdd1b27e5b17361d7b8a5f968547f9f23eb70d2069",
-    )
+    contents = read_file_cached(P50K_BASE_FILE, P50K_BASE_HASH, IS_HOSTING_ENCODINGS)
+    mergeable_ranks = load_tiktoken_bpe(contents)
     special_tokens = {ENDOFTEXT: 50256, FIM_PREFIX: 50281, FIM_MIDDLE: 50282, FIM_SUFFIX: 50283}
     return {
         "name": "p50k_edit",
@@ -69,10 +91,8 @@ def p50k_edit():
 
 
 def cl100k_base():
-    mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken",
-        expected_hash="223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
-    )
+    contents = read_file_cached(CL100K_BASE_FILE, CL100K_BASE_HASH, IS_HOSTING_ENCODINGS)
+    mergeable_ranks = load_tiktoken_bpe(contents)
     special_tokens = {
         ENDOFTEXT: 100257,
         FIM_PREFIX: 100258,
