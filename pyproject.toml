@@ -29,6 +29,7 @@ macos.before-all = "rustup target add aarch64-apple-darwin"
 skip = [
   "*-manylinux_i686",
   "*-musllinux_i686",
+  "*-musllinux_ppc64le",
   "*-win32",
 ]
 macos.archs = ["x86_64", "arm64"]
