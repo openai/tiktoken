@@ -1,4 +1,4 @@
-# Changelog
+#sudo su # Changelog
 
 This is the changelog for the open source version of tiktoken.
 
