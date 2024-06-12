@@ -8,11 +8,11 @@ import tiktoken
 enc = tiktoken.get_encoding("o200k_base")
 assert enc.decode(enc.encode("hello world")) == "hello world"
 
-# To get the tokeniser corresponding to a specific model in the OpenAI API:
+# To get the tokenizer corresponding to a specific model in the OpenAI API:
 enc = tiktoken.encoding_for_model("gpt-4o")
 ```
 
-The open source version of `tiktoken` can be installed from PyPI:
+The open-source version of `tiktoken` can be installed from PyPI:
 ```
 pip install tiktoken
 ```
@@ -25,11 +25,11 @@ Example code using `tiktoken` can be found in the
 
 ## Performance
 
-`tiktoken` is between 3-6x faster than a comparable open source tokeniser:
+`tiktoken` is between 3-6x faster than a comparable open-source tokenizer:
 
 ![image](https://raw.githubusercontent.com/openai/tiktoken/main/perf.svg)
 
-Performance measured on 1GB of text using the GPT-2 tokeniser, using `GPT2TokenizerFast` from
+Performance measured on 1GB of text using the GPT-2 tokenizer, using `GPT2TokenizerFast` from
 `tokenizers==0.13.2`, `transformers==4.24.0` and `tiktoken==0.2.0`.
 
 
@@ -42,24 +42,24 @@ If you work at OpenAI, make sure to check the internal documentation or feel fre
 
 ## What is BPE anyway?
 
-Language models don't see text like you and I, instead they see a sequence of numbers (known as tokens).
-Byte pair encoding (BPE) is a way of converting text into tokens. It has a couple desirable
+Language models don't see text like you and me, instead, they see a sequence of numbers (known as tokens).
+Byte pair encoding (BPE) is a way of converting text into tokens. It has a couple of desirable
 properties:
 1) It's reversible and lossless, so you can convert tokens back into the original text
-2) It works on arbitrary text, even text that is not in the tokeniser's training data
+2) It works on arbitrary text, even text that is not in the tokenizer's training data
 3) It compresses the text: the token sequence is shorter than the bytes corresponding to the
    original text. On average, in practice, each token corresponds to about 4 bytes.
 4) It attempts to let the model see common subwords. For instance, "ing" is a common subword in
    English, so BPE encodings will often split "encoding" into tokens like "encod" and "ing"
    (instead of e.g. "enc" and "oding"). Because the model will then see the "ing" token again and
-   again in different contexts, it helps models generalise and better understand grammar.
+   again in different contexts, it helps models generalize and better understand grammar.
 
 `tiktoken` contains an educational submodule that is friendlier if you want to learn more about
-the details of BPE, including code that helps visualise the BPE procedure:
+the details of BPE, including code that helps visualize the BPE procedure:
 ```python
 from tiktoken._educational import *
 
-# Train a BPE tokeniser on a small amount of text
+# Train a BPE tokenizer on a small amount of text
 enc = train_simple_encoding()
 
 # Visualise how the GPT-4 encoder encodes text
