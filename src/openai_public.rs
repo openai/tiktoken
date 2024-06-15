@@ -125,18 +125,17 @@ impl EncodingFactory {
         .cloned()
         .collect();
 
-    // This regex could be made more efficient
-    let pat_str = [
-        r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?:'s|'t|'re|'ve|'m|'ll|'d)?",
-        r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?:'s|'t|'re|'ve|'m|'ll|'d)?",
-        r"\p{N}{1,3}",
-        r" ?[^\s\p{L}\p{N}]+[\r\n/]*",
-        r"\s*[\r\n]+",
-        r"\s+(?!\S)",
-        r"\s+",
-    ].join("|");
+    const PAT_STR: &str = concat!(
+      r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?:'s|'t|'re|'ve|'m|'ll|'d)?|",
+      r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?:'s|'t|'re|'ve|'m|'ll|'d)?|",
+      r"\p{N}{1,3}|",
+      r" ?[^\s\p{L}\p{N}]+[\r\n/]*|",
+      r"\s*[\r\n]+|",
+      r"\s+(?!\S)|",
+      r"\s+"
+    );
 
-    Encoding::new("o200k_base", pat_str, mergeable_ranks, special_tokens, None)
+    Encoding::new("o200k_base", PAT_STR, mergeable_ranks, special_tokens, None)
       .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
   }
 }
