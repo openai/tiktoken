@@ -106,6 +106,85 @@ fn test_simple() {
       token
     );
   }
+
+  let enc_o = EncodingFactory::o200k_base().unwrap();
+  for token in 0..10000 {
+    assert_eq!(
+      enc_o.encode_single_token_bytes(&enc_o.decode_single_token_bytes(token).unwrap()).unwrap(),
+      token
+    );
+  }
+
+  assert_eq!(
+    enc_o
+      .encode(
+        "hello world",
+        &SpecialTokenHandling { default: SpecialTokenAction::Forbidden, ..Default::default() }
+      )
+      .unwrap(),
+    vec![24912, 2375]
+  );
+  assert_eq!(enc_o.decode(&[24912, 2375]), "hello world");
+  assert_eq!(
+    enc_o
+      .encode(
+        "hello <|endoftext|>",
+        &SpecialTokenHandling { default: SpecialTokenAction::Special, ..Default::default() }
+      )
+      .unwrap(),
+    vec![24912, 220, 199999]
+  );
+  assert_eq!(
+    enc_o
+      .encode(
+        "hello <|endoftext|>",
+        &SpecialTokenHandling {
+          default: SpecialTokenAction::Forbidden,
+          overrides: vec![("<|endoftext|>".to_string(), SpecialTokenAction::Special)],
+        }
+      )
+      .unwrap(),
+    vec![24912, 220, 199999]
+  );
+  assert_eq!(
+    enc_o
+      .encode(
+        "hello <|endoftext|>",
+        &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() }
+      )
+      .unwrap(),
+    vec![24912, 464, 91, 419, 1440, 919, 91, 29]
+  );
+  assert_eq!(
+    enc_o
+      .encode(
+        include_str!("test.txt"),
+        &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() }
+      )
+      .unwrap()
+      .len(),
+    7182
+  );
+  assert_eq!(
+    enc_o
+      .encode(
+        include_str!("apostrophe.txt"),
+        &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() }
+      )
+      .unwrap()
+      .len(),
+    376
+  );
+  assert_eq!(
+    enc_o
+      .encode(
+        include_str!("prompt.txt"),
+        &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() }
+      )
+      .unwrap()
+      .len(),
+    6807
+  );
 }
 
 #[test]
@@ -179,6 +258,91 @@ fn test_tokenization_of_numbers() {
 #[test]
 fn test_tokenization_of_numbers_all() {
   let enc = EncodingFactory::cl100k_base().unwrap();
+
+  let test = (0..1000).map(|i| format!("{:03}", i)).collect::<String>();
+
+  let real_count = enc
+    .encode(
+      &test,
+      &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() },
+    )
+    .unwrap()
+    .len();
+
+  assert_eq!(real_count, 1000);
+}
+
+#[test]
+fn estimation_is_close_o200k() {
+  let enc = EncodingFactory::o200k_base().unwrap();
+
+  let big = include_str!("big.txt");
+  let test = include_str!("test.txt");
+  let test2 = include_str!("test2.txt");
+
+  let files = [&big, &test, &test2];
+  for file in files.iter() {
+    let real_count = enc
+      .encode(
+        file,
+        &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() },
+      )
+      .unwrap()
+      .len();
+
+    let estimated_count = enc.estimate_num_tokens_no_special_tokens_fast(file);
+
+    println!("Real count: {}", real_count);
+    println!("Estimated count: {}", estimated_count);
+
+    assert!((real_count as f64 - estimated_count as f64).abs() < 0.05 * real_count as f64);
+  }
+}
+
+#[test]
+fn simple_estimation_is_close_o200k() {
+  let enc = EncodingFactory::o200k_base().unwrap();
+
+  let test = include_str!("tiny.txt");
+
+  {
+    let real_count = enc
+      .encode(
+        &test,
+        &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() },
+      )
+      .unwrap()
+      .len();
+
+    let estimated_count = enc.estimate_num_tokens_no_special_tokens_fast(&test);
+
+    println!("Real count: {}", real_count);
+    println!("Estimated count: {}", estimated_count);
+
+    assert!((real_count as f64 - estimated_count as f64).abs() < 0.05 * real_count as f64);
+  }
+}
+
+#[test]
+fn test_tokenization_of_numbers_o200k() {
+  let enc = EncodingFactory::o200k_base().unwrap();
+
+  let test = (100..1000).map(|i| i.to_string()).collect::<String>();
+
+  let real_count = enc
+    .encode(
+      &test,
+      &SpecialTokenHandling { default: SpecialTokenAction::NormalText, ..Default::default() },
+    )
+    .unwrap()
+    .len();
+
+  assert_eq!(real_count, 900);
+}
+
+#[test]
+fn test_tokenization_of_numbers_all_o200k() {
+  let enc = EncodingFactory::o200k_base().unwrap();
 
   let test = (0..1000).map(|i| format!("{:03}", i)).collect::<String>();
 

@@ -113,29 +113,50 @@ impl EncodingFactory {
         .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
   }
 
-  pub fn o200k_base() -> Result<Encoding, EncodingFactoryError> {
+  pub fn o200k_with_special_tokens(
+    special_tokens: &[(String, usize)],
+  ) -> Result<Encoding, EncodingFactoryError> {
     let mergeable_ranks = load_tiktoken_bpe(
       include_bytes!("../data/o200k_base.tiktoken"),
       "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
     )
     .map_err(|_| EncodingFactoryError::FailedToLoadEncoding)?;
-    let special_tokens: HashMap<String, usize> =
-      [(ENDOFTEXT.to_string(), 199999), (ENDOFPROMPT.to_string(), 200018)]
-        .iter()
-        .cloned()
-        .collect();
+    let special_tokens: HashMap<String, usize> = special_tokens.iter().cloned().collect();
 
-    const PAT_STR: &str = concat!(
-      r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?:'s|'t|'re|'ve|'m|'ll|'d)?|",
-      r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?:'s|'t|'re|'ve|'m|'ll|'d)?|",
-      r"\p{N}{1,3}|",
-      r" ?[^\s\p{L}\p{N}]+[\r\n/]*|",
-      r"\s*[\r\n]+|",
-      r"\s+(?!\S)|",
-      r"\s+"
-    );
+    let pat_str: &str = &[
+        r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+        r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+        r"\p{N}{1,3}",
+        r" ?[^\s\p{L}\p{N}]+[\r\n/]*",
+        r"\s*[\r\n]+",
+        r"\s+(?!\S)",
+        r"\s+",
+    ].join("|");
 
-    Encoding::new("o200k_base", PAT_STR, mergeable_ranks, special_tokens, None)
+    Encoding::new("o200k_base", pat_str, mergeable_ranks, special_tokens, None)
       .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
+  }
+
+  pub fn o200k_base() -> Result<Encoding, EncodingFactoryError> {
+    EncodingFactory::o200k_with_special_tokens(&[
+      (ENDOFTEXT.to_string(), 199999),
+      (FIM_PREFIX.to_string(), 200000),
+      (FIM_MIDDLE.to_string(), 200001),
+      (FIM_SUFFIX.to_string(), 200002),
+      (ENDOFPROMPT.to_string(), 200018),
+    ])
+  }
+
+  pub fn o200k_im() -> Result<Encoding, EncodingFactoryError> {
+    EncodingFactory::o200k_with_special_tokens(&[
+      (ENDOFTEXT.to_string(), 199999),
+      (FIM_PREFIX.to_string(), 200000),
+      (FIM_MIDDLE.to_string(), 200001),
+      (FIM_SUFFIX.to_string(), 200002),
+      (IM_START.to_string(), 200006),
+      (IM_END.to_string(), 200007),
+      (IM_SEP.to_string(), 200008),
+      (ENDOFPROMPT.to_string(), 200018),
+    ])
   }
 }
