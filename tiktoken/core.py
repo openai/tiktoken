@@ -368,7 +368,7 @@ class Encoding:
     def _encode_bytes(self, text: bytes) -> list[int]:
         return self._core_bpe._encode_bytes(text)
     
-    def enviorment(self) -> None:
+    def environment(self) -> None:
         """Builds a Text User Interface (TUI) environment to test out encoding."""
         return self._core_bpe._environment(self.name)
 
