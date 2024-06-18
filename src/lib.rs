@@ -5,6 +5,11 @@ use std::collections::HashSet;
 use std::num::NonZeroU64;
 use std::thread;
 
+<<<<<<< HEAD
+=======
+use bstr::ByteSlice;
+use crossterm::style::Stylize;
+>>>>>>> parent of def13cc (clean up unused dependencies src/lib.rs)
 use fancy_regex::Regex;
 use pyo3::exceptions;
 use pyo3::prelude::*;
@@ -12,21 +17,24 @@ use pyo3::pyclass;
 use pyo3::PyResult;
 use pyo3::types::{PyBytes, PyList, PyTuple};
 
-
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-use ratatui::Terminal;
-use ratatui::backend::CrosstermBackend;
-use ratatui::text::Line;
+
 use ratatui::layout::{Layout, Direction};
 use ratatui::prelude::{Span, Constraint};
+use ratatui::backend::CrosstermBackend;
+use ratatui::text::Line;
+use ratatui::widgets::block::Title;
+use ratatui::widgets::Padding;
+use ratatui::widgets::{Block, Borders, Wrap};
 use ratatui::style::{Color, Style};
-use ratatui::widgets::{
-    block::Title, Padding, Paragraph, Block, Borders, Wrap as WrapR
-};
+use ratatui::Terminal;
+use std::io;
 use tui_textarea::{Input, Key, TextArea};
 
+use ratatui::widgets::Paragraph;
 use rustc_hash::FxHashMap as HashMap;
 
 type Rank = u32;
@@ -580,7 +588,7 @@ impl CoreBPE {
     }
 
     fn _environment(&self, py : Python, name : &str, allowed_special: HashSet<&str>) -> PyResult<()> {
-        let stdout = std::io::stdout();
+        let stdout = io::stdout();
         let mut stdout = stdout.lock();
     
         enable_raw_mode()?;
@@ -608,9 +616,9 @@ impl CoreBPE {
 
         loop {
             let mut current_color_index = 0;
-
             term.draw(|f| {
-    
+
+                
                 let chunks = parent_layout.split(f.size());
                 
                 let sub_chunk = layout.split(chunks[0]);
@@ -645,9 +653,9 @@ impl CoreBPE {
                                                         Span::from(" token(s)")]))
                                                 .alignment(ratatui::layout::Alignment::Center)
                                                 .position(ratatui::widgets::block::Position::Bottom))
-                    .padding(Padding::new(1, 1, 1, 1)))
-                    .wrap(WrapR { trim: true });
-                                                
+                                           .padding(Padding::new(1, 1, 1, 1)))
+                                           .wrap(Wrap { trim: true });
+
                 let menu = Block::new()
                     .title(Title::from("[Esc] Exit")
                     .alignment(ratatui::layout::Alignment::Left))
