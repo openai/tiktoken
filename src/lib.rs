@@ -5,11 +5,7 @@ use std::collections::HashSet;
 use std::num::NonZeroU64;
 use std::thread;
 
-<<<<<<< HEAD
-=======
 use bstr::ByteSlice;
-use crossterm::style::Stylize;
->>>>>>> parent of def13cc (clean up unused dependencies src/lib.rs)
 use fancy_regex::Regex;
 use pyo3::exceptions;
 use pyo3::prelude::*;
@@ -17,25 +13,23 @@ use pyo3::pyclass;
 use pyo3::PyResult;
 use pyo3::types::{PyBytes, PyList, PyTuple};
 
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use rustc_hash::FxHashMap as HashMap;
+
+// so many imports :D
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-
-use ratatui::layout::{Layout, Direction};
 use ratatui::prelude::{Span, Constraint};
-use ratatui::backend::CrosstermBackend;
-use ratatui::text::Line;
-use ratatui::widgets::block::Title;
-use ratatui::widgets::Padding;
-use ratatui::widgets::{Block, Borders, Wrap};
-use ratatui::style::{Color, Style};
 use ratatui::Terminal;
-use std::io;
+use ratatui::backend::CrosstermBackend;
+use ratatui::layout::{Layout, Direction};
+use ratatui::text::Line;
+use ratatui::widgets::{
+    block::Title, Padding, Block, Borders, Wrap, Paragraph
+};
+use ratatui::style::{Color, Style};
 use tui_textarea::{Input, Key, TextArea};
 
-use ratatui::widgets::Paragraph;
-use rustc_hash::FxHashMap as HashMap;
 
 type Rank = u32;
 
@@ -588,7 +582,7 @@ impl CoreBPE {
     }
 
     fn _environment(&self, py : Python, name : &str, allowed_special: HashSet<&str>) -> PyResult<()> {
-        let stdout = io::stdout();
+        let stdout = std::io::stdout();
         let mut stdout = stdout.lock();
     
         enable_raw_mode()?;
@@ -638,9 +632,6 @@ impl CoreBPE {
                 let spans: Vec<Span> = tokens.iter().map(|token| {
                     let color = colours[current_color_index];
                     current_color_index = (current_color_index + 1) % colours.len();
-                    if token == "\n"{
-                        println!("{}", token);
-                    }
                     Span::styled(token, Style::default().bg(color).fg(Color::White))
                 }).collect();
 
@@ -687,9 +678,6 @@ impl CoreBPE {
 
     }
 }
-
-
-
 
 
 #[pymodule]
