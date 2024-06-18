@@ -5,12 +5,33 @@ use std::collections::HashSet;
 use std::num::NonZeroU64;
 use std::thread;
 
+use bstr::ByteSlice;
+use crossterm::style::Stylize;
 use fancy_regex::Regex;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::pyclass;
 use pyo3::PyResult;
 use pyo3::types::{PyBytes, PyList, PyTuple};
+
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+
+use ratatui::layout::{Layout, Direction};
+use ratatui::prelude::{Span, Constraint};
+use ratatui::backend::CrosstermBackend;
+use ratatui::text::Line;
+use ratatui::widgets::block::Title;
+use ratatui::widgets::Padding;
+use ratatui::widgets::{Block, Borders, Wrap};
+use ratatui::style::{Color, Style};
+use ratatui::Terminal;
+use std::io;
+use tui_textarea::{Input, Key, TextArea};
+
+use ratatui::widgets::Paragraph;
 use rustc_hash::FxHashMap as HashMap;
 
 type Rank = u32;
@@ -562,7 +583,111 @@ impl CoreBPE {
             .map(|x| PyBytes::new(py, x).into())
             .collect()
     }
+
+    fn _environment(&self, py : Python, name : String) -> PyResult<()> {
+        let stdout = io::stdout();
+        let mut stdout = stdout.lock();
+    
+        enable_raw_mode()?;
+        crossterm::execute!(stdout, EnterAlternateScreen)?;
+        let backend = CrosstermBackend::new(stdout);
+        let mut term = Terminal::new(backend)?;
+    
+        let mut textarea = TextArea::default();
+        textarea.set_block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!("{} Encoder",name)).padding(Padding::new(1, 1, 1, 0))
+        );
+    
+        let colours = vec![Color::Red, Color::Green, Color::Blue, Color::Yellow, Color::Magenta, Color::Cyan];
+        
+        let parent_layout = Layout::default()
+            .constraints([Constraint::Percentage(100), Constraint::Min(1)]);
+
+        let layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref());
+
+        
+
+        loop {
+            let mut current_color_index = 0;
+            term.draw(|f| {
+
+                
+                let chunks = parent_layout.split(f.size());
+                
+                let sub_chunk = layout.split(chunks[0]);
+
+                let encoding = self.encode_ordinary(py, textarea.lines().join("\n").as_str());
+                let decoding: Vec<Py<PyBytes>> = encoding.iter().map(|&token| self
+                    .decode_single_token_bytes(py, token).unwrap()).collect();
+                
+                let tokens : Vec<String> = decoding.iter().map(|py_bytes| {
+                    let bytes = py_bytes.as_ref(py); // Convert Py<PyBytes> to &PyBytes
+                    bytes.as_bytes()
+                         .to_str()
+                         .unwrap()
+                         .to_string() // Convert &PyBytes to &str and then to String
+                }).collect();
+  
+                let spans: Vec<Span> = tokens.iter().map(|token| {
+                    let color = colours[current_color_index];
+                    current_color_index = (current_color_index + 1) % colours.len();
+                    if token == "\n"{
+                        println!("{}", token);
+                    }
+                    Span::styled(token, Style::default().bg(color).fg(Color::White))
+                }).collect();
+
+                let paragraph = Paragraph::new(Line::from(spans.clone()))
+                    .block(Block::default().borders(Borders::ALL)
+                                           .title("Decoded Tokens")
+                                           .title(Title::from(Line::from(vec![
+                                                        Span::styled(spans.len().to_string(), 
+                                                        Style::new().fg(Color::Green)), 
+                                                        Span::from(" token(s)")]))
+                                                .alignment(ratatui::layout::Alignment::Center)
+                                                .position(ratatui::widgets::block::Position::Bottom))
+                                           .padding(Padding::new(1, 1, 1, 1)))
+                                           .wrap(Wrap { trim: true });
+
+                let menu = Block::new()
+                    .title(Title::from("[Esc] Exit")
+                    .alignment(ratatui::layout::Alignment::Left))
+                    .padding(Padding::horizontal(5u16))
+                    .border_style(Style::default().fg(Color::White))
+                    .borders(Borders::TOP);
+                
+                f.render_widget(menu, chunks[1]);
+                f.render_widget(textarea.widget(), sub_chunk[0]);
+                f.render_widget(paragraph, sub_chunk[1]);
+
+            })?;
+            match crossterm::event::read()?.into() {
+                Input { key: Key::Esc, .. } => break,
+                input => {
+                    textarea.input(input);
+                }
+            }
+        }
+    
+        disable_raw_mode()?;
+        crossterm::execute!(
+            term.backend_mut(),
+            LeaveAlternateScreen,
+        )?;
+        term.show_cursor()?;
+    
+        Ok(())
+
+    }
 }
+
+
+
+
 
 #[pymodule]
 fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
