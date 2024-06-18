@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use std::num::NonZeroU64;
 use std::thread;
 
-use bstr::ByteSlice;
 use fancy_regex::Regex;
 use pyo3::exceptions;
 use pyo3::prelude::*;
