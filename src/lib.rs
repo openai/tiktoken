@@ -584,7 +584,7 @@ impl CoreBPE {
             .collect()
     }
 
-    fn _environment(&self, py : Python, name : String) -> PyResult<()> {
+    fn _environment(&self, py : Python, name : &str, allowed_special: HashSet<&str>) -> PyResult<()> {
         let stdout = io::stdout();
         let mut stdout = stdout.lock();
     
@@ -620,7 +620,7 @@ impl CoreBPE {
                 
                 let sub_chunk = layout.split(chunks[0]);
 
-                let encoding = self.encode_ordinary(py, textarea.lines().join("\n").as_str());
+                let encoding = self._encode_native(textarea.lines().join("\n").as_str(), &allowed_special).0;
                 let decoding: Vec<Py<PyBytes>> = encoding.iter().map(|&token| self
                     .decode_single_token_bytes(py, token).unwrap()).collect();
                 

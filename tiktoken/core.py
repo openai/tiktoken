@@ -115,7 +115,7 @@ class Encoding:
                 disallowed_special = frozenset(disallowed_special)
             if match := _special_token_regex(disallowed_special).search(text):
                 raise_disallowed_special_token(match.group())
-
+    
         # https://github.com/PyO3/pyo3/pull/3632
         if isinstance(allowed_special, frozenset):
             allowed_special = set(allowed_special)
@@ -368,9 +368,18 @@ class Encoding:
     def _encode_bytes(self, text: bytes) -> list[int]:
         return self._core_bpe._encode_bytes(text)
     
-    def environment(self) -> None:
+    def environment(self,
+                    *,
+                    allowed_special: Union[Literal["all"], AbstractSet[str]] = set(),  # noqa: B006
+                    disallowed_special: Union[Literal["all"], Collection[str]] = "all",) -> None:
         """Builds a Text User Interface (TUI) environment to test out encoding."""
-        return self._core_bpe._environment(self.name)
+        
+        if allowed_special == "all":
+            allowed_special = self.special_tokens_set
+        if disallowed_special == "all":
+            disallowed_special = self.special_tokens_set - allowed_special
+
+        return self._core_bpe._environment(self.name, allowed_special)
 
     def __getstate__(self) -> object:
         import tiktoken.registry
