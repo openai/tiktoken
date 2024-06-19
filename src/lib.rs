@@ -22,10 +22,10 @@ use crossterm::terminal::{
 use ratatui::prelude::{Span, Constraint};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Layout, Direction};
+use ratatui::layout::{Layout, Direction, Margin};
 use ratatui::text::Line;
 use ratatui::widgets::{
-    block::Title, Padding, Block, Borders, Wrap, Paragraph
+    block::Title, Padding, Block, Borders, Wrap, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState
 };
 use ratatui::style::{Color, Style};
 use tui_textarea::{Input, Key, TextArea};
@@ -606,45 +606,71 @@ impl CoreBPE {
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref());
 
-        
 
+        let mut vertical_scroll = 0;
+        let mut line_count : usize = 0;
         loop {
             let mut current_color_index = 0;
             term.draw(|f| {
-
-                
                 let chunks = parent_layout.split(f.size());
                 
                 let sub_chunk = layout.split(chunks[0]);
-
-                let encoding = self._encode_native(textarea.lines().join("\n").as_str(), &allowed_special).0;
-                let decoding: Vec<Py<PyBytes>> = encoding.iter().map(|&token| self
-                    .decode_single_token_bytes(py, token).unwrap()).collect();
                 
-                let tokens : Vec<String> = decoding.iter().map(|py_bytes| {
-                    let bytes = py_bytes.as_ref(py); // Convert Py<PyBytes> to &PyBytes
-                    bytes.as_bytes()
-                         .to_str()
-                         .unwrap()
-                         .to_string() // Convert &PyBytes to &str and then to String
-                }).collect();
-  
-                let spans: Vec<Span> = tokens.iter().map(|token| {
-                    let color = colours[current_color_index];
-                    current_color_index = (current_color_index + 1) % colours.len();
-                    Span::styled(token, Style::default().bg(color).fg(Color::White))
+                let tokens: Vec<Vec<String>> = textarea.lines().iter().map(|line| {
+
+                    // Encode the line
+                    let encoding = self._encode_native(line, &allowed_special).0;
+                    
+                    // Decode the encoded line
+                    let decoding: Vec<Py<PyBytes>> = encoding.iter()
+                        .map(|&token| self.decode_single_token_bytes(py, token).unwrap())
+                        .collect();
+            
+                    // Convert decoded tokens to Strings
+                    let tokens: Vec<String> = decoding.iter().map(|py_bytes| {
+                        let bytes = py_bytes.as_bytes(py);
+                        
+                        bytes.to_str()
+                             .unwrap()
+                             .to_string()
+
+                    }).collect();
+        
+                    tokens
+                    // Create spans for the line
+
                 }).collect();
 
-                let paragraph = Paragraph::new(Line::from(spans.clone()))
+                let mut lines : Vec<Line> = Vec::new();
+                let mut token_count = 0;
+                for token in &tokens{
+                    let span : Vec<Span> = token.iter().map(|token| {
+                        let color = colours[current_color_index];
+                        current_color_index = (current_color_index + 1) % colours.len();
+                        token_count += 1; // Increment the token count
+                        Span::styled(token, Style::default().bg(color).fg(Color::White))
+                    }).collect();
+                    lines.push(Line::from(span));
+                    
+                }   
+
+
+                let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(Some("↑"))
+                .end_symbol(Some("↓"));
+
+
+                let paragraph = Paragraph::new(lines.clone())
                     .block(Block::default().borders(Borders::ALL)
                                            .title("Decoded Tokens")
                                            .title(Title::from(Line::from(vec![
-                                                        Span::styled(spans.len().to_string(), 
+                                                        Span::styled(token_count.to_string(), 
                                                         Style::new().fg(Color::Green)), 
                                                         Span::from(" token(s)")]))
                                                 .alignment(ratatui::layout::Alignment::Center)
                                                 .position(ratatui::widgets::block::Position::Bottom))
                                            .padding(Padding::new(1, 1, 1, 1)))
+                                           .scroll((vertical_scroll as u16, 0))
                                            .wrap(Wrap { trim: true });
 
                 let menu = Block::new()
@@ -653,14 +679,40 @@ impl CoreBPE {
                     .padding(Padding::horizontal(5u16))
                     .border_style(Style::default().fg(Color::White))
                     .borders(Borders::TOP);
+
+                line_count = lines.len();
+                let mut scrollbar_state = ScrollbarState::new(line_count)
+                    .position(vertical_scroll);
                 
                 f.render_widget(menu, chunks[1]);
                 f.render_widget(textarea.widget(), sub_chunk[0]);
                 f.render_widget(paragraph, sub_chunk[1]);
 
+                f.render_stateful_widget(
+                    scrollbar,
+                    sub_chunk[1].inner(&Margin {
+                        // using an inner vertical margin of 1 unit makes the scrollbar inside the block
+                        vertical: 1,
+                        horizontal: 0,
+                    }),
+                    &mut scrollbar_state,
+                );
+
             })?;
+            
             match crossterm::event::read()?.into() {
                 Input { key: Key::Esc, .. } => break,
+                Input { key: Key::Char('s'), ctrl : true, ..} => {
+                    if vertical_scroll < line_count - 1 {
+                        vertical_scroll+=1;
+                    }
+                    
+                },
+                Input { key: Key::Char('a'), ctrl : true, ..} => {
+                    if vertical_scroll > 0 {
+                        vertical_scroll-=1;
+                    }     
+                },
                 input => {
                     textarea.input(input);
                 }
