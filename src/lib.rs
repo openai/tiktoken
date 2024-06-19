@@ -674,8 +674,9 @@ impl CoreBPE {
                                            .wrap(Wrap { trim: true });
 
                 let menu = Block::new()
-                    .title(Title::from("[Esc] Exit")
-                    .alignment(ratatui::layout::Alignment::Left))
+                    .title(Title::from("[Esc] Exit").alignment(ratatui::layout::Alignment::Left))
+                    .title(Title::from("[Ctrl+S] Scroll Down").alignment(ratatui::layout::Alignment::Center))
+                    .title(Title::from("[Ctrl+A] Scroll Up").alignment(ratatui::layout::Alignment::Center))
                     .padding(Padding::horizontal(5u16))
                     .border_style(Style::default().fg(Color::White))
                     .borders(Borders::TOP);
