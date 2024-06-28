@@ -74,10 +74,46 @@ fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize,
 }
 
 pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Rank> {
-    assert!(piece.len() > 1);
-    _byte_pair_merge(&ranks, &piece)
-        .windows(2)
-        .map(|part| ranks[&piece[part[0].0..part[1].0]])
+    // returns a guaranteed optimal (least number of tokens) tokenizaton of text_bytes, given the vocab
+    // uses dynamic programming
+
+    let n = piece.len();
+    // initialize dp and backtrack for the trivial single-byte tokenization
+    let mut dp = (0..n).map(|j| j + 1).collect::<Vec<_>>();
+    let mut backtrack = (0..n).collect::<Vec<_>>();
+
+    // after the i'th iteration, for 0 < j <= i
+    //  dp[j] is the size of an optimal tokenization of text_bytes[:j+1], and
+    //  backtrack[j] is the start index of the last token of that optimal tokenization of text_bytes[:j+1]
+    for i in 0..n {
+        if ranks.contains_key(&piece[0..=i].to_vec()) {
+            dp[i] = 1;
+            backtrack[i] = 0;
+            continue;
+        }
+        for j in 1..=i {
+            if ranks.contains_key(&piece[j..=i].to_vec()) {
+                if dp[i] > dp[j-1] + 1 {
+                    dp[i] = dp[j-1] + 1;
+                    backtrack[i] = j;
+                }
+            }
+        }
+    }
+
+    fn reconstruct_tokens(backtrack: &Vec<usize>, piece: &[u8], i: usize) -> Vec<Vec<u8>> {
+        if backtrack[i] == 0 {
+            return vec![piece[0..=i].to_vec()];
+        }
+        let k = backtrack[i];
+        let mut tokens = reconstruct_tokens(backtrack, piece, k - 1);
+        tokens.push(piece[k..=i].to_vec());
+        tokens
+    }
+
+    reconstruct_tokens(&backtrack, piece, n - 1)
+        .into_iter()
+        .map(|token| ranks[&token])
         .collect()
 }
 
