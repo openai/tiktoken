@@ -74,11 +74,51 @@ fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize,
 }
 
 pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Rank> {
-    assert!(piece.len() > 1);
-    _byte_pair_merge(&ranks, &piece)
-        .windows(2)
-        .map(|part| ranks[&piece[part[0].0..part[1].0]])
-        .collect()
+    // Convert piece to Vec<u8> once at the beginning
+    let piece_vec = piece.to_vec();
+
+    let n = piece_vec.len();
+    // initialize dp and backtrack for the trivial single-byte tokenization
+    let mut dp = (1..=n).map(|j| j ).collect::<Vec<_>>();
+    let mut backtrack = (0..n).collect::<Vec<_>>();
+
+    // iteration i sets dp[i] to the size of an optimal tokenization of &piece_vec[0..=i], and
+    // backtrack[i] to the start index of the last token of that tokenization.
+    let mut best: usize = 1;
+    for i in 1..n {
+        if ranks.contains_key(&piece_vec[0..=i]) {
+            dp[i] = 1;
+            backtrack[i] = 0;
+            best = 1;
+            continue;
+        } else if best == 1 {
+            dp[i] = 2;
+            best = 2;
+            continue;
+        }
+        for j in 1..i {
+            if (best > dp[j - 1]) && ranks.contains_key(&piece_vec[j..=i]) {
+                best = dp[j - 1];
+                backtrack[i] = j;
+            }
+        }
+        best += 1;
+        dp[i] = best;
+    }
+
+    let mut result = Vec::with_capacity(n);
+    let mut idx = n - 1;
+    let mut k = n;
+
+    loop {
+        k = backtrack[idx];
+        result.push(ranks[&piece_vec[k..=idx]]);
+        if k == 0 {
+            break;
+        }
+        idx = k - 1;
+    }
+    result
 }
 
 pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<&'a [u8]> {
