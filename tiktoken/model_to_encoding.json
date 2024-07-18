@@ -54,5 +54,6 @@
     "gpt-4-0125-preview": "cl100k_base",
     "gpt-4-vision-preview": "cl100k_base",
     "gpt-4o": "o200k_base",
-    "gpt-4o-2024-05-13": "o200k_base"
+    "gpt-4o-2024-05-13": "o200k_base",
+    "gpt-4o-mini": "o200k_base"
 }

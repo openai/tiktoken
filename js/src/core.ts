@@ -275,7 +275,8 @@ export function getEncodingNameForModel(model: TiktokenModel) {
       return "cl100k_base";
     }
     case "gpt-4o":
-    case "gpt-4o-2024-05-13": {
+    case "gpt-4o-2024-05-13":
+    case "gpt-4o-mini": {
       return "o200k_base";
     }
     default:
