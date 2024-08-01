@@ -5,7 +5,8 @@ use std::collections::HashSet;
 use std::num::NonZeroU64;
 use std::thread;
 
-use fancy_regex::Regex;
+use fancy_regex::Regex as FancyRegex;
+use regex::Regex as Regex;
 use pyo3::exceptions;
 use pyo3::prelude::*;
 use pyo3::pyclass;
@@ -89,7 +90,7 @@ pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> V
         .collect()
 }
 
-// Various performance notes:
+// Various performance notes (should be updated, also PERFORMANCE.md is removed now):
 //
 // Regex
 // =====
@@ -154,7 +155,7 @@ struct CoreBPE {
     decoder: HashMap<Rank, Vec<u8>>,
     special_tokens_decoder: HashMap<Rank, Vec<u8>>,
     regex_tls: Vec<Regex>,
-    special_regex_tls: Vec<Regex>,
+    special_regex_tls: Vec<FancyRegex>,
     sorted_token_bytes: Vec<Vec<u8>>,
 }
 
@@ -166,7 +167,7 @@ impl CoreBPE {
         &self.regex_tls[hash_current_thread() % MAX_NUM_THREADS]
     }
 
-    fn _get_tl_special_regex(&self) -> &Regex {
+    fn _get_tl_special_regex(&self) -> &FancyRegex {
         &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
     }
 
@@ -183,23 +184,82 @@ impl CoreBPE {
     }
 
     fn _encode_ordinary_native(&self, text: &str) -> Vec<Rank> {
+        // This wrapper function is needed for those callers that do not pass ret.
+        let mut ret = vec![];
+        self._encode_ordinary_native_impl(text, &mut ret);
+        ret
+    }
+
+    fn _encode_ordinary_native_impl(&self, text: &str, ret: &mut Vec<Rank>) -> usize {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
         let regex = self._get_tl_regex();
-        let mut ret = vec![];
+        let mut last_end = 0;
+        let mut last_piece_token_len = 0;
+        let mut piece:&[u8] = &[];
         for mat in regex.find_iter(text) {
-            let piece = mat.unwrap().as_str().as_bytes();
+            piece = mat.as_str().as_bytes();
+            let start = mat.start();
+            let end = mat.end();
+
+            // If there is a whitespace gap between peice and the previous piece, add its tokens
+            if last_end < start {
+                // If current piece starts with a whitespace, the whole gap is one new piece
+                if mat.as_str().chars().next().map_or(false, |c| c.is_whitespace()) {
+                    let wpiece = text[last_end..start].as_bytes();
+                    match self.encoder.get(wpiece) {
+                        Some(token) => ret.push(*token),
+                        None => ret.extend(&byte_pair_encode(wpiece, &self.encoder)),
+                    }
+                // otherwise the last char of gap makes a piece, and the rest (if any) makes another piece
+                } else {
+                    let last_char_size = &text[last_end..start].chars().next_back().unwrap().len_utf8();
+                    // Example for gpt4-o: for text "= 6", "=" and "6" are matches, " " is the gap,
+                    // so the gap makes just one piece
+                    if last_char_size < &(start - last_end) {
+                        let wpiece1 = text[last_end..start - last_char_size].as_bytes();
+                        match self.encoder.get(wpiece1) {
+                            Some(token) => ret.push(*token),
+                            None => ret.extend(&byte_pair_encode(wpiece1, &self.encoder)),
+                        }
+                    }
+                    let wpiece2 = text[start - last_char_size..start].as_bytes();
+                    match self.encoder.get(wpiece2) {
+                        Some(token) => ret.push(*token),
+                        None => ret.extend(&byte_pair_encode(wpiece2, &self.encoder)),
+                    }
+                }
+            }
+            last_end = end;
+
+            // Now add piece tokens
             match self.encoder.get(piece) {
                 Some(token) => ret.push(*token),
                 None => ret.extend(&byte_pair_encode(piece, &self.encoder)),
             }
         }
-        ret
+        // Gap of whitespaces at the end of text
+        if last_end < text.len() {
+            piece = text[last_end..text.len()].as_bytes();
+            match self.encoder.get(piece) {
+                Some(token) => ret.push(*token),
+                None => ret.extend(&byte_pair_encode(piece, &self.encoder)),
+            }
+        }
+
+        if !piece.is_empty() {
+            last_piece_token_len =
+            match self.encoder.get(piece){
+                Some(token) =>  1,
+                None => byte_pair_encode(piece, &self.encoder).len()
+            };
+        };
+
+        last_piece_token_len
     }
 
     fn _encode_native(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<Rank>, usize) {
         let special_regex = self._get_tl_special_regex();
-        let regex = self._get_tl_regex();
         let mut ret = vec![];
 
         let mut start = 0;
@@ -221,18 +281,9 @@ impl CoreBPE {
                 }
             }
             let end = next_special.map_or(text.len(), |m| m.start());
-
-            // Okay, here we go, compare this logic to _encode_ordinary_native
-            for mat in regex.find_iter(&text[start..end]) {
-                let piece = mat.unwrap().as_str().as_bytes();
-                if let Some(token) = self.encoder.get(piece) {
-                    last_piece_token_len = 1;
-                    ret.push(*token);
-                    continue;
-                }
-                let tokens = byte_pair_encode(piece, &self.encoder);
-                last_piece_token_len = tokens.len();
-                ret.extend(&tokens);
+            if end > start {
+                // regex is not created and passed here, but it seems harmless.
+                last_piece_token_len = self._encode_ordinary_native_impl(&text[start..end], &mut ret);
             }
 
             match next_special {
@@ -425,7 +476,7 @@ impl CoreBPE {
                 .keys()
                 .map(|s| fancy_regex::escape(s))
                 .collect::<Vec<_>>();
-            Regex::new(&_parts.join("|"))
+            FancyRegex::new(&_parts.join("|"))
                 .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?
         };
 
