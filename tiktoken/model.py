@@ -11,6 +11,7 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "gpt-3.5-turbo-": "cl100k_base",  # e.g, gpt-3.5-turbo-0301, -0401, etc.
     "gpt-35-turbo-": "cl100k_base",  # Azure deployment name
     # fine-tuned
+    "ft:gpt-4o": "o200k_base",
     "ft:gpt-4": "cl100k_base",
     "ft:gpt-3.5-turbo": "cl100k_base",
     "ft:davinci-002": "cl100k_base",
