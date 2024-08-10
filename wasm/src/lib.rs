@@ -495,6 +495,7 @@ pub fn encoding_for_model(
         "gpt-4-0125-preview" => Ok("cl100k_base"),
         "gpt-4o" => Ok("o200k_base"),
         "gpt-4o-2024-05-13" => Ok("o200k_base"),
+        "gpt-4o-2024-08-06" => Ok("o200k_base"),
         "gpt-4o-mini-2024-07-18" => Ok("o200k_base"),
         "gpt-4o-mini" => Ok("o200k_base"),
         model => Err(JsError::new(
