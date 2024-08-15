@@ -1,6 +1,6 @@
 {
   "name": "@dqbd/tiktoken",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "repository": {
     "type": "git",
     "url": "https://github.com/dqbd/tiktoken"

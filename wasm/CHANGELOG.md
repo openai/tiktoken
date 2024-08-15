@@ -1,5 +1,11 @@
 # tiktoken
 
+## 1.0.16
+
+### Patch Changes
+
+- 4796f27: Add support for gpt-4o, gpt-4o-mini, text-embedding-3-small and text-embedding-3-large
+
 ## 1.0.15
 
 ### Patch Changes

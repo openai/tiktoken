@@ -1,6 +1,6 @@
 {
   "name": "js-tiktoken",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "JavaScript port of tiktoken",
   "license": "MIT",
   "scripts": {
