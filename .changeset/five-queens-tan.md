@@ -4,4 +4,4 @@
 "@dqbd/tiktoken": patch
 ---
 
-Add support for gpt-4o and gpt-4o-miniy
+Add support for gpt-4o, gpt-4o-mini, text-embedding-3-small and text-embedding-3-large
