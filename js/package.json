@@ -4,7 +4,7 @@
   "description": "JavaScript port of tiktoken",
   "license": "MIT",
   "scripts": {
-    "build": "rm -rf dist && tsup",
+    "build": "rm -rf dist && tsup && cp -R src/ranks dist/ranks",
     "test": "vitest run"
   },
   "type": "module",
@@ -12,6 +12,9 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist/**/*",
+    "!dist/ranks/*.tiktoken",
+    "!dist/ranks/*.json",
+    "!dist/ranks/ranks.ts",
     "index.js",
     "index.d.ts",
     "lite.js",
