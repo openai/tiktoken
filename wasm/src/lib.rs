@@ -459,6 +459,8 @@ pub fn encoding_for_model(
         "text-davinci-edit-001" => Ok("p50k_edit"),
         "code-davinci-edit-001" => Ok("p50k_edit"),
         "text-embedding-ada-002" => Ok("cl100k_base"),
+        "text-embedding-3-small" => Ok("cl100k_base"),
+        "text-embedding-3-large" => Ok("cl100k_base"),
         "text-similarity-davinci-001" => Ok("r50k_base"),
         "text-similarity-curie-001" => Ok("r50k_base"),
         "text-similarity-babbage-001" => Ok("r50k_base"),
