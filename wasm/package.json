@@ -1,6 +1,6 @@
 {
   "name": "tiktoken",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "description": "JS/WASM bindings for tiktoken",
   "license": "MIT",
   "scripts": {
