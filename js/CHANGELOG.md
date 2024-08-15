@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.14
+
+### Patch Changes
+
+- 74e7870: Add missing rank files for js-tiktoken
+
 ## 1.0.13
 
 ### Patch Changes
