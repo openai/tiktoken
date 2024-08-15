@@ -420,6 +420,9 @@ export type TiktokenModel =
     | "gpt-4-vision-preview"
     | "gpt-4o"
     | "gpt-4o-2024-05-13"
+    | "gpt-4o-2024-08-06"
+    | "gpt-4o-mini-2024-07-18"
+    | "gpt-4o-mini"
 
 /**
  * @param {TiktokenModel} encoding
@@ -436,7 +439,6 @@ pub fn encoding_for_model(
     extend_special_tokens: JsValue,
 ) -> Result<Tiktoken, JsError> {
     let encoding = match model {
-        "davinci" => Ok("p50k_base"),
         "text-davinci-003" => Ok("p50k_base"),
         "text-davinci-002" => Ok("p50k_base"),
         "text-davinci-001" => Ok("r50k_base"),
@@ -457,6 +459,8 @@ pub fn encoding_for_model(
         "text-davinci-edit-001" => Ok("p50k_edit"),
         "code-davinci-edit-001" => Ok("p50k_edit"),
         "text-embedding-ada-002" => Ok("cl100k_base"),
+        "text-embedding-3-small" => Ok("cl100k_base"),
+        "text-embedding-3-large" => Ok("cl100k_base"),
         "text-similarity-davinci-001" => Ok("r50k_base"),
         "text-similarity-curie-001" => Ok("r50k_base"),
         "text-similarity-babbage-001" => Ok("r50k_base"),
@@ -492,6 +496,9 @@ pub fn encoding_for_model(
         "gpt-4-0125-preview" => Ok("cl100k_base"),
         "gpt-4o" => Ok("o200k_base"),
         "gpt-4o-2024-05-13" => Ok("o200k_base"),
+        "gpt-4o-2024-08-06" => Ok("o200k_base"),
+        "gpt-4o-mini-2024-07-18" => Ok("o200k_base"),
+        "gpt-4o-mini" => Ok("o200k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),
