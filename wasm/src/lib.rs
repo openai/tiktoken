@@ -439,7 +439,6 @@ pub fn encoding_for_model(
     extend_special_tokens: JsValue,
 ) -> Result<Tiktoken, JsError> {
     let encoding = match model {
-        "davinci" => Ok("p50k_base"),
         "text-davinci-003" => Ok("p50k_base"),
         "text-davinci-002" => Ok("p50k_base"),
         "text-davinci-001" => Ok("r50k_base"),
