@@ -25,7 +25,10 @@ fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize,
     // merge priority from token index or to prevent specific token merges.
     let mut min_rank: (Rank, usize) = (Rank::MAX, usize::MAX);
     for i in 0..piece.len() - 1 {
-        let rank = *ranks.get(&piece[i..i + 2]).unwrap_or(&Rank::MAX);
+        let rank = ranks.get(&piece[i..i + 2]).unwrap_or_else(|| {
+            eprintln!("Missing pair: {:?}", &piece[i..i + 2]); // Log the missing pair
+            &Rank::MAX
+        });
         if rank < min_rank.0 {
             min_rank = (rank, i);
         }
@@ -595,5 +598,12 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
+    }
+    
+    #[test]
+    fn test_repeated_r_in_strawberry() {
+        let ranks = setup_ranks();
+        let res = byte_pair_split(b"strawberry", &ranks);
+        assert_eq!(res, vec![b"st", b"ra", b"w", b"be", b"rr", b"y"]);
     }
 }
