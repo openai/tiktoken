@@ -14,6 +14,8 @@ pub struct Encoding {
     pat_str: String,
     /// The map from mergeable byte sequences to their ranks.
     mergeable_ranks: HashMap<Vec<u8>, usize>,
+    /// The maximum length of the keys in `mergeable_ranks`.
+    mergeable_ranks_max_key_len: usize,
     /// All prefixes of the mergeable ranks. May or may not be tokens themselves!
     prefixes_of_mergeable_ranks: HashSet<i64>,
     /// The map from special token strings to their values.
@@ -83,6 +85,12 @@ impl Encoding {
             }
         }
 
+        let mergeable_ranks_max_key_len = mergeable_ranks
+            .keys()
+            .map(|bytes| bytes.len())
+            .max()
+            .ok_or_else(|| EncodingError::GenericEncodingError("No mergeable ranks found".to_string()))?;
+
         let core_bpe = CoreBPE::new(
             mergeable_ranks.clone(),
             special_tokens.clone(),
@@ -104,6 +112,7 @@ impl Encoding {
             name: name.to_string(),
             pat_str: pat_str.to_string(),
             mergeable_ranks,
+            mergeable_ranks_max_key_len,
             prefixes_of_mergeable_ranks,
             special_tokens,
             max_token_value,
@@ -125,7 +134,16 @@ impl Encoding {
         for byte in text.bytes() {
             current_token.push(byte);
             current_token_hash = roll_hash(current_token_hash, byte);
-            while !self.prefixes_of_mergeable_ranks.contains(&current_token_hash) {
+
+            // if the current token is longer than the maximum mergeable rank key length
+            // or if the current token is not in the prefixes of mergeable ranks,
+            // we need to split the current token and begin actually checking for the largest
+            // mergeable prefix
+            while (
+                !self.prefixes_of_mergeable_ranks.contains(&current_token_hash)
+                || current_token.len() > self.mergeable_ranks_max_key_len
+            )
+            {
                 if current_token.len() > 1 {
                     new_current_token.clear();
                     new_current_token.push(current_token.pop().unwrap());
@@ -469,12 +487,12 @@ impl Default for Encoding {
     }
 }
 
-
-
-
-const PRIME: i64 = 31;
-const PRIME_INVERSE: i64 = 838709685;
-const MODULUS: i64 = 1e9 as i64 + 9;
+// Chose a prime number greater than 256 that minimizes hash collisions
+// for the prefixes of all mergeable ranks.
+// Modulus * prime must be less than 2^63-1 to avoid overflow.
+const PRIME: i64 = 997;
+const PRIME_INVERSE: i64 = 381143430290873;
+const MODULUS: i64 = 1e15 as i64 + 1;
 
 fn roll_hash(old: i64, new: u8) -> i64 {
     (((old * PRIME) % MODULUS) + (new as i64)) % MODULUS
