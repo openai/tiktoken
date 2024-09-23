@@ -4,6 +4,7 @@ use rustc_hash::FxHashMap as HashMap;
 use rustc_hash::FxHashSet as HashSet;
 use std::sync::Arc;
 use thiserror::Error;
+use const_primes::is_prime;
 
 /// A struct that represents an encoding scheme based on byte-pair encoding (BPE).
 #[derive(Debug)]
@@ -492,8 +493,22 @@ impl Default for Encoding {
 // for the prefixes of all mergeable ranks.
 // Modulus * prime must be less than 2^63-1 to avoid overflow.
 const PRIME: i64 = 997;
-const PRIME_INVERSE: i64 = 381143430290873;
-const MODULUS: i64 = 1e15 as i64 + 1;
+const PRIME_INVERSE: i64 = 617853560682069;
+const MODULUS: i64 = 1e15 as i64 + 37;
+
+const _: () = assert!(PRIME > 256, "PRIME must be greater than 256 for byte-wise rolling hash");
+const _: () = assert!(PRIME < MODULUS, "PRIME must be less than MODULUS");
+const _: () = assert!(
+    MODULUS as i128 * PRIME as i128 <= i64::MAX as i128,
+    "MODULUS * PRIME must not exceed i64::MAX to avoid overflow"
+);
+const _: () = assert!(
+    (PRIME as i128 * PRIME_INVERSE as i128) % MODULUS as i128 == 1,
+    "PRIME_INVERSE must be the modular multiplicative inverse of PRIME"
+);
+const _: () = assert!(is_prime(PRIME as u64), "PRIME must be a prime number");
+const _: () = assert!(is_prime(MODULUS as u64), "MODULUS must be a prime number");
+
 
 fn roll_hash(old: i64, new: u8) -> i64 {
     (((old * PRIME) % MODULUS) + (new as i64)) % MODULUS

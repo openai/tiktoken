@@ -154,6 +154,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "const-primes"
+version = "0.8.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "143968ecc1deecf605c51a643eda83bea33eb3c8a9f0c009ff666caecc8078d1"
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -697,6 +703,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "bstr",
+ "const-primes",
  "criterion",
  "fancy-regex 0.10.0",
  "hex",
