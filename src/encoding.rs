@@ -141,10 +141,8 @@ impl Encoding {
             // or if the current token is not in the prefixes of mergeable ranks,
             // we need to split the current token and begin actually checking for the largest
             // mergeable prefix
-            while (
-                !self.prefixes_of_mergeable_ranks.contains(&current_token_hash)
+            while !self.prefixes_of_mergeable_ranks.contains(&current_token_hash)
                 || current_token.len() > self.mergeable_ranks_max_key_len
-            )
             {
                 if current_token.len() > 1 {
                     new_current_token.clear();
