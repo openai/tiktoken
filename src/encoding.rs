@@ -107,6 +107,7 @@ impl Encoding {
             })
             .collect::<HashSet<_>>();
         prefixes_of_mergeable_ranks.insert(0);
+        prefixes_of_mergeable_ranks.shrink_to_fit();
 
         Ok(Self {
             name: name.to_string(),

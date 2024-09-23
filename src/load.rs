@@ -41,5 +41,6 @@ pub fn load_tiktoken_bpe(
             .fold(0, |acc, &b| acc * 10 + (b - b'0') as usize);
         map.insert(token, rank);
     }
+    map.shrink_to_fit();
     Ok(map)
 }
