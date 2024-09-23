@@ -1,7 +1,7 @@
 use crate::corebpe::CoreBPE;
 use regex::Regex;
 use rustc_hash::FxHashMap as HashMap;
-use std::collections::HashSet;
+use rustc_hash::FxHashSet as HashSet;
 use std::sync::Arc;
 use thiserror::Error;
 

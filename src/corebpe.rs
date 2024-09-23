@@ -1,8 +1,8 @@
-use std::collections::HashSet;
 use std::thread;
 
 use fancy_regex::Regex;
 use rustc_hash::FxHashMap as HashMap;
+use rustc_hash::FxHashSet as HashSet;
 use std::sync::Arc;
 
 fn _byte_pair_merge<T>(
@@ -318,7 +318,7 @@ impl CoreBPE {
         if last_piece_token_len == 0 {
             // If last_piece_token_len is zero, the last token was a special token and we have
             // no unstable bytes
-            return (tokens, HashSet::new());
+            return (tokens, HashSet::default());
         }
         let (mut tokens, last_piece_token_len) =
             self._increase_last_piece_token_len(tokens, last_piece_token_len);
@@ -330,7 +330,7 @@ impl CoreBPE {
         // This would reduce the amount of retokenising when determining completions
         // Refer to the logic in an older version of this file
 
-        let mut completions = HashSet::new();
+        let mut completions = HashSet::default();
         if unstable_bytes.is_empty() {
             return (tokens, completions);
         }
@@ -495,7 +495,7 @@ impl CoreBPE {
             Ok(text) => self._encode_ordinary_native(text),
             Err(e) => {
                 let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
-                let (tokens, last_piece_token_len) = self._encode_native(text, &HashSet::new());
+                let (tokens, last_piece_token_len) = self._encode_native(text, &HashSet::default());
                 let (mut tokens, last_piece_token_len) =
                     self._increase_last_piece_token_len(tokens, last_piece_token_len);
                 if !tokens.is_empty() && last_piece_token_len > 0 {
