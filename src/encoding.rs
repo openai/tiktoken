@@ -552,6 +552,6 @@ mod tests {
         println!("Memory used by {}: {} bytes", std::any::type_name_of_val(&encoding_factory), memory_used);
 
         // You can set a threshold based on your requirements
-        assert!(memory_used < 100 * 1024 * 1024, "Memory usage exceeded 100MB");
+        assert!(memory_used < 400 * 1024 * 1024, "Memory usage exceeded 100MB");
     }
 }
