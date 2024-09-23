@@ -164,3 +164,34 @@ impl EncodingFactory {
     ])
   }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_encoding_encode_decode() {
+        let encoding = EncodingFactory::cl100k_im().unwrap();
+        let text = "Hello, world!";
+        let tokens = encoding.encode_ordinary(text);
+        let decoded = encoding.decode(&tokens);
+        assert_eq!(text, decoded);
+    }
+
+    #[test]
+    fn test_encoding_special_tokens() {
+        let encoding = EncodingFactory::cl100k_im().unwrap();
+        let special_tokens = vec![
+            "<|im_start|>",
+            "<|im_end|>",
+            "<|im_sep|>",
+            "<|endofprompt|>",
+        ];
+
+        for token in special_tokens {
+            let encoded = encoding.encode_single_token(token).unwrap();
+            let decoded = encoding.decode_single_token_bytes(encoded).unwrap();
+            assert_eq!(token.as_bytes(), decoded.as_slice());
+        }
+    }
+}
