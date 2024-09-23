@@ -10,6 +10,8 @@ name = "tiktoken"
 [dev-dependencies]
 criterion = "0.4"
 tiktoken-rs = "0.5.4"
+memory-stats = "1.2.0"
+test-case = "2.0.0-rc3"
 
 [dependencies]
 fancy-regex = "0.10.0"

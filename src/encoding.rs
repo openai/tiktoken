@@ -526,7 +526,11 @@ fn roll_hash_slice(slice: &[u8]) -> i64 {
 }
 #[cfg(test)]
 mod tests {
+    use crate::{EncodingFactory, EncodingFactoryError};
+
     use super::*;
+    use test_case::test_case;
+    use memory_stats::memory_stats;
 
     #[test]
     fn test_roll_hash() {
@@ -535,4 +539,19 @@ mod tests {
         assert_eq!(result, r2);
     }
 
+    #[test_case(EncodingFactory::cl100k_im ; "cl100k_im")]
+    #[test_case(EncodingFactory::cl100k_base ; "cl100k_base")]
+    fn test_encoding_memory_usage(encoding_factory: fn() -> Result<Encoding, EncodingFactoryError>) {
+        let initial_memory = memory_stats().unwrap().physical_mem;
+
+        let _ = encoding_factory().unwrap();
+
+        let final_memory = memory_stats().unwrap().physical_mem;
+        let memory_used = final_memory - initial_memory;
+
+        println!("Memory used by {}: {} bytes", std::any::type_name_of_val(&encoding_factory), memory_used);
+
+        // You can set a threshold based on your requirements
+        assert!(memory_used < 100 * 1024 * 1024, "Memory usage exceeded 100MB");
+    }
 }
