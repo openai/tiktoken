@@ -141,6 +141,30 @@ impl EncodingFactory {
       .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
   }
 
+  pub fn codestral() -> Result<Encoding, EncodingFactoryError> {
+    let mergeable_ranks = load_tiktoken_bpe(
+      include_bytes!("../data/codestral.tiktoken"),
+      "bd5e66af07259851e88c3e483f88371dc2408cb0ce8b9787d29eaecdbb78eade",
+    )
+    .map_err(|_| EncodingFactoryError::FailedToLoadEncoding)?;
+    let special_tokens: HashMap<String, usize> = [].iter().cloned().collect();
+
+    Encoding::new("codestral", r"", mergeable_ranks, special_tokens, None)
+      .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
+  }
+
+  pub fn deepseekv2() -> Result<Encoding, EncodingFactoryError> {
+    let mergeable_ranks = load_tiktoken_bpe(
+      include_bytes!("../data/deepseekv2.tiktoken"),
+      "3516b4e6e24389f7d1b288d861ce063da13296f916d29384e56ea9e0f6ba6674",
+    )
+    .map_err(|_| EncodingFactoryError::FailedToLoadEncoding)?;
+    let mut special_tokens: HashMap<String, usize> = [].iter().cloned().collect();
+
+    Encoding::new("deepseekv2", r"", mergeable_ranks, special_tokens, None)
+      .map_err(|e| EncodingFactoryError::UnableToCreateEncoding(e.to_string()))
+  }
+
   pub fn o200k_base() -> Result<Encoding, EncodingFactoryError> {
     EncodingFactory::o200k_with_special_tokens(&[
       (ENDOFTEXT.to_string(), 199999),
@@ -167,31 +191,26 @@ impl EncodingFactory {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use super::*;
 
-    #[test]
-    fn test_encoding_encode_decode() {
-        let encoding = EncodingFactory::cl100k_im().unwrap();
-        let text = "Hello, world!";
-        let tokens = encoding.encode_ordinary(text);
-        let decoded = encoding.decode(&tokens);
-        assert_eq!(text, decoded);
+  #[test]
+  fn test_encoding_encode_decode() {
+    let encoding = EncodingFactory::cl100k_im().unwrap();
+    let text = "Hello, world!";
+    let tokens = encoding.encode_ordinary(text);
+    let decoded = encoding.decode(&tokens);
+    assert_eq!(text, decoded);
+  }
+
+  #[test]
+  fn test_encoding_special_tokens() {
+    let encoding = EncodingFactory::cl100k_im().unwrap();
+    let special_tokens = vec!["<|im_start|>", "<|im_end|>", "<|im_sep|>", "<|endofprompt|>"];
+
+    for token in special_tokens {
+      let encoded = encoding.encode_single_token(token).unwrap();
+      let decoded = encoding.decode_single_token_bytes(encoded).unwrap();
+      assert_eq!(token.as_bytes(), decoded.as_slice());
     }
-
-    #[test]
-    fn test_encoding_special_tokens() {
-        let encoding = EncodingFactory::cl100k_im().unwrap();
-        let special_tokens = vec![
-            "<|im_start|>",
-            "<|im_end|>",
-            "<|im_sep|>",
-            "<|endofprompt|>",
-        ];
-
-        for token in special_tokens {
-            let encoded = encoding.encode_single_token(token).unwrap();
-            let decoded = encoding.decode_single_token_bytes(encoded).unwrap();
-            assert_eq!(token.as_bytes(), decoded.as_slice());
-        }
-    }
+  }
 }
