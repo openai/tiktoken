@@ -127,7 +127,11 @@ impl Encoding {
         self.core_bpe.encode_ordinary(text)
     }
 
-    pub fn estimate_num_tokens_no_special_tokens_fast(&self, text: &str) -> usize {
+    pub fn estimate_num_tokens_no_special_tokens_fast(&self, text: &str, replace_spaces_with_lower_one_eighth_block: bool = false) -> usize {
+        if replace_spaces_with_lower_one_eighth_block {
+            text = text.replace(" ", "\u{2581}");
+        }
+
         let mut token_count = 0;
         let mut current_token = Vec::new();
         let mut current_token_hash: i64 = 0;
