@@ -16,7 +16,7 @@ jobs:
         # cibuildwheel builds linux wheels inside a manylinux container
         # it also takes care of procuring the correct python version for us
         os: [ubuntu-latest, windows-latest, macos-13]
-        python-version: [38, 39, 310, 311, 312]
+        python-version: [38, 39, 310, 311, 312, 313]
 
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +24,7 @@ jobs:
       - uses: pypa/cibuildwheel@v2.18.0
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
+          CIBW_PRERELEASE_PYTHONS: True
 
       - uses: actions/upload-artifact@v3
         with:
@@ -37,7 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: [38, 39, 310, 311, 312]
+        python-version: [38, 39, 310, 311, 312, 313]
 
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +56,7 @@ jobs:
           CIBW_BUILD_VERBOSITY: 3
           # https://github.com/rust-lang/cargo/issues/10583
           CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
+          CIBW_PRERELEASE_PYTHONS: True
       - uses: actions/upload-artifact@v3
         with:
           name: dist
