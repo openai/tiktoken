@@ -13,6 +13,10 @@ def test_encoding_for_model():
     assert enc.name == "p50k_edit"
     enc = tiktoken.encoding_for_model("gpt-3.5-turbo-0301")
     assert enc.name == "cl100k_base"
+    enc = tiktoken.encoding_for_model("gpt-4")
+    assert enc.name == "cl100k_base"
+    enc = tiktoken.encoding_for_model("gpt-4o")
+    assert enc.name == "o200k_base"
 
 
 def test_optional_blobfile_dependency():

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 from concurrent.futures import ThreadPoolExecutor
-from typing import AbstractSet, Collection, Literal, NoReturn, Optional, Union
+from typing import AbstractSet, Collection, Literal, NoReturn, Sequence
 
 import regex
 
@@ -17,7 +17,7 @@ class Encoding:
         pat_str: str,
         mergeable_ranks: dict[bytes, int],
         special_tokens: dict[str, int],
-        explicit_n_vocab: Optional[int] = None,
+        explicit_n_vocab: int | None = None,
     ):
         """Creates an Encoding object.
 
@@ -76,8 +76,8 @@ class Encoding:
         self,
         text: str,
         *,
-        allowed_special: Union[Literal["all"], AbstractSet[str]] = set(),  # noqa: B006
-        disallowed_special: Union[Literal["all"], Collection[str]] = "all",
+        allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
+        disallowed_special: Literal["all"] | Collection[str] = "all",
     ) -> list[int]:
         """Encodes a string into tokens.
 
@@ -116,10 +116,6 @@ class Encoding:
             if match := _special_token_regex(disallowed_special).search(text):
                 raise_disallowed_special_token(match.group())
 
-        # https://github.com/PyO3/pyo3/pull/3632
-        if isinstance(allowed_special, frozenset):
-            allowed_special = set(allowed_special)
-
         try:
             return self._core_bpe.encode(text, allowed_special)
         except UnicodeEncodeError:
@@ -151,8 +147,8 @@ class Encoding:
         text: list[str],
         *,
         num_threads: int = 8,
-        allowed_special: Union[Literal["all"], AbstractSet[str]] = set(),  # noqa: B006
-        disallowed_special: Union[Literal["all"], Collection[str]] = "all",
+        allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
+        disallowed_special: Literal["all"] | Collection[str] = "all",
     ) -> list[list[int]]:
         """Encodes a list of strings into tokens, in parallel.
 
@@ -180,8 +176,8 @@ class Encoding:
         self,
         text: str,
         *,
-        allowed_special: Union[Literal["all"], AbstractSet[str]] = set(),  # noqa: B006
-        disallowed_special: Union[Literal["all"], Collection[str]] = "all",
+        allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
+        disallowed_special: Literal["all"] | Collection[str] = "all",
     ) -> tuple[list[int], list[list[int]]]:
         """Encodes a string into stable tokens and possible completion sequences.
 
@@ -213,7 +209,7 @@ class Encoding:
 
         return self._core_bpe.encode_with_unstable(text, allowed_special)
 
-    def encode_single_token(self, text_or_bytes: Union[str, bytes]) -> int:
+    def encode_single_token(self, text_or_bytes: str | bytes) -> int:
         """Encodes text corresponding to a single token to its token value.
 
         NOTE: this will encode all special tokens.
@@ -233,7 +229,7 @@ class Encoding:
     # Decoding
     # ====================
 
-    def decode_bytes(self, tokens: list[int]) -> bytes:
+    def decode_bytes(self, tokens: Sequence[int]) -> bytes:
         """Decodes a list of tokens into bytes.
 
         ```
@@ -243,7 +239,7 @@ class Encoding:
         """
         return self._core_bpe.decode_bytes(tokens)
 
-    def decode(self, tokens: list[int], errors: str = "replace") -> str:
+    def decode(self, tokens: Sequence[int], errors: str = "replace") -> str:
         """Decodes a list of tokens into a string.
 
         WARNING: the default behaviour of this function is lossy, since decoded bytes are not
@@ -271,7 +267,7 @@ class Encoding:
         """
         return self._core_bpe.decode_single_token_bytes(token)
 
-    def decode_tokens_bytes(self, tokens: list[int]) -> list[bytes]:
+    def decode_tokens_bytes(self, tokens: Sequence[int]) -> list[bytes]:
         """Decodes a list of tokens into a list of bytes.
 
         Useful for visualising tokenisation.
@@ -280,7 +276,7 @@ class Encoding:
         """
         return [self.decode_single_token_bytes(token) for token in tokens]
 
-    def decode_with_offsets(self, tokens: list[int]) -> tuple[str, list[int]]:
+    def decode_with_offsets(self, tokens: Sequence[int]) -> tuple[str, list[int]]:
         """Decodes a list of tokens into a string and a list of offsets.
 
         Each offset is the index into text corresponding to the start of each token.
@@ -306,14 +302,16 @@ class Encoding:
         return text, offsets
 
     def decode_batch(
-        self, batch: list[list[int]], *, errors: str = "replace", num_threads: int = 8
+        self, batch: Sequence[Sequence[int]], *, errors: str = "replace", num_threads: int = 8
     ) -> list[str]:
         """Decodes a batch (list of lists of tokens) into a list of strings."""
         decoder = functools.partial(self.decode, errors=errors)
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(decoder, batch))
 
-    def decode_bytes_batch(self, batch: list[list[int]], *, num_threads: int = 8) -> list[bytes]:
+    def decode_bytes_batch(
+        self, batch: Sequence[Sequence[int]], *, num_threads: int = 8
+    ) -> list[bytes]:
         """Decodes a batch (list of lists of tokens) into a list of bytes."""
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(self.decode_bytes, batch))
@@ -343,7 +341,7 @@ class Encoding:
     # Private
     # ====================
 
-    def _encode_single_piece(self, text_or_bytes: Union[str, bytes]) -> list[int]:
+    def _encode_single_piece(self, text_or_bytes: str | bytes) -> list[int]:
         """Encodes text corresponding to bytes without a regex split.
 
         NOTE: this will not encode any special tokens.

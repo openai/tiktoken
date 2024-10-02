@@ -6,12 +6,11 @@ use std::num::NonZeroU64;
 use std::thread;
 
 use fancy_regex::Regex;
-use fancy_regex::RegexBuilder;
 use pyo3::exceptions;
 use pyo3::prelude::*;
-use pyo3::pyclass;
-use pyo3::PyResult;
+use pyo3::pybacked::PyBackedStr;
 use pyo3::types::{PyBytes, PyList, PyTuple};
+use pyo3::PyResult;
 use rustc_hash::FxHashMap as HashMap;
 
 type Rank = u32;
@@ -75,8 +74,10 @@ fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize,
 }
 
 pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Rank> {
-    assert!(piece.len() > 1);
-    _byte_pair_merge(&ranks, &piece)
+    if piece.len() == 1 {
+        return vec![ranks[piece]];
+    }
+    _byte_pair_merge(ranks, piece)
         .windows(2)
         .map(|part| ranks[&piece[part[0].0..part[1].0]])
         .collect()
@@ -84,7 +85,7 @@ pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Ran
 
 pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<&'a [u8]> {
     assert!(piece.len() > 1);
-    _byte_pair_merge(&ranks, &piece)
+    _byte_pair_merge(ranks, piece)
         .windows(2)
         .map(|part| &piece[part[0].0..part[1].0])
         .collect()
@@ -138,12 +139,23 @@ fn hash_current_thread() -> usize {
     // that works great for our use case of avoiding collisions in our array. Unfortunately,
     // it's private. However, there are only so many ways you can layout a u64, so just transmute
     // https://github.com/rust-lang/rust/issues/67939
-    const _: [u8; 8] = [0; std::mem::size_of::<thread::ThreadId>()];
+    const _: [u8; 8] = [0; std::mem::size_of::<std::thread::ThreadId>()];
     const _: [u8; 8] = [0; std::mem::size_of::<FakeThreadId>()];
     let x = unsafe {
-        std::mem::transmute::<thread::ThreadId, FakeThreadId>(thread::current().id()).0
+        std::mem::transmute::<std::thread::ThreadId, FakeThreadId>(thread::current().id()).0
     };
     u64::from(x) as usize
+}
+
+#[derive(Debug, Clone)]
+struct DecodeKeyError {
+    token: Rank,
+}
+
+impl std::fmt::Display for DecodeKeyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Invalid token for decoding: {}", self.token)
+    }
 }
 
 const MAX_NUM_THREADS: usize = 128;
@@ -171,16 +183,19 @@ impl CoreBPE {
         &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
     }
 
-    fn _decode_native(&self, tokens: &[Rank]) -> Vec<u8> {
+    fn _decode_native(&self, tokens: &[Rank]) -> Result<Vec<u8>, DecodeKeyError> {
         let mut ret = Vec::with_capacity(tokens.len() * 2);
-        for token in tokens {
-            let token_bytes = self
-                .decoder
-                .get(token)
-                .unwrap_or_else(|| &self.special_tokens_decoder[token]);
+        for &token in tokens {
+            let token_bytes = match self.decoder.get(&token) {
+                Some(bytes) => bytes,
+                None => self
+                    .special_tokens_decoder
+                    .get(&token)
+                    .ok_or(DecodeKeyError { token })?,
+            };
             ret.extend(token_bytes);
         }
-        ret
+        Ok(ret)
     }
 
     fn _encode_ordinary_native(&self, text: &str) -> Vec<Rank> {
@@ -307,7 +322,9 @@ impl CoreBPE {
         let (mut tokens, last_piece_token_len) =
             self._increase_last_piece_token_len(tokens, last_piece_token_len);
 
-        let unstable_bytes = self._decode_native(&tokens[tokens.len() - last_piece_token_len..]);
+        let unstable_bytes = self
+            ._decode_native(&tokens[tokens.len() - last_piece_token_len..])
+            .unwrap();
         tokens.truncate(tokens.len() - last_piece_token_len);
 
         // TODO: we should try harder to find additional stable tokens
@@ -418,7 +435,7 @@ impl CoreBPE {
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
     ) -> PyResult<Self> {
-        let regex = RegexBuilder::new(pattern).backtrack_limit(10_000).build()
+        let regex = Regex::new(pattern)
             .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
 
         let special_regex = {
@@ -468,8 +485,27 @@ impl CoreBPE {
         py.allow_threads(|| self._encode_ordinary_native(text))
     }
 
-    fn encode(&self, py: Python, text: &str, allowed_special: HashSet<&str>) -> Vec<Rank> {
-        py.allow_threads(|| self._encode_native(text, &allowed_special).0)
+    fn encode(&self, py: Python, text: &str, allowed_special: HashSet<PyBackedStr>) -> Vec<Rank> {
+        py.allow_threads(|| {
+            let allowed_special: HashSet<&str> =
+                allowed_special.iter().map(|s| s.as_ref()).collect();
+            self._encode_native(text, &allowed_special).0
+        })
+    }
+
+    fn encode_to_tiktoken_buffer(
+        &self,
+        py: Python,
+        text: &str,
+        allowed_special: HashSet<PyBackedStr>,
+    ) -> Py<PyAny> {
+        let tokens = py.allow_threads(|| {
+            let allowed_special: HashSet<&str> =
+                allowed_special.iter().map(|s| s.as_ref()).collect();
+            self._encode_native(text, &allowed_special).0
+        });
+        let buffer = TiktokenBuffer { tokens };
+        buffer.into_py(py)
     }
 
     fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<Rank> {
@@ -486,14 +522,17 @@ impl CoreBPE {
                         // Somewhat niche, but this may not be correct if we'd have had a regex
                         // split between the valid UTF-8 and the invalid bytes, which is why this
                         // method is private
-                        let mut unstable_bytes =
-                            self._decode_native(&tokens[tokens.len() - last_piece_token_len..]);
+                        let mut unstable_bytes = self
+                            ._decode_native(&tokens[tokens.len() - last_piece_token_len..])
+                            .unwrap();
                         unstable_bytes.extend_from_slice(&bytes[e.valid_up_to()..]);
 
                         tokens.truncate(tokens.len() - last_piece_token_len);
                         match self.encoder.get(&unstable_bytes) {
                             Some(token) => tokens.push(*token),
-                            None => tokens.extend(&byte_pair_encode(&unstable_bytes, &self.encoder)),
+                            None => {
+                                tokens.extend(&byte_pair_encode(&unstable_bytes, &self.encoder))
+                            }
                         }
                     }
                     tokens
@@ -506,12 +545,19 @@ impl CoreBPE {
         &self,
         py: Python,
         text: &str,
-        allowed_special: HashSet<&str>,
+        allowed_special: HashSet<PyBackedStr>,
     ) -> Py<PyTuple> {
-        let (tokens, completions) =
-            py.allow_threads(|| self._encode_unstable_native(text, &allowed_special));
-        let py_completions =
-            PyList::new(py, completions.iter().map(|seq| PyList::new(py, &seq[..])));
+        let (tokens, completions) = py.allow_threads(|| {
+            let allowed_special: HashSet<&str> =
+                allowed_special.iter().map(|s| s.as_ref()).collect();
+            self._encode_unstable_native(text, &allowed_special)
+        });
+        let py_completions = PyList::new_bound(
+            py,
+            completions
+                .iter()
+                .map(|seq| PyList::new_bound(py, &seq[..])),
+        );
         (tokens, py_completions).into_py(py)
     }
 
@@ -538,17 +584,19 @@ impl CoreBPE {
     // Decoding
     // ====================
 
-    fn decode_bytes(&self, py: Python, tokens: Vec<Rank>) -> Py<PyBytes> {
-        let bytes = py.allow_threads(|| self._decode_native(&tokens));
-        PyBytes::new(py, &bytes).into()
+    fn decode_bytes(&self, py: Python, tokens: Vec<Rank>) -> Result<Py<PyBytes>, PyErr> {
+        match py.allow_threads(|| self._decode_native(&tokens)) {
+            Ok(bytes) => Ok(PyBytes::new_bound(py, &bytes).into()),
+            Err(e) => Err(pyo3::exceptions::PyKeyError::new_err(format!("{}", e))),
+        }
     }
 
     fn decode_single_token_bytes(&self, py: Python, token: Rank) -> PyResult<Py<PyBytes>> {
         if let Some(bytes) = self.decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
+            return Ok(PyBytes::new_bound(py, bytes).into());
         }
         if let Some(bytes) = self.special_tokens_decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
+            return Ok(PyBytes::new_bound(py, bytes).into());
         }
         Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string()))
     }
@@ -560,29 +608,83 @@ impl CoreBPE {
     fn token_byte_values(&self, py: Python) -> Vec<Py<PyBytes>> {
         self.sorted_token_bytes
             .iter()
-            .map(|x| PyBytes::new(py, x).into())
+            .map(|x| PyBytes::new_bound(py, x).into())
             .collect()
     }
 }
 
+#[pyclass]
+struct TiktokenBuffer {
+    tokens: Vec<Rank>,
+}
+
+#[pymethods]
+impl TiktokenBuffer {
+    // Based on https://github.com/PyO3/pyo3/blob/v0.22.2/tests/test_buffer_protocol.rs#L25
+    unsafe fn __getbuffer__(
+        slf: Bound<'_, Self>,
+        view: *mut pyo3::ffi::Py_buffer,
+        flags: std::os::raw::c_int,
+    ) -> PyResult<()> {
+        if view.is_null() {
+            return Err(pyo3::exceptions::PyBufferError::new_err("View is null"));
+        }
+        if (flags & pyo3::ffi::PyBUF_WRITABLE) == pyo3::ffi::PyBUF_WRITABLE {
+            return Err(pyo3::exceptions::PyBufferError::new_err(
+                "Object is not writable",
+            ));
+        }
+
+        (*view).obj = slf.clone().into_any().into_ptr();
+
+        let data = &slf.borrow().tokens;
+        (*view).buf = data.as_ptr() as *mut std::os::raw::c_void;
+        (*view).len = (data.len() * std::mem::size_of::<Rank>()) as isize;
+        (*view).readonly = 1;
+        (*view).itemsize = std::mem::size_of::<Rank>() as isize;
+        (*view).format = if (flags & pyo3::ffi::PyBUF_FORMAT) == pyo3::ffi::PyBUF_FORMAT {
+            let msg = std::ffi::CString::new("I").unwrap();
+            msg.into_raw()
+        } else {
+            std::ptr::null_mut()
+        };
+        (*view).ndim = 1;
+        (*view).shape = if (flags & pyo3::ffi::PyBUF_ND) == pyo3::ffi::PyBUF_ND {
+            &mut (*view).len
+        } else {
+            std::ptr::null_mut()
+        };
+        (*view).strides = if (flags & pyo3::ffi::PyBUF_STRIDES) == pyo3::ffi::PyBUF_STRIDES {
+            &mut (*view).itemsize
+        } else {
+            std::ptr::null_mut()
+        };
+        (*view).suboffsets = std::ptr::null_mut();
+        (*view).internal = std::ptr::null_mut();
+
+        Ok(())
+    }
+
+    unsafe fn __releasebuffer__(&self, view: *mut pyo3::ffi::Py_buffer) {
+        std::mem::drop(std::ffi::CString::from_raw((*view).format));
+    }
+}
+
 #[pymodule]
-fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _tiktoken(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CoreBPE>()?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::RegexBuilder;
+
     use rustc_hash::FxHashMap as HashMap;
 
     use crate::{byte_pair_split, Rank};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
-        HashMap::from_iter([
-            (b"ab".to_vec(), 0),
-            (b"cd".to_vec(), 1),
-        ])
+        HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
     }
 
     #[test]
@@ -597,17 +699,5 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
-    }
-
-    #[test]
-    fn test_effect_of_backtrack_limit() {
-        let regex = RegexBuilder::new(r"(a|b|ab)*(?=c)")
-            .backtrack_limit(10)
-            .build()
-            .expect("Failed to build regex")
-            .clone();
-
-        let input = "ab".repeat(100) + "c";
-        assert!(regex.is_match(&input).is_err(), "Should throw");
     }
 }

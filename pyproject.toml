@@ -1,13 +1,13 @@
 [project]
 name = "tiktoken"
-version = "0.7.0"
+version = "0.8.0"
 description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [{name = "Shantanu Jain"}, {email = "shantanu@openai.com"}]
 dependencies = ["regex>=2022.1.18", "requests>=2.26.0"]
 optional-dependencies = {blobfile = ["blobfile>=2"]}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 [project.urls]
 homepage = "https://github.com/openai/tiktoken"
@@ -24,7 +24,7 @@ build-verbosity = 1
 
 linux.before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
 linux.environment = { PATH = "$PATH:$HOME/.cargo/bin" }
-macos.before-all = "rustup target add aarch64-apple-darwin"
+macos.before-all = "rustup target add aarch64-apple-darwin x86_64-apple-darwin"
 
 skip = [
   "*-manylinux_i686",

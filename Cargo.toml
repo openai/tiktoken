@@ -1,6 +1,6 @@
 [package]
 name = "tiktoken"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 rust-version = "1.57.0"
 
@@ -9,7 +9,7 @@ name = "_tiktoken"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.20.0", features = ["extension-module"] }
+pyo3 = { version = "0.22.2", default-features = false, features = ["extension-module", "macros"] }
 
 # tiktoken dependencies
 fancy-regex = "0.13.0"
