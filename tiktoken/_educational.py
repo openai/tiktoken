@@ -1,6 +1,8 @@
 """This is an educational implementation of the byte pair encoding algorithm."""
+
+from __future__ import annotations
+
 import collections
-from typing import Optional
 
 import regex
 
@@ -18,7 +20,7 @@ class SimpleBytePairEncoding:
         self._decoder = {token: token_bytes for token_bytes, token in mergeable_ranks.items()}
         self._pat = regex.compile(pat_str)
 
-    def encode(self, text: str, visualise: Optional[str] = "colour") -> list[int]:
+    def encode(self, text: str, visualise: str | None = "colour") -> list[int]:
         """Encodes a string into tokens.
 
         >>> enc.encode("hello world")
@@ -79,7 +81,7 @@ class SimpleBytePairEncoding:
 
 
 def bpe_encode(
-    mergeable_ranks: dict[bytes, int], input: bytes, visualise: Optional[str] = "colour"
+    mergeable_ranks: dict[bytes, int], input: bytes, visualise: str | None = "colour"
 ) -> list[int]:
     parts = [bytes([b]) for b in input]
     while True:
@@ -115,7 +117,7 @@ def bpe_encode(
 
 
 def bpe_train(
-    data: str, vocab_size: int, pat_str: str, visualise: Optional[str] = "colour"
+    data: str, vocab_size: int, pat_str: str, visualise: str | None = "colour"
 ) -> dict[bytes, int]:
     # First, add tokens for each individual byte value
     if vocab_size < 2**8:
@@ -207,7 +209,7 @@ def train_simple_encoding():
     gpt2_pattern = (
         r"""'s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     )
-    with open(__file__, "r") as f:
+    with open(__file__) as f:
         data = f.read()
 
     enc = SimpleBytePairEncoding.train(data, vocab_size=600, pat_str=gpt2_pattern)

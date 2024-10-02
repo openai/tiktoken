@@ -9,7 +9,9 @@ ENDOFPROMPT = "<|endofprompt|>"
 # The pattern in the original GPT-2 release is:
 # r"""'s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 # This is equivalent, but executes faster:
-_legacy_splitter_regex = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}++| ?\p{N}++| ?[^\s\p{L}\p{N}]++|\s++$|\s+(?!\S)|\s"""
+r50k_pat_str = (
+    r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}++| ?\p{N}++| ?[^\s\p{L}\p{N}]++|\s++$|\s+(?!\S)|\s"""
+)
 
 
 def gpt2():
@@ -22,7 +24,7 @@ def gpt2():
     return {
         "name": "gpt2",
         "explicit_n_vocab": 50257,
-        "pat_str": _legacy_splitter_regex,
+        "pat_str": r50k_pat_str,
         "mergeable_ranks": mergeable_ranks,
         "special_tokens": {ENDOFTEXT: 50256},
     }
@@ -36,7 +38,7 @@ def r50k_base():
     return {
         "name": "r50k_base",
         "explicit_n_vocab": 50257,
-        "pat_str": _legacy_splitter_regex,
+        "pat_str": r50k_pat_str,
         "mergeable_ranks": mergeable_ranks,
         "special_tokens": {ENDOFTEXT: 50256},
     }
@@ -50,7 +52,7 @@ def p50k_base():
     return {
         "name": "p50k_base",
         "explicit_n_vocab": 50281,
-        "pat_str": _legacy_splitter_regex,
+        "pat_str": r50k_pat_str,
         "mergeable_ranks": mergeable_ranks,
         "special_tokens": {ENDOFTEXT: 50256},
     }
@@ -64,7 +66,7 @@ def p50k_edit():
     special_tokens = {ENDOFTEXT: 50256, FIM_PREFIX: 50281, FIM_MIDDLE: 50282, FIM_SUFFIX: 50283}
     return {
         "name": "p50k_edit",
-        "pat_str": _legacy_splitter_regex,
+        "pat_str": r50k_pat_str,
         "mergeable_ranks": mergeable_ranks,
         "special_tokens": special_tokens,
     }
@@ -95,11 +97,10 @@ def o200k_base():
         "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken",
         expected_hash="446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
     )
-    special_tokens = {
-        ENDOFTEXT: 199999,
-        ENDOFPROMPT: 200018,
-    }
-    # This regex could be made more efficient
+    special_tokens = {ENDOFTEXT: 199999, ENDOFPROMPT: 200018}
+    # This regex could be made more efficient. If I was the one working on this encoding, I would
+    # have done a few other things differently too, e.g. I think you can allocate tokens more
+    # efficiently across languages.
     pat_str = "|".join(
         [
             r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?""",

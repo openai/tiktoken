@@ -15,19 +15,19 @@ jobs:
       matrix:
         # cibuildwheel builds linux wheels inside a manylinux container
         # it also takes care of procuring the correct python version for us
-        os: [ubuntu-latest, windows-latest, macos-13]
-        python-version: [38, 39, 310, 311, 312]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: [39, 310, 311, 312, 313]
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pypa/cibuildwheel@v2.18.0
+      - uses: pypa/cibuildwheel@v2.21.2
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
   build_wheels_aarch64:
@@ -37,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: [38, 39, 310, 311, 312]
+        python-version: [39, 310, 311, 312, 313]
 
     steps:
       - uses: actions/checkout@v4
@@ -48,16 +48,17 @@ jobs:
           platforms: arm64
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.18.0
+        uses: pypa/cibuildwheel@v2.21.2
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
           CIBW_BUILD_VERBOSITY: 3
           # https://github.com/rust-lang/cargo/issues/10583
           CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
-      - uses: actions/upload-artifact@v3
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -65,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
           python-version: "3.9"
@@ -77,7 +78,7 @@ jobs:
         run: |
           pip install --upgrade build
           python -m build --sdist
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./dist/*.tar.gz
