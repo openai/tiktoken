@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.20.0", features = ["extension-module"] }
 
 # tiktoken dependencies
-fancy-regex = "0.11.0"
-regex = "1.8.3"
+fancy-regex = "0.13.0"
+regex = "1.10.3"
 rustc-hash = "1.1.0"
 bstr = "1.5.0"
