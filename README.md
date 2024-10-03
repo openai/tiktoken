@@ -12,7 +12,7 @@ assert enc.decode(enc.encode("hello world")) == "hello world"
 enc = tiktoken.encoding_for_model("gpt-4o")
 ```
 
-The open source version of `tiktoken` can be installed from PyPI:
+The open source version of `tiktoken` can be installed from [PyPI](https://pypi.org/project/tiktoken):
 ```
 pip install tiktoken
 ```
