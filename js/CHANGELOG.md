@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.15
+
+### Patch Changes
+
+- 53bd14a: Add o1 class of models
+
 ## 1.0.14
 
 ### Patch Changes

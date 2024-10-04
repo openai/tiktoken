@@ -1,5 +1,11 @@
 # @dqbd/tiktoken
 
+## 1.0.17
+
+### Patch Changes
+
+- 53bd14a: Add o1 class of models
+
 ## 1.0.16
 
 ### Patch Changes
