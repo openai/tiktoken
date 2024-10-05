@@ -61,13 +61,16 @@ def test_simple_regex():
 def test_basic_encode():
     enc = tiktoken.get_encoding("r50k_base")
     assert enc.encode("hello world") == [31373, 995]
+    assert enc.encode("a" * 1000) == [24794] * 250
 
     enc = tiktoken.get_encoding("p50k_base")
     assert enc.encode("hello world") == [31373, 995]
+    assert enc.encode("a" * 1000) == [24794] * 250
 
     enc = tiktoken.get_encoding("cl100k_base")
     assert enc.encode("hello world") == [15339, 1917]
     assert enc.encode(" \x850") == [220, 126, 227, 15]
+    assert enc.encode("a" * 1000) == [70540] * 125
 
 
 def test_encode_empty():
