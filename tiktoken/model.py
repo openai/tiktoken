@@ -12,6 +12,9 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "gpt-4-": "cl100k_base",  # e.g., gpt-4-0314, etc., plus gpt-4-32k
     "gpt-3.5-turbo-": "cl100k_base",  # e.g, gpt-3.5-turbo-0301, -0401, etc.
     "gpt-35-turbo-": "cl100k_base",  # Azure deployment name
+    "claude-": "cl100k_base",  # For all Claude models
+    "anthropic.claude-": "cl100k_base",  # For Bedrock Claude models
+    "us.anthropic.claude-": "cl100k_base",  # For Bedrock Claude models with full ARN
     # fine-tuned
     "ft:gpt-4": "cl100k_base",
     "ft:gpt-3.5-turbo": "cl100k_base",
