@@ -423,6 +423,7 @@ export type TiktokenModel =
     | "gpt-4o-2024-08-06"
     | "gpt-4o-mini-2024-07-18"
     | "gpt-4o-mini"
+    | "o1-2024-12-17"
     | "o1-mini"
     | "o1-preview"
     | "o1-preview-2024-09-12"
