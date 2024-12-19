@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.16
+
+### Patch Changes
+
+- 919eb6b: Add o1-2024-12-17 model
+
 ## 1.0.15
 
 ### Patch Changes
