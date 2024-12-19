@@ -1,5 +1,11 @@
 # @dqbd/tiktoken
 
+## 1.0.18
+
+### Patch Changes
+
+- 919eb6b: Add o1-2024-12-17 model
+
 ## 1.0.17
 
 ### Patch Changes
