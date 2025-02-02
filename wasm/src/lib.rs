@@ -385,6 +385,8 @@ export type TiktokenModel =
     | "text-davinci-edit-001"
     | "code-davinci-edit-001"
     | "text-embedding-ada-002"
+    | "text-embedding-3-small"
+    | "text-embedding-3-large"
     | "text-similarity-davinci-001"
     | "text-similarity-curie-001"
     | "text-similarity-babbage-001"
