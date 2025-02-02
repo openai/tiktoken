@@ -1,5 +1,11 @@
 # @dqbd/tiktoken
 
+## 1.0.19
+
+### Patch Changes
+
+- 5982def: feat: add o3-mini, missing o1 model
+
 ## 1.0.18
 
 ### Patch Changes
