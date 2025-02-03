@@ -423,6 +423,7 @@ export type TiktokenModel =
     | "gpt-4o"
     | "gpt-4o-2024-05-13"
     | "gpt-4o-2024-08-06"
+    | "gpt-4o-2024-11-20"
     | "gpt-4o-mini-2024-07-18"
     | "gpt-4o-mini"
     | "o1"
@@ -510,6 +511,7 @@ pub fn encoding_for_model(
         "gpt-4o" => Ok("o200k_base"),
         "gpt-4o-2024-05-13" => Ok("o200k_base"),
         "gpt-4o-2024-08-06" => Ok("o200k_base"),
+        "gpt-4o-2024-11-20" => Ok("o200k_base"),
         "gpt-4o-mini-2024-07-18" => Ok("o200k_base"),
         "gpt-4o-mini" => Ok("o200k_base"),
         "o1-2024-12-17" => Ok("o200k_base"),
