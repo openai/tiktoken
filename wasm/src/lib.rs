@@ -522,6 +522,8 @@ pub fn encoding_for_model(
         "chatgpt-4o-latest" => Ok("o200k_base"),
         "gpt-4o-realtime" => Ok("o200k_base"),
         "gpt-4o-realtime-preview-2024-10-01" => Ok("o200k_base"),
+        "o3-mini" => Ok("o200k_base"),
+        "o3-mini-2025-01-31" => Ok("o200k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),
