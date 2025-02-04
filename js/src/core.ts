@@ -279,6 +279,7 @@ export function getEncodingNameForModel(model: TiktokenModel) {
     case "gpt-4o":
     case "gpt-4o-2024-05-13":
     case "gpt-4o-2024-08-06":
+    case "gpt-4o-2024-11-20":
     case "gpt-4o-mini-2024-07-18":
     case "gpt-4o-mini":
     case "o1":

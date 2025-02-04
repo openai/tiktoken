@@ -423,6 +423,7 @@ export type TiktokenModel =
     | "gpt-4o"
     | "gpt-4o-2024-05-13"
     | "gpt-4o-2024-08-06"
+    | "gpt-4o-2024-11-20"
     | "gpt-4o-mini-2024-07-18"
     | "gpt-4o-mini"
     | "o1"
@@ -459,9 +460,10 @@ pub fn encoding_for_model(
         "text-babbage-001" => Ok("r50k_base"),
         "text-ada-001" => Ok("r50k_base"),
         "davinci" => Ok("r50k_base"),
+        "davinci-002" => Ok("cl100k_base"),
         "curie" => Ok("r50k_base"),
         "babbage" => Ok("r50k_base"),
-        "babbage-002" => Ok("r50k_base"),
+        "babbage-002" => Ok("cl100k_base"),
         "ada" => Ok("r50k_base"),
         "code-davinci-002" => Ok("p50k_base"),
         "code-davinci-001" => Ok("p50k_base"),
@@ -490,7 +492,7 @@ pub fn encoding_for_model(
         "gpt-3.5-turbo-0613" => Ok("cl100k_base"),
         "gpt-3.5-turbo-16k" => Ok("cl100k_base"),
         "gpt-3.5-turbo-16k-0613" => Ok("cl100k_base"),
-        "gpt-3.5-turbo-instruct" => Ok("clk100k_base"),
+        "gpt-3.5-turbo-instruct" => Ok("cl100k_base"),
         "gpt-3.5-turbo-instruct-0914" => Ok("cl100k_base"),
         "gpt-4" => Ok("cl100k_base"),
         "gpt-4-0314" => Ok("cl100k_base"),
@@ -510,8 +512,10 @@ pub fn encoding_for_model(
         "gpt-4o" => Ok("o200k_base"),
         "gpt-4o-2024-05-13" => Ok("o200k_base"),
         "gpt-4o-2024-08-06" => Ok("o200k_base"),
+        "gpt-4o-2024-11-20" => Ok("o200k_base"),
         "gpt-4o-mini-2024-07-18" => Ok("o200k_base"),
         "gpt-4o-mini" => Ok("o200k_base"),
+        "o1" => Ok("o200k_base"),
         "o1-2024-12-17" => Ok("o200k_base"),
         "o1-mini" => Ok("o200k_base"),
         "o1-preview" => Ok("o200k_base"),
@@ -520,6 +524,8 @@ pub fn encoding_for_model(
         "chatgpt-4o-latest" => Ok("o200k_base"),
         "gpt-4o-realtime" => Ok("o200k_base"),
         "gpt-4o-realtime-preview-2024-10-01" => Ok("o200k_base"),
+        "o3-mini" => Ok("o200k_base"),
+        "o3-mini-2025-01-31" => Ok("o200k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),
