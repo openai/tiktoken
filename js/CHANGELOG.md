@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.18
+
+### Patch Changes
+
+- 5f92348: Add missing historic models, fix incorrect tokenizers for old instruct models
+
 ## 1.0.17
 
 ### Patch Changes

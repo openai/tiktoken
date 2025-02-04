@@ -1,5 +1,11 @@
 # @dqbd/tiktoken
 
+## 1.0.20
+
+### Patch Changes
+
+- 5f92348: Add missing historic models, fix incorrect tokenizers for old instruct models
+
 ## 1.0.19
 
 ### Patch Changes
