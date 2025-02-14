@@ -3,10 +3,10 @@ name = "tiktoken"
 version = "0.8.0"
 description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 readme = "README.md"
-license = {file = "LICENSE"}
-authors = [{name = "Shantanu Jain"}, {email = "shantanu@openai.com"}]
+license = { file = "LICENSE" }
+authors = [{ name = "Shantanu Jain" }, { email = "shantanu@openai.com" }]
 dependencies = ["regex>=2022.1.18", "requests>=2.26.0"]
-optional-dependencies = {blobfile = ["blobfile>=2"]}
+optional-dependencies = { blobfile = ["blobfile>=2"] }
 requires-python = ">=3.9"
 
 [project.urls]
@@ -43,3 +43,4 @@ test-command = "pytest {project}/tests --import-mode=append"
 [[tool.cibuildwheel.overrides]]
 select = "*linux_aarch64"
 test-command = """python -c 'import tiktoken; enc = tiktoken.get_encoding("gpt2"); assert enc.encode("hello world") == [31373, 995]'"""
+

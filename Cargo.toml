@@ -5,11 +5,20 @@ edition = "2021"
 rust-version = "1.57.0"
 
 [lib]
-name = "_tiktoken"
-crate-type = ["cdylib"]
+name = "tiktoken"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+python = [
+    "pyo3",
+]
 
 [dependencies]
-pyo3 = { version = "0.22.2", default-features = false, features = ["extension-module", "macros"] }
+pyo3 = { version = "0.22.2", default-features = false, features = [
+    "extension-module",
+    "macros",
+], optional = true }
 
 # tiktoken dependencies
 fancy-regex = "0.13.0"
