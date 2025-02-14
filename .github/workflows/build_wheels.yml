@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04-arm]
+        os: [ubuntu-22.04-arm]
         python-version: [39, 310, 311, 312, 313]
 
     steps:
@@ -80,3 +80,15 @@ jobs:
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./dist/*.tar.gz
+
+  join_artifacts:
+    name: Join artifacts
+    runs-on: ubuntu-latest
+    needs: [build_wheels, build_wheels_aarch64, build_sdist]
+    steps:
+     - name: Merge artifacts
+       uses: actions/upload-artifact/merge@v4
+       with:
+         name: cibw-wheels
+         pattern: cibw-wheels-*
+         delete-merged: true
