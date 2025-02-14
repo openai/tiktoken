@@ -2,12 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 import os
-import tempfile
-import uuid
-
-import requests
 
 
 def read_file(blobpath: str) -> bytes:
@@ -20,7 +15,10 @@ def read_file(blobpath: str) -> bytes:
             ) from e
         with blobfile.BlobFile(blobpath, "rb") as f:
             return f.read()
+
     # avoiding blobfile for public files helps avoid auth issues, like MFA prompts
+    import requests
+
     resp = requests.get(blobpath)
     resp.raise_for_status()
     return resp.content
@@ -38,6 +36,8 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     elif "DATA_GYM_CACHE_DIR" in os.environ:
         cache_dir = os.environ["DATA_GYM_CACHE_DIR"]
     else:
+        import tempfile
+
         cache_dir = os.path.join(tempfile.gettempdir(), "data-gym-cache")
         user_specified_cache = False
 
@@ -66,6 +66,8 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
             f"Hash mismatch for data downloaded from {blobpath} (expected {expected_hash}). "
             f"This may indicate a corrupted download. Please try again."
         )
+
+    import uuid
 
     try:
         os.makedirs(cache_dir, exist_ok=True)
@@ -114,6 +116,8 @@ def data_gym_to_mergeable_bpe_ranks(
         bpe_ranks[decode_data_gym(first) + decode_data_gym(second)] = n
         n += 1
 
+    import json
+
     # check that the encoder file matches the merges file
     # this sanity check is important since tiktoken assumes that ranks are ordered the same
     # as merge priority
@@ -142,7 +146,13 @@ def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> No
 def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: str | None = None) -> dict[bytes, int]:
     # NB: do not add caching to this function
     contents = read_file_cached(tiktoken_bpe_file, expected_hash)
-    return {
-        base64.b64decode(token): int(rank)
-        for token, rank in (line.split() for line in contents.splitlines() if line)
-    }
+    ret = {}
+    for line in contents.splitlines():
+        if not line:
+            continue
+        try:
+            token, rank = line.split()
+            ret[base64.b64decode(token)] = int(rank)
+        except Exception as e:
+            raise ValueError(f"Error parsing line {line} in {tiktoken_bpe_file}") from e
+    return ret
