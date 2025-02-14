@@ -1,4 +1,6 @@
 from tiktoken.load import data_gym_to_mergeable_bpe_ranks, load_tiktoken_bpe
+import os
+
 
 ENDOFTEXT = "<|endoftext|>"
 FIM_PREFIX = "<|fim_prefix|>"
@@ -13,11 +15,13 @@ r50k_pat_str = (
     r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}++| ?\p{N}++| ?[^\s\p{L}\p{N}]++|\s++$|\s+(?!\S)|\s"""
 )
 
+TIKTOKEN_BPE_HOST = os.environ.get("TIKTOKEN_BPE_HOST", "https://openaipublic.blob.core.windows.net")
+
 
 def gpt2():
     mergeable_ranks = data_gym_to_mergeable_bpe_ranks(
-        vocab_bpe_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/vocab.bpe",
-        encoder_json_file="https://openaipublic.blob.core.windows.net/gpt-2/encodings/main/encoder.json",
+        vocab_bpe_file=f"{TIKTOKEN_BPE_HOST}/gpt-2/encodings/main/vocab.bpe",
+        encoder_json_file=f"{TIKTOKEN_BPE_HOST}/gpt-2/encodings/main/encoder.json",
         vocab_bpe_hash="1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5",
         encoder_json_hash="196139668be63f3b5d6574427317ae82f612a97c5d1cdaf36ed2256dbf636783",
     )
@@ -32,7 +36,7 @@ def gpt2():
 
 def r50k_base():
     mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken",
+        f"{TIKTOKEN_BPE_HOST}/encodings/r50k_base.tiktoken",
         expected_hash="306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930",
     )
     return {
@@ -46,7 +50,7 @@ def r50k_base():
 
 def p50k_base():
     mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
+        f"{TIKTOKEN_BPE_HOST}/encodings/p50k_base.tiktoken",
         expected_hash="94b5ca7dff4d00767bc256fdd1b27e5b17361d7b8a5f968547f9f23eb70d2069",
     )
     return {
@@ -60,7 +64,7 @@ def p50k_base():
 
 def p50k_edit():
     mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
+        f"{TIKTOKEN_BPE_HOST}/encodings/p50k_base.tiktoken",
         expected_hash="94b5ca7dff4d00767bc256fdd1b27e5b17361d7b8a5f968547f9f23eb70d2069",
     )
     special_tokens = {ENDOFTEXT: 50256, FIM_PREFIX: 50281, FIM_MIDDLE: 50282, FIM_SUFFIX: 50283}
@@ -74,7 +78,7 @@ def p50k_edit():
 
 def cl100k_base():
     mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken",
+        f"{TIKTOKEN_BPE_HOST}/encodings/cl100k_base.tiktoken",
         expected_hash="223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
     )
     special_tokens = {
@@ -94,7 +98,7 @@ def cl100k_base():
 
 def o200k_base():
     mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken",
+        f"{TIKTOKEN_BPE_HOST}/encodings/o200k_base.tiktoken",
         expected_hash="446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
     )
     special_tokens = {ENDOFTEXT: 199999, ENDOFPROMPT: 200018}
