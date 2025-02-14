@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.19
+
+### Patch Changes
+
+- 77ba758: Update guidance on lite
+
 ## 1.0.18
 
 ### Patch Changes
