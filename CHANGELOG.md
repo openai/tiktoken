@@ -2,6 +2,12 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.9.0]
+- Support for `o1` and `o3` models
+- Better error messages when loading invalid vocabulary files
+- Support for encoding to numpy arrays
+- Delayed imports when not strictly necessary
+
 ## [v0.8.0]
 
 - Support for `o1-` and `chatgpt-4o-` models
