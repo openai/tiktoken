@@ -1,5 +1,5 @@
 import { it, expect, describe } from "vitest";
-import { encoding_for_model, get_encoding } from "../dist";
+import { encoding_for_model, get_encoding, get_encoding_name_for_model } from "../dist";
 
 it("encoding_for_model initialization", () => {
   expect(() => encoding_for_model("gpt2")).not.toThrowError();
@@ -105,6 +105,17 @@ it("test_encoding_for_model", () => {
   expect(encoding_for_model("text-davinci-003").name).toEqual("p50k_base");
   expect(encoding_for_model("gpt-3.5-turbo").name).toEqual("cl100k_base");
 });
+
+it("test_get_encoding_name_for_model", () => {
+  expect(get_encoding_name_for_model("gpt2")).toEqual("gpt2");
+  expect(get_encoding_name_for_model("text-davinci-003")).toEqual("p50k_base");
+  expect(get_encoding_name_for_model("gpt-3.5-turbo")).toEqual("cl100k_base");
+
+  // @ts-expect-error - explicitly testing for invalid model
+  expect(() => get_encoding_name_for_model("gpt2-unknown")).toThrowError(
+      "Invalid model: gpt2-unknown"
+  );
+})
 
 it("test_custom_tokens", () => {
   const enc = encoding_for_model("gpt2", {
