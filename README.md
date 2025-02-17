@@ -129,3 +129,14 @@ setup(
 Then simply `pip install ./my_tiktoken_extension` and you should be able to use your
 custom encodings! Make sure **not** to use an editable install.
 
+
+## Tiktoken tokenizer environment
+
+Test your tokenizer through a terminal-based environment that allows you to visualize tokenized data points. This tool helps you better grasp model information by providing immediate feedback on how input text is being tokenized. You can see  token types, and their positions in the input text, making it easier to understand and debug your tokenizer.
+
+```python
+import tiktoken
+enc = tiktoken.get_encoding("gpt2")
+enc.environment()
+```
+![image](/environment.png)
