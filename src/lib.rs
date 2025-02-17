@@ -1,13 +1,12 @@
-// This check is new and seems buggy (possibly with PyO3 interaction)
-#![allow(clippy::borrow_deref_ref)]
-
+use std::borrow::Borrow;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::num::NonZeroU64;
 use std::thread;
 
 use bstr::ByteSlice;
 use fancy_regex::Regex;
-use pyo3::exceptions;
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 use pyo3::pyclass;
 use pyo3::PyResult;
@@ -25,11 +24,14 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Layout, Direction, Margin};
 use ratatui::text::Line;
 use ratatui::widgets::{
-    block::Title, Padding, Block, Borders, Wrap, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState
+    block::Title, Block, Padding, Borders, Paragraph, Scrollbar, ScrollbarOrientation,
+    ScrollbarState, Wrap,
 };
 use ratatui::style::{Color, Style};
-use tui_textarea::{Input, Key, TextArea};
+use tui_textarea::TextArea;
 
+#[cfg(feature = "python")]
+mod py;
 
 type Rank = u32;
 
@@ -92,8 +94,10 @@ fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize,
 }
 
 pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Rank> {
-    assert!(piece.len() > 1);
-    _byte_pair_merge(&ranks, &piece)
+    if piece.len() == 1 {
+        return vec![ranks[piece]];
+    }
+    _byte_pair_merge(ranks, piece)
         .windows(2)
         .map(|part| ranks[&piece[part[0].0..part[1].0]])
         .collect()
@@ -101,7 +105,7 @@ pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Ran
 
 pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<&'a [u8]> {
     assert!(piece.len() > 1);
-    _byte_pair_merge(&ranks, &piece)
+    _byte_pair_merge(ranks, piece)
         .windows(2)
         .map(|part| &piece[part[0].0..part[1].0])
         .collect()
@@ -148,25 +152,52 @@ pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> V
 // The current implementation ends up doing a lot of hashing of bytes. In theory, this could be made
 // to be hashing of two-tuples of ints, which looks like it may also be a couple percent faster.
 
-pub struct FakeThreadId(NonZeroU64);
+struct FakeThreadId(NonZeroU64);
 
 fn hash_current_thread() -> usize {
     // It's easier to use unsafe than to use nightly. Rust has this nice u64 thread id counter
     // that works great for our use case of avoiding collisions in our array. Unfortunately,
     // it's private. However, there are only so many ways you can layout a u64, so just transmute
     // https://github.com/rust-lang/rust/issues/67939
-    const _: [u8; 8] = [0; std::mem::size_of::<thread::ThreadId>()];
+    const _: [u8; 8] = [0; std::mem::size_of::<std::thread::ThreadId>()];
     const _: [u8; 8] = [0; std::mem::size_of::<FakeThreadId>()];
     let x = unsafe {
-        std::mem::transmute::<thread::ThreadId, FakeThreadId>(thread::current().id()).0
+        std::mem::transmute::<std::thread::ThreadId, FakeThreadId>(thread::current().id()).0
     };
     u64::from(x) as usize
 }
 
+#[derive(Debug, Clone)]
+pub struct DecodeKeyError {
+    pub token: Rank,
+}
+
+impl std::fmt::Display for DecodeKeyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Invalid token for decoding: {}", self.token)
+    }
+}
+
+impl std::error::Error for DecodeKeyError {}
+
+#[derive(Debug, Clone)]
+pub struct DecodeError {
+    pub message: String,
+}
+
+impl std::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Could not decode tokens: {}", self.message)
+    }
+}
+
+impl std::error::Error for DecodeError {}
+
 const MAX_NUM_THREADS: usize = 128;
 
-#[pyclass]
-struct CoreBPE {
+#[cfg_attr(feature = "python", pyclass)]
+#[derive(Clone)]
+pub struct CoreBPE {
     encoder: HashMap<Vec<u8>, Rank>,
     special_tokens_encoder: HashMap<String, Rank>,
     decoder: HashMap<Rank, Vec<u8>>,
@@ -188,19 +219,25 @@ impl CoreBPE {
         &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
     }
 
-    fn _decode_native(&self, tokens: &[Rank]) -> Vec<u8> {
+    /// Decodes tokens into a list of bytes.
+    ///
+    /// The bytes are not gauranteed to be a valid utf-8 string.
+    fn decode_bytes(&self, tokens: &[Rank]) -> Result<Vec<u8>, DecodeKeyError> {
         let mut ret = Vec::with_capacity(tokens.len() * 2);
-        for token in tokens {
-            let token_bytes = self
-                .decoder
-                .get(token)
-                .unwrap_or_else(|| &self.special_tokens_decoder[token]);
+        for &token in tokens {
+            let token_bytes = match self.decoder.get(&token) {
+                Some(bytes) => bytes,
+                None => self
+                    .special_tokens_decoder
+                    .get(&token)
+                    .ok_or(DecodeKeyError { token })?,
+            };
             ret.extend(token_bytes);
         }
-        ret
+        Ok(ret)
     }
 
-    fn _encode_ordinary_native(&self, text: &str) -> Vec<Rank> {
+    pub fn encode_ordinary(&self, text: &str) -> Vec<Rank> {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
         let regex = self._get_tl_regex();
@@ -215,7 +252,7 @@ impl CoreBPE {
         ret
     }
 
-    fn _encode_native(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<Rank>, usize) {
+    pub fn encode(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<Rank>, usize) {
         let special_regex = self._get_tl_special_regex();
         let regex = self._get_tl_regex();
         let mut ret = vec![];
@@ -310,12 +347,12 @@ impl CoreBPE {
         (tokens, last_piece_token_len)
     }
 
-    fn _encode_unstable_native(
+    pub fn _encode_unstable_native(
         &self,
         text: &str,
         allowed_special: &HashSet<&str>,
     ) -> (Vec<Rank>, HashSet<Vec<Rank>>) {
-        let (tokens, last_piece_token_len) = self._encode_native(text, allowed_special);
+        let (tokens, last_piece_token_len) = self.encode(text, allowed_special);
         if last_piece_token_len == 0 {
             // If last_piece_token_len is zero, the last token was a special token and we have
             // no unstable bytes
@@ -324,7 +361,9 @@ impl CoreBPE {
         let (mut tokens, last_piece_token_len) =
             self._increase_last_piece_token_len(tokens, last_piece_token_len);
 
-        let unstable_bytes = self._decode_native(&tokens[tokens.len() - last_piece_token_len..]);
+        let unstable_bytes = self
+            .decode_bytes(&tokens[tokens.len() - last_piece_token_len..])
+            .unwrap();
         tokens.truncate(tokens.len() - last_piece_token_len);
 
         // TODO: we should try harder to find additional stable tokens
@@ -372,7 +411,7 @@ impl CoreBPE {
                     // So convert to UTF-8 and do regex splitting.
                     // E.g. with cl100k_base "  !" gets split to " " + " !",
                     // but byte_pair_encode("  !") != byte_pair_encode(" ")
-                    Ok(s) => self._encode_ordinary_native(s),
+                    Ok(s) => self.encode_ordinary(s),
 
                     // Technically, whether or not this arm is correct depends on whether there
                     // would be a regex split before the UTF-8 truncation point.
@@ -425,26 +464,37 @@ impl CoreBPE {
 
         (tokens, completions)
     }
-}
 
-#[pymethods]
-impl CoreBPE {
-    #[new]
-    fn new(
+    pub fn new<E, SE, NSE>(
+        encoder: E,
+        special_tokens_encoder: SE,
+        pattern: &str,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>>
+    where
+        E: IntoIterator<Item = (Vec<u8>, Rank)>,
+        SE: IntoIterator<Item = (String, Rank)>,
+        NSE: IntoIterator<Item = (String, (Rank, Rank))>,
+    {
+        Self::new_internal(
+            HashMap::from_iter(encoder),
+            HashMap::from_iter(special_tokens_encoder),
+            pattern,
+        )
+    }
+
+    fn new_internal(
         encoder: HashMap<Vec<u8>, Rank>,
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
-    ) -> PyResult<Self> {
-        let regex = Regex::new(pattern)
-            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?;
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let regex = Regex::new(pattern)?;
 
         let special_regex = {
-            let _parts = special_tokens_encoder
+            let parts = special_tokens_encoder
                 .keys()
                 .map(|s| fancy_regex::escape(s))
                 .collect::<Vec<_>>();
-            Regex::new(&_parts.join("|"))
-                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))?
+            Regex::new(&parts.join("|"))?
         };
 
         let decoder: HashMap<Rank, Vec<u8>> =
@@ -464,7 +514,7 @@ impl CoreBPE {
         let mut sorted_token_bytes: Vec<Vec<u8>> = encoder.keys().cloned().collect();
         sorted_token_bytes.sort();
 
-        Ok(CoreBPE {
+        Ok(Self {
             encoder,
             special_tokens_encoder,
             decoder,
@@ -477,111 +527,14 @@ impl CoreBPE {
         })
     }
 
-    // ====================
-    // Encoding
-    // ====================
-
-    fn encode_ordinary(&self, py: Python, text: &str) -> Vec<Rank> {
-        py.allow_threads(|| self._encode_ordinary_native(text))
-    }
-
-    fn encode(&self, py: Python, text: &str, allowed_special: HashSet<&str>) -> Vec<Rank> {
-        py.allow_threads(|| self._encode_native(text, &allowed_special).0)
-    }
-
-    fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<Rank> {
-        py.allow_threads(|| {
-            match std::str::from_utf8(bytes) {
-                Ok(text) => self._encode_ordinary_native(text),
-                Err(e) => {
-                    let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
-                    let (tokens, last_piece_token_len) = self._encode_native(text, &HashSet::new());
-                    let (mut tokens, last_piece_token_len) =
-                        self._increase_last_piece_token_len(tokens, last_piece_token_len);
-                    if !tokens.is_empty() && last_piece_token_len > 0 {
-                        // Lop off the tokens from the last piece and run BPE on the remaining bytes
-                        // Somewhat niche, but this may not be correct if we'd have had a regex
-                        // split between the valid UTF-8 and the invalid bytes, which is why this
-                        // method is private
-                        let mut unstable_bytes =
-                            self._decode_native(&tokens[tokens.len() - last_piece_token_len..]);
-                        unstable_bytes.extend_from_slice(&bytes[e.valid_up_to()..]);
-
-                        tokens.truncate(tokens.len() - last_piece_token_len);
-                        match self.encoder.get(&unstable_bytes) {
-                            Some(token) => tokens.push(*token),
-                            None => tokens.extend(&byte_pair_encode(&unstable_bytes, &self.encoder)),
-                        }
-                    }
-                    tokens
-                }
-            }
-        })
-    }
-
-    fn encode_with_unstable(
-        &self,
-        py: Python,
-        text: &str,
-        allowed_special: HashSet<&str>,
-    ) -> Py<PyTuple> {
-        let (tokens, completions) =
-            py.allow_threads(|| self._encode_unstable_native(text, &allowed_special));
-        let py_completions =
-            PyList::new(py, completions.iter().map(|seq| PyList::new(py, &seq[..])));
-        (tokens, py_completions).into_py(py)
-    }
-
-    fn encode_single_token(&self, piece: &[u8]) -> PyResult<Rank> {
-        if let Some(token) = self.encoder.get(piece).copied() {
-            return Ok(token);
-        }
-        if let Ok(piece_str) = std::str::from_utf8(piece) {
-            if let Some(token) = self.special_tokens_encoder.get(piece_str).copied() {
-                return Ok(token);
-            }
-        }
-        Err(PyErr::new::<exceptions::PyKeyError, _>(piece.to_owned()))
-    }
-
-    fn encode_single_piece(&self, piece: &[u8]) -> Vec<Rank> {
-        if let Some(token) = self.encoder.get(piece) {
-            return vec![*token];
-        }
-        byte_pair_encode(piece, &self.encoder)
-    }
-
-    // ====================
-    // Decoding
-    // ====================
-
-    fn decode_bytes(&self, py: Python, tokens: Vec<Rank>) -> Py<PyBytes> {
-        let bytes = py.allow_threads(|| self._decode_native(&tokens));
-        PyBytes::new(py, &bytes).into()
-    }
-
-    fn decode_single_token_bytes(&self, py: Python, token: Rank) -> PyResult<Py<PyBytes>> {
-        if let Some(bytes) = self.decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
-        }
-        if let Some(bytes) = self.special_tokens_decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
-        }
-        Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string()))
-    }
-
-    // ====================
-    // Miscellaneous
-    // ====================
-
-    fn token_byte_values(&self, py: Python) -> Vec<Py<PyBytes>> {
-        self.sorted_token_bytes
-            .iter()
-            .map(|x| PyBytes::new(py, x).into())
+    pub fn special_tokens(&self) -> HashSet<&str> {
+        self.special_tokens_encoder
+            .keys()
+            .map(|s| s.as_str())
             .collect()
     }
 
-    fn _environment(&self, py : Python, name : &str, allowed_special: HashSet<&str>) -> PyResult<()> {
+    fn _environment(&self, name : &str, allowed_special: HashSet<&str>) -> PyResult<()> {
         let stdout = std::io::stdout();
         let mut stdout = stdout.lock();
     
@@ -619,17 +572,15 @@ impl CoreBPE {
                 let tokens: Vec<Vec<String>> = textarea.lines().iter().map(|line| {
 
                     // Encode the line
-                    let encoding = self._encode_native(line, &allowed_special).0;
+                    let encoding = self.encode(line, &allowed_special).0;
                     
                     // Decode the encoded line
-                    let decoding: Vec<Py<PyBytes>> = encoding.iter()
-                        .map(|&token| self.decode_single_token_bytes(py, token).unwrap())
+                    let decoding: Vec<Vec<u8>> = encoding.iter()
+                        .map(|&token| self.decode_bytes(&[token]).unwrap())
                         .collect();
             
                     // Convert decoded tokens to Strings
-                    let tokens: Vec<String> = decoding.iter().map(|py_bytes| {
-                        let bytes = py_bytes.as_bytes(py);
-                        
+                    let tokens: Vec<String> = decoding.iter().map(|bytes| {
                         bytes.to_str()
                              .unwrap()
                              .to_string()
@@ -673,7 +624,7 @@ impl CoreBPE {
                                            .scroll((vertical_scroll as u16, 0))
                                            .wrap(Wrap { trim: true });
 
-                let menu = Block::new()
+                let menu: Block<'_> = Block::new()
                     .title(Title::from("[Esc] Exit").alignment(ratatui::layout::Alignment::Left))
                     .title(Title::from("[Ctrl+S] Scroll Down").alignment(ratatui::layout::Alignment::Center))
                     .title(Title::from("[Ctrl+A] Scroll Up").alignment(ratatui::layout::Alignment::Center))
@@ -691,7 +642,7 @@ impl CoreBPE {
 
                 f.render_stateful_widget(
                     scrollbar,
-                    sub_chunk[1].inner(&Margin {
+                    sub_chunk[1].inner(Margin {
                         // using an inner vertical margin of 1 unit makes the scrollbar inside the block
                         vertical: 1,
                         horizontal: 0,
@@ -701,22 +652,26 @@ impl CoreBPE {
 
             })?;
             
-            match crossterm::event::read()?.into() {
-                Input { key: Key::Esc, .. } => break,
-                Input { key: Key::Char('s'), ctrl : true, ..} => {
-                    if vertical_scroll < line_count - 1 {
-                        vertical_scroll+=1;
+            match crossterm::event::read()? {
+                crossterm::event::Event::Key(key) => {
+                    match key.code {
+                        crossterm::event::KeyCode::Esc => break,
+                        crossterm::event::KeyCode::Char('s') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                            if vertical_scroll < line_count - 1 {
+                                vertical_scroll += 1;
+                            }
+                        },
+                        crossterm::event::KeyCode::Char('a') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                            if vertical_scroll > 0 {
+                                vertical_scroll -= 1;
+                            }
+                        },
+                        _ => {
+                            textarea.input(key);
+                        }
                     }
-                    
                 },
-                Input { key: Key::Char('a'), ctrl : true, ..} => {
-                    if vertical_scroll > 0 {
-                        vertical_scroll-=1;
-                    }     
-                },
-                input => {
-                    textarea.input(input);
-                }
+                _ => {}
             }
         }
     
@@ -733,23 +688,15 @@ impl CoreBPE {
 }
 
 
-#[pymodule]
-fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<CoreBPE>()?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
+    use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
     use crate::{byte_pair_split, Rank};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
-        HashMap::from_iter([
-            (b"ab".to_vec(), 0),
-            (b"cd".to_vec(), 1),
-        ])
+        HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
     }
 
     #[test]

@@ -24,7 +24,7 @@ def test_simple():
 
     for enc_name in tiktoken.list_encoding_names():
         enc = tiktoken.get_encoding(enc_name)
-        for token in range(10_000):
+        for token in range(min(10_000, enc.max_token_value - 1)):
             assert enc.encode_single_token(enc.decode_single_token_bytes(token)) == token
 
 
@@ -89,6 +89,20 @@ def test_encode_surrogate_pairs():
 
     # lone surrogate just gets replaced
     assert enc.encode("\ud83d") == enc.encode("�")
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_catastrophically_repetitive(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    for c in ["^", "0", "a", "'s", " ", "\n"]:
+        big_value = c * 10_000
+        assert big_value == enc.decode(enc.encode(big_value))
+
+        big_value = " " + big_value
+        assert big_value == enc.decode(enc.encode(big_value))
+
+        big_value = big_value + "\n"
+        assert big_value == enc.decode(enc.encode(big_value))
 
 
 # ====================
