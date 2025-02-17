@@ -375,6 +375,18 @@ class Encoding:
         """For backwards compatibility. Prefer to use `enc.max_token_value + 1`."""
         return self.max_token_value + 1
 
+    def environment(self,
+                    *,
+                    allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
+                    disallowed_special: Literal["all"] | Collection[str] = "all",) -> None:
+        """Builds a Text User Interface (TUI) environment to test out encoding."""
+        
+        if allowed_special == "all":
+            allowed_special = self.special_tokens_set
+        if disallowed_special == "all":
+            disallowed_special = self.special_tokens_set - allowed_special
+
+        return self._core_bpe._environment(self.name, allowed_special)
     # ====================
     # Private
     # ====================
@@ -403,19 +415,6 @@ class Encoding:
 
     def _encode_bytes(self, text: bytes) -> list[int]:
         return self._core_bpe._encode_bytes(text)
-    
-    def environment(self,
-                    *,
-                    allowed_special: Union[Literal["all"], AbstractSet[str]] = set(),  # noqa: B006
-                    disallowed_special: Union[Literal["all"], Collection[str]] = "all",) -> None:
-        """Builds a Text User Interface (TUI) environment to test out encoding."""
-        
-        if allowed_special == "all":
-            allowed_special = self.special_tokens_set
-        if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
-
-        return self._core_bpe._environment(self.name, allowed_special)
 
     def __getstate__(self) -> object:
         import tiktoken.registry
