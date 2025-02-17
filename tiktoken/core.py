@@ -28,15 +28,17 @@ class Encoding:
         See openai_public.py for examples of how to construct an Encoding object.
 
         Args:
-            name: The name of the encoding. It should be clear from the name of the encoding
-                what behaviour to expect, in particular, encodings with different special tokens
-                should have different names.
-            pat_str: A regex pattern string that is used to split the input text.
-            mergeable_ranks: A dictionary mapping mergeable token bytes to their ranks. The ranks
-                must correspond to merge priority.
-            special_tokens: A dictionary mapping special token strings to their token values.
-            explicit_n_vocab: The number of tokens in the vocabulary. If provided, it is checked
-                that the number of mergeable tokens and special tokens is equal to this number.
+            name (str): The name of the encoding. It should be clear from the name of the
+                encoding what behaviour to expect, in particular, encodings with different
+                special tokens should have different names.
+            pat_str (str): A regex pattern string that is used to split the input text.
+            mergeable_ranks (dict[bytes, int]): A dictionary mapping mergeable token bytes
+                to their ranks. The ranks must correspond to merge priority.
+            special_tokens (dict[str, int]): A dictionary mapping special token strings to
+                their token values.
+            explicit_n_vocab (int | None, optional): The number of tokens in the vocabulary.
+                If provided, it is checked that the number of mergeable tokens and special
+                tokens is equal to this number.
         """
         self.name = name
 
@@ -65,9 +67,15 @@ class Encoding:
 
         This is equivalent to `encode(text, disallowed_special=())` (but slightly faster).
 
-        ```
-        >>> enc.encode_ordinary("hello world")
-        [31373, 995]
+        Examples:
+            >>> enc.encode_ordinary("hello world")
+            [31373, 995]
+
+        Args:
+            text (str): The text to encode.
+
+        Returns:
+            list[int]: The encoded tokens.
         """
         try:
             return self._core_bpe.encode_ordinary(text)
@@ -91,24 +99,37 @@ class Encoding:
 
         Hence, by default, encode will raise an error if it encounters text that corresponds
         to a special token. This can be controlled on a per-token level using the `allowed_special`
-        and `disallowed_special` parameters. In particular:
-        - Setting `disallowed_special` to () will prevent this function from raising errors and
-          cause all text corresponding to special tokens to be encoded as natural text.
-        - Setting `allowed_special` to "all" will cause this function to treat all text
-          corresponding to special tokens to be encoded as special tokens.
+        and `disallowed_special` parameters.
 
-        ```
-        >>> enc.encode("hello world")
-        [31373, 995]
-        >>> enc.encode("<|endoftext|>", allowed_special={"<|endoftext|>"})
-        [50256]
-        >>> enc.encode("<|endoftext|>", allowed_special="all")
-        [50256]
-        >>> enc.encode("<|endoftext|>")
-        # Raises ValueError
-        >>> enc.encode("<|endoftext|>", disallowed_special=())
-        [27, 91, 437, 1659, 5239, 91, 29]
-        ```
+        Args:
+            text (str): The text to encode.
+            allowed_special (Union[Literal["all"], AbstractSet[str]], optional): Special tokens
+                that are allowed to be encoded. If "all", all special tokens are allowed.
+                Defaults to set().
+            disallowed_special (Union[Literal["all"], Collection[str]], optional): Special
+                tokens that are not allowed to be encoded. If "all", no special tokens are
+                allowed except those in allowed_special. Defaults to "all".
+
+        Returns:
+            list[int]: The encoded tokens.
+
+        Note:
+            - Setting `disallowed_special` to () will prevent this function from raising errors
+              and cause all text corresponding to special tokens to be encoded as natural text.
+            - Setting `allowed_special` to "all" will cause this function to treat all text
+              corresponding to special tokens to be encoded as special tokens.
+
+        Examples:
+            >>> enc.encode("hello world")
+            [31373, 995]
+            >>> enc.encode("<|endoftext|>", allowed_special={"<|endoftext|>"})
+            [50256]
+            >>> enc.encode("<|endoftext|>", allowed_special="all")
+            [50256]
+            >>> enc.encode("<|endoftext|>")
+            # Raises ValueError
+            >>> enc.encode("<|endoftext|>", disallowed_special=())
+            [27, 91, 437, 1659, 5239, 91, 29]
         """
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
@@ -142,6 +163,18 @@ class Encoding:
         """Encodes a string into tokens, returning a numpy array.
 
         Avoids the overhead of copying the token buffer into a Python list.
+
+        Args:
+            text (str): The text to encode.
+            allowed_special (Union[Literal["all"], AbstractSet[str]], optional): Special tokens
+                that are allowed to be encoded. If "all", all special tokens are allowed.
+                Defaults to set().
+            disallowed_special (Union[Literal["all"], Collection[str]], optional): Special
+                tokens that are not allowed to be encoded. If "all", no special tokens are
+                allowed except those in allowed_special. Defaults to "all".
+
+        Returns:
+            npt.NDArray[np.uint32]: The encoded tokens as a numpy array.
         """
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
@@ -163,10 +196,17 @@ class Encoding:
 
         This is equivalent to `encode_batch(text, disallowed_special=())` (but slightly faster).
 
-        ```
-        >>> enc.encode_ordinary_batch(["hello world", "goodbye world"])
-        [[31373, 995], [11274, 16390, 995]]
-        ```
+        Args:
+            text (list[str]): List of strings to encode.
+            num_threads (int, optional): Number of threads to use for parallel processing.
+                Defaults to 8.
+
+        Returns:
+            list[list[int]]: List of encoded token sequences, one for each input string.
+
+        Examples:
+            >>> enc.encode_ordinary_batch(["hello world", "goodbye world"])
+            [[31373, 995], [11274, 16390, 995]]
         """
         encoder = functools.partial(self.encode_ordinary)
         with ThreadPoolExecutor(num_threads) as e:
@@ -184,10 +224,23 @@ class Encoding:
 
         See `encode` for more details on `allowed_special` and `disallowed_special`.
 
-        ```
-        >>> enc.encode_batch(["hello world", "goodbye world"])
-        [[31373, 995], [11274, 16390, 995]]
-        ```
+        Args:
+            text (list[str]): List of strings to encode.
+            num_threads (int, optional): Number of threads to use for parallel processing.
+                Defaults to 8.
+            allowed_special (Union[Literal["all"], AbstractSet[str]], optional): Special tokens
+                that are allowed to be encoded. If "all", all special tokens are allowed.
+                Defaults to set().
+            disallowed_special (Union[Literal["all"], Collection[str]], optional): Special
+                tokens that are not allowed to be encoded. If "all", no special tokens are
+                allowed except those in allowed_special. Defaults to "all".
+
+        Returns:
+            list[list[int]]: List of encoded token sequences, one for each input string.
+
+        Examples:
+            >>> enc.encode_batch(["hello world", "goodbye world"])
+            [[31373, 995], [11274, 16390, 995]]
         """
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
@@ -212,20 +265,34 @@ class Encoding:
         """Encodes a string into stable tokens and possible completion sequences.
 
         Note that the stable tokens will only represent a substring of `text`.
-
-        See `encode` for more details on `allowed_special` and `disallowed_special`.
-
         This API should itself be considered unstable.
 
-        ```
-        >>> enc.encode_with_unstable("hello fanta")
-        ([31373], [(277, 4910), (5113, 265), ..., (8842,)])
+        Args:
+            text (str): The text to encode.
+            allowed_special (Union[Literal["all"], AbstractSet[str]], optional): Special tokens
+                that are allowed to be encoded. If "all", all special tokens are allowed.
+                Defaults to set().
+            disallowed_special (Union[Literal["all"], Collection[str]], optional): Special
+                tokens that are not allowed to be encoded. If "all", no special tokens are
+                allowed except those in allowed_special. Defaults to "all".
 
-        >>> text = "..."
-        >>> stable_tokens, completions = enc.encode_with_unstable(text)
-        >>> assert text.encode().startswith(enc.decode_bytes(stable_tokens))
-        >>> assert all(enc.decode_bytes(stable_tokens + seq).startswith(text.encode()) for seq in completions)
-        ```
+        Returns:
+            tuple[list[int], list[list[int]]]: A tuple containing:
+                - list[int]: The stable tokens.
+                - list[list[int]]: Possible completion sequences.
+
+        Examples:
+            >>> enc.encode_with_unstable("hello fanta")
+            ([31373], [(277, 4910), (5113, 265), ..., (8842,)])
+
+            >>> text = "..."
+            >>> stable_tokens, completions = enc.encode_with_unstable(text)
+            >>> assert text.encode().startswith(enc.decode_bytes(stable_tokens))
+            >>> assert all(enc.decode_bytes(stable_tokens + seq).startswith(text.encode())
+            ...           for seq in completions)
+
+        See Also:
+            See `encode` for more details on `allowed_special` and `disallowed_special`.
         """
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
@@ -262,62 +329,102 @@ class Encoding:
     def decode_bytes(self, tokens: Sequence[int]) -> bytes:
         """Decodes a list of tokens into bytes.
 
-        ```
-        >>> enc.decode_bytes([31373, 995])
-        b'hello world'
-        ```
+        Args:
+            tokens (Sequence[int]): The sequence of tokens to decode.
+
+        Returns:
+            bytes: The decoded bytes.
+
+        Examples:
+            >>> enc.decode_bytes([31373, 995])
+            b'hello world'
         """
         return self._core_bpe.decode_bytes(tokens)
 
     def decode(self, tokens: Sequence[int], errors: str = "replace") -> str:
         """Decodes a list of tokens into a string.
 
-        WARNING: the default behaviour of this function is lossy, since decoded bytes are not
-        guaranteed to be valid UTF-8. You can control this behaviour using the `errors` parameter,
-        for instance, setting `errors=strict`.
+        Args:
+            tokens (Sequence[int]): The sequence of tokens to decode.
+            errors (str, optional): How to handle unicode decode errors. Options include
+                'strict', 'replace', 'ignore'. Defaults to 'replace'.
 
-        ```
-        >>> enc.decode([31373, 995])
-        'hello world'
-        ```
+        Returns:
+            str: The decoded string.
+
+        Warning:
+            The default behaviour of this function is lossy, since decoded bytes are not
+            guaranteed to be valid UTF-8. You can control this behaviour using the `errors`
+            parameter, for instance, setting `errors=strict`.
+
+        Examples:
+            >>> enc.decode([31373, 995])
+            'hello world'
         """
         return self._core_bpe.decode_bytes(tokens).decode("utf-8", errors=errors)
 
     def decode_single_token_bytes(self, token: int) -> bytes:
         """Decodes a token into bytes.
 
-        NOTE: this will decode all special tokens.
+        Args:
+            token (int): The token to decode.
 
-        Raises `KeyError` if the token is not in the vocabulary.
+        Returns:
+            bytes: The decoded bytes.
 
-        ```
-        >>> enc.decode_single_token_bytes(31373)
-        b'hello'
-        ```
+        Raises:
+            KeyError: If the token is not in the vocabulary.
+
+        Note:
+            This will decode all special tokens.
+
+        Examples:
+            >>> enc.decode_single_token_bytes(31373)
+            b'hello'
         """
         return self._core_bpe.decode_single_token_bytes(token)
 
     def decode_tokens_bytes(self, tokens: Sequence[int]) -> list[bytes]:
         """Decodes a list of tokens into a list of bytes.
 
-        Useful for visualising tokenisation.
-        >>> enc.decode_tokens_bytes([31373, 995])
-        [b'hello', b' world']
+        Args:
+            tokens (Sequence[int]): The sequence of tokens to decode.
+
+        Returns:
+            list[bytes]: List of decoded bytes for each token.
+
+        Note:
+            Useful for visualising tokenisation.
+
+        Examples:
+            >>> enc.decode_tokens_bytes([31373, 995])
+            [b'hello', b' world']
         """
         return [self.decode_single_token_bytes(token) for token in tokens]
 
     def decode_with_offsets(self, tokens: Sequence[int]) -> tuple[str, list[int]]:
         """Decodes a list of tokens into a string and a list of offsets.
 
-        Each offset is the index into text corresponding to the start of each token.
-        If UTF-8 character boundaries do not line up with token boundaries, the offset is the index
-        of the first character that contains bytes from the token.
+        Args:
+            tokens (Sequence[int]): The sequence of tokens to decode.
 
-        This will currently raise if given tokens that decode to invalid UTF-8; this behaviour may
-        change in the future to be more permissive.
+        Returns:
+            tuple[str, list[int]]: A tuple containing:
+                - str: The decoded string.
+                - list[int]: The offsets into the string for each token.
 
-        >>> enc.decode_with_offsets([31373, 995])
-        ('hello world', [0, 5])
+        Note:
+            Each offset is the index into text corresponding to the start of each token.
+            If UTF-8 character boundaries do not line up with token boundaries, the offset
+            is the index of the first character that contains bytes from the token.
+
+        Warning:
+            This will currently raise if given tokens that decode to invalid UTF-8;
+            this behaviour may change in the future to be more permissive.
+
+        Examples:
+            >>> enc.decode_with_offsets([31373, 995])
+            ('hello world', [0, 5])
         """
         token_bytes = self.decode_tokens_bytes(tokens)
 
@@ -334,7 +441,18 @@ class Encoding:
     def decode_batch(
         self, batch: Sequence[Sequence[int]], *, errors: str = "replace", num_threads: int = 8
     ) -> list[str]:
-        """Decodes a batch (list of lists of tokens) into a list of strings."""
+        """Decodes a batch (list of lists of tokens) into a list of strings.
+
+        Args:
+            batch (Sequence[Sequence[int]]): List of token sequences to decode.
+            errors (str, optional): How to handle unicode decode errors. Options include
+                'strict', 'replace', 'ignore'. Defaults to 'replace'.
+            num_threads (int, optional): Number of threads to use for parallel processing.
+                Defaults to 8.
+
+        Returns:
+            list[str]: List of decoded strings, one for each token sequence.
+        """
         decoder = functools.partial(self.decode, errors=errors)
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(decoder, batch))
@@ -342,7 +460,16 @@ class Encoding:
     def decode_bytes_batch(
         self, batch: Sequence[Sequence[int]], *, num_threads: int = 8
     ) -> list[bytes]:
-        """Decodes a batch (list of lists of tokens) into a list of bytes."""
+        """Decodes a batch (list of lists of tokens) into a list of bytes.
+
+        Args:
+            batch (Sequence[Sequence[int]]): List of token sequences to decode.
+            num_threads (int, optional): Number of threads to use for parallel processing.
+                Defaults to 8.
+
+        Returns:
+            list[bytes]: List of decoded bytes, one for each token sequence.
+        """
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(self.decode_bytes, batch))
 
@@ -351,7 +478,11 @@ class Encoding:
     # ====================
 
     def token_byte_values(self) -> list[bytes]:
-        """Returns the list of all token byte values."""
+        """Returns the list of all token byte values.
+
+        Returns:
+            list[bytes]: List of all token byte values in the vocabulary.
+        """
         return self._core_bpe.token_byte_values()
 
     @property
@@ -368,7 +499,14 @@ class Encoding:
 
     @property
     def n_vocab(self) -> int:
-        """For backwards compatibility. Prefer to use `enc.max_token_value + 1`."""
+        """Get the vocabulary size.
+
+        Returns:
+            int: The number of tokens in the vocabulary.
+
+        Note:
+            For backwards compatibility. Prefer to use `enc.max_token_value + 1`.
+        """
         return self.max_token_value + 1
 
     # ====================
@@ -378,19 +516,32 @@ class Encoding:
     def _encode_single_piece(self, text_or_bytes: str | bytes) -> list[int]:
         """Encodes text corresponding to bytes without a regex split.
 
-        NOTE: this will not encode any special tokens.
+        Args:
+            text_or_bytes (Union[str, bytes]): Text to encode.
 
-        ```
-        >>> enc.encode_single_piece("helloqqqq")
-        [31373, 38227, 38227]
-        ```
+        Returns:
+            list[int]: The encoded tokens.
+
+        Note:
+            This will not encode any special tokens.
+
+        Examples:
+            >>> enc.encode_single_piece("helloqqqq")
+            [31373, 38227, 38227]
         """
         if isinstance(text_or_bytes, str):
             text_or_bytes = text_or_bytes.encode("utf-8")
         return self._core_bpe.encode_single_piece(text_or_bytes)
 
     def _encode_only_native_bpe(self, text: str) -> list[int]:
-        """Encodes a string into tokens, but do regex splitting in Python."""
+        """Encodes a string into tokens, but do regex splitting in Python.
+
+        Args:
+            text (str): The text to encode.
+
+        Returns:
+            list[int]: The encoded tokens.
+        """
         _unused_pat = regex.compile(self._pat_str)
         ret = []
         for piece in regex.findall(_unused_pat, text):
