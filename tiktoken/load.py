@@ -17,11 +17,10 @@ def read_file(blobpath: str) -> bytes:
             return f.read()
 
     # avoiding blobfile for public files helps avoid auth issues, like MFA prompts
-    import requests
-
-    resp = requests.get(blobpath)
-    resp.raise_for_status()
-    return resp.content
+    import urllib.request
+    with urllib.request.urlopen(blobpath) as response:
+        resp = response.read()
+    return resp
 
 
 def check_hash(data: bytes, expected_hash: str) -> bool:
