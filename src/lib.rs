@@ -256,7 +256,7 @@ impl CoreBPE {
             }
             let end = next_special.map_or(text.len(), |m| m.start());
 
-            // Okay, here we go, compare this logic to _encode_ordinary_native
+            // Okay, here we go, compare this logic to encode_ordinary
             for mat in regex.find_iter(&text[start..end]) {
                 let piece = mat.unwrap().as_str().as_bytes();
                 if let Some(token) = self.encoder.get(piece) {
@@ -398,7 +398,7 @@ impl CoreBPE {
                     // notice all the big holes in the previous unstable token implementation)
                     Err(_) => byte_pair_encode(&possibility, &self.encoder),
                     // Something like the following is intriguing but incorrect:
-                    // Err(e) => self._encode_ordinary_native(unsafe {
+                    // Err(e) => self.encode_ordinary(unsafe {
                     //     std::str::from_utf8_unchecked(&possibility[..e.valid_up_to()])
                     // }),
                 };

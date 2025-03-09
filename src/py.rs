@@ -68,23 +68,34 @@ impl CoreBPE {
     fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<Rank> {
         py.allow_threads(|| {
             match std::str::from_utf8(bytes) {
+                // Straightforward case
                 Ok(text) => self.encode_ordinary(text),
+                // Oops, don't actually have UTF-8. But we need to do the regex splitting in
+                // Unicode space, so we make our best guess at where we would have splits
                 Err(e) => {
                     let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
                     let (tokens, last_piece_token_len) = self.encode(text, &HashSet::new());
                     let (mut tokens, last_piece_token_len) =
                         self._increase_last_piece_token_len(tokens, last_piece_token_len);
+
+                    let mut unstable_bytes;
                     if !tokens.is_empty() && last_piece_token_len > 0 {
                         // Lop off the tokens from the last piece and run BPE on the remaining bytes
-                        // Somewhat niche, but this may not be correct if we'd have had a regex
-                        // split between the valid UTF-8 and the invalid bytes, which is why this
-                        // method is private
-                        let mut unstable_bytes = self
+                        // This likely matches what models see better, e.g. if you assume we're
+                        // dealing with truncated UTF-8 bytes.
+                        // Niche, but note this may not be correct if we'd have had a regex
+                        // split between the valid UTF-8 and the invalid bytes.
+                        unstable_bytes = self
                             .decode_bytes(&tokens[tokens.len() - last_piece_token_len..])
                             .unwrap();
                         unstable_bytes.extend_from_slice(&bytes[e.valid_up_to()..]);
 
                         tokens.truncate(tokens.len() - last_piece_token_len);
+                    } else {
+                        unstable_bytes = bytes[e.valid_up_to()..].to_vec();
+                    }
+
+                    if !unstable_bytes.is_empty() {
                         match self.encoder.get(&unstable_bytes) {
                             Some(token) => tokens.push(*token),
                             None => {
