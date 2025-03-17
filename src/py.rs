@@ -19,12 +19,8 @@ impl CoreBPE {
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
     ) -> PyResult<Self> {
-        Self::new_internal(
-            encoder,
-            special_tokens_encoder,
-            pattern,
-        )
-        .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))
+        Self::new_internal(encoder, special_tokens_encoder, pattern)
+            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))
     }
 
     // ====================
