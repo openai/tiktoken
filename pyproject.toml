@@ -1,12 +1,12 @@
 [project]
 name = "tiktoken"
-version = "0.8.0"
+version = "0.9.0"
 description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 readme = "README.md"
-license = {file = "LICENSE"}
-authors = [{name = "Shantanu Jain"}, {email = "shantanu@openai.com"}]
+license = { file = "LICENSE" }
+authors = [{ name = "Shantanu Jain" }, { email = "shantanu@openai.com" }]
 dependencies = ["regex>=2022.1.18", "requests>=2.26.0"]
-optional-dependencies = {blobfile = ["blobfile>=2"]}
+optional-dependencies = { blobfile = ["blobfile>=2"] }
 requires-python = ">=3.9"
 
 [project.urls]
@@ -22,9 +22,10 @@ requires = ["setuptools>=62.4", "wheel", "setuptools-rust>=1.5.2"]
 build-frontend = "build"
 build-verbosity = 1
 
-linux.before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+linux.before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal"
 linux.environment = { PATH = "$PATH:$HOME/.cargo/bin" }
 macos.before-all = "rustup target add aarch64-apple-darwin x86_64-apple-darwin"
+macos.environment = { MACOSX_DEPLOYMENT_TARGET = "10.12" }
 
 skip = [
   "*-manylinux_i686",
@@ -39,7 +40,3 @@ test-skip = "*-macosx_arm64"
 
 before-test = "pip install pytest hypothesis"
 test-command = "pytest {project}/tests --import-mode=append"
-
-[[tool.cibuildwheel.overrides]]
-select = "*linux_aarch64"
-test-command = """python -c 'import tiktoken; enc = tiktoken.get_encoding("gpt2"); assert enc.encode("hello world") == [31373, 995]'"""

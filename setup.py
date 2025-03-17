@@ -10,6 +10,7 @@ setup(
             # Between our use of editable installs and wanting to use Rust for performance sensitive
             # code, it makes sense to just always use --release
             debug=False,
+            features=["python"],
         )
     ],
     package_data={"tiktoken": ["py.typed"]},
