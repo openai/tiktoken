@@ -7,6 +7,7 @@ from .registry import get_encoding
 MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "o1-": "o200k_base",
     "o3-": "o200k_base",
+    "o4-": "o200k_base",
     # chat
     "chatgpt-4o-": "o200k_base",
     "gpt-4o-": "o200k_base",  # e.g., gpt-4o-2024-05-13
@@ -25,6 +26,7 @@ MODEL_TO_ENCODING: dict[str, str] = {
     # reasoning
     "o1": "o200k_base",
     "o3": "o200k_base",
+    "o4": "o200k_base",
     # chat
     "gpt-4o": "o200k_base",
     "gpt-4": "cl100k_base",
