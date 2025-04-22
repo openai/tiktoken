@@ -426,17 +426,43 @@ export type TiktokenModel =
     | "gpt-4o-2024-11-20"
     | "gpt-4o-mini-2024-07-18"
     | "gpt-4o-mini"
+    | "gpt-4o-search-preview"
+    | "gpt-4o-search-preview-2025-03-11"
+    | "gpt-4o-mini-search-preview"
+    | "gpt-4o-mini-search-preview-2025-03-11"
+    | "gpt-4o-audio-preview"
+    | "gpt-4o-audio-preview-2024-12-17"
+    | "gpt-4o-audio-preview-2024-10-01"
+    | "gpt-4o-mini-audio-preview"
+    | "gpt-4o-mini-audio-preview-2024-12-17"
     | "o1"
     | "o1-2024-12-17"
     | "o1-mini"
+    | "o1-mini-2024-09-12"
     | "o1-preview"
     | "o1-preview-2024-09-12"
-    | "o1-mini-2024-09-12"
+    | "o1-pro"
+    | "o1-pro-2025-03-19"
+    | "o3"
+    | "o3-2025-04-16"
     | "o3-mini"
     | "o3-mini-2025-01-31"
+    | "o4-mini"
+    | "o4-mini-2025-04-16"
     | "chatgpt-4o-latest"
     | "gpt-4o-realtime"
     | "gpt-4o-realtime-preview-2024-10-01"
+    | "gpt-4o-realtime-preview-2024-12-17"
+    | "gpt-4o-mini-realtime-preview"
+    | "gpt-4o-mini-realtime-preview-2024-12-17"
+    | "gpt-4.1"
+    | "gpt-4.1-2025-04-14"
+    | "gpt-4.1-mini"
+    | "gpt-4.1-mini-2025-04-14"
+    | "gpt-4.1-nano"
+    | "gpt-4.1-nano-2025-04-14"
+    | "gpt-4.5-preview"
+    | "gpt-4.5-preview-2025-02-27";
 
 /**
  * @param {TiktokenModel} encoding
@@ -515,17 +541,43 @@ pub fn encoding_for_model(
         "gpt-4o-2024-11-20" => Ok("o200k_base"),
         "gpt-4o-mini-2024-07-18" => Ok("o200k_base"),
         "gpt-4o-mini" => Ok("o200k_base"),
+        "gpt-4o-search-preview" => Ok("o200k_base"),
+        "gpt-4o-search-preview-2025-03-11" => Ok("o200k_base"),
+        "gpt-4o-mini-search-preview" => Ok("o200k_base"),
+        "gpt-4o-mini-search-preview-2025-03-11" => Ok("o200k_base"),
+        "gpt-4o-audio-preview" => Ok("o200k_base"),
+        "gpt-4o-audio-preview-2024-12-17" => Ok("o200k_base"),
+        "gpt-4o-audio-preview-2024-10-01" => Ok("o200k_base"),
+        "gpt-4o-mini-audio-preview" => Ok("o200k_base"),
+        "gpt-4o-mini-audio-preview-2024-12-17" => Ok("o200k_base"),
         "o1" => Ok("o200k_base"),
         "o1-2024-12-17" => Ok("o200k_base"),
         "o1-mini" => Ok("o200k_base"),
+        "o1-mini-2024-09-12" => Ok("o200k_base"),
         "o1-preview" => Ok("o200k_base"),
         "o1-preview-2024-09-12" => Ok("o200k_base"),
-        "o1-mini-2024-09-12" => Ok("o200k_base"),
+        "o1-pro" => Ok("o200k_base"),
+        "o1-pro-2025-03-19" => Ok("o200k_base"),
+        "o3" => Ok("o200k_base"),
+        "o3-2025-04-16" => Ok("o200k_base"),
+        "o3-mini" => Ok("o200k_base"),
+        "o3-mini-2025-01-31" => Ok("o200k_base"),
+        "o4-mini" => Ok("o200k_base"),
+        "o4-mini-2025-04-16" => Ok("o200k_base"),
         "chatgpt-4o-latest" => Ok("o200k_base"),
         "gpt-4o-realtime" => Ok("o200k_base"),
         "gpt-4o-realtime-preview-2024-10-01" => Ok("o200k_base"),
-        "o3-mini" => Ok("o200k_base"),
-        "o3-mini-2025-01-31" => Ok("o200k_base"),
+        "gpt-4o-realtime-preview-2024-12-17" => Ok("o200k_base"),
+        "gpt-4o-mini-realtime-preview" => Ok("o200k_base"),
+        "gpt-4o-mini-realtime-preview-2024-12-17" => Ok("o200k_base"),
+        "gpt-4.1" => Ok("o200k_base"),
+        "gpt-4.1-2025-04-14" => Ok("o200k_base"),
+        "gpt-4.1-mini" => Ok("o200k_base"),
+        "gpt-4.1-mini-2025-04-14" => Ok("o200k_base"),
+        "gpt-4.1-nano" => Ok("o200k_base"),
+        "gpt-4.1-nano-2025-04-14" => Ok("o200k_base"),
+        "gpt-4.5-preview" => Ok("o200k_base"),
+        "gpt-4.5-preview-2025-02-27" => Ok("o200k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),

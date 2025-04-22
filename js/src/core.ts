@@ -282,18 +282,43 @@ export function getEncodingNameForModel(model: TiktokenModel) {
     case "gpt-4o-2024-11-20":
     case "gpt-4o-mini-2024-07-18":
     case "gpt-4o-mini":
+    case "gpt-4o-search-preview":
+    case "gpt-4o-search-preview-2025-03-11":
+    case "gpt-4o-mini-search-preview":
+    case "gpt-4o-mini-search-preview-2025-03-11":
+    case "gpt-4o-audio-preview":
+    case "gpt-4o-audio-preview-2024-12-17":
+    case "gpt-4o-audio-preview-2024-10-01":
+    case "gpt-4o-mini-audio-preview":
+    case "gpt-4o-mini-audio-preview-2024-12-17":
     case "o1":
     case "o1-2024-12-17":
     case "o1-mini":
+    case "o1-mini-2024-09-12":
     case "o1-preview":
     case "o1-preview-2024-09-12":
-    case "o1-mini-2024-09-12":
+    case "o1-pro":
+    case "o1-pro-2025-03-19":
+    case "o3":
+    case "o3-2025-04-16":
     case "o3-mini":
     case "o3-mini-2025-01-31":
+    case "o4-mini":
+    case "o4-mini-2025-04-16":
     case "chatgpt-4o-latest":
     case "gpt-4o-realtime":
     case "gpt-4o-realtime-preview-2024-10-01":
-    {
+    case "gpt-4o-realtime-preview-2024-12-17":
+    case "gpt-4o-mini-realtime-preview":
+    case "gpt-4o-mini-realtime-preview-2024-12-17":
+    case "gpt-4.1":
+    case "gpt-4.1-2025-04-14":
+    case "gpt-4.1-mini":
+    case "gpt-4.1-mini-2025-04-14":
+    case "gpt-4.1-nano":
+    case "gpt-4.1-nano-2025-04-14":
+    case "gpt-4.5-preview":
+    case "gpt-4.5-preview-2025-02-27": {
       return "o200k_base";
     }
     default:
