@@ -1,5 +1,11 @@
 # tiktoken
 
+## 1.0.21
+
+### Patch Changes
+
+- 35f522f: add o3, o4, gpt-4.1 and missing specialised / pro models
+
 ## 1.0.20
 
 ### Patch Changes
