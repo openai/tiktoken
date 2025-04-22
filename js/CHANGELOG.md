@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.20
+
+### Patch Changes
+
+- 35f522f: add o3, o4, gpt-4.1 and missing specialised / pro models
+
 ## 1.0.19
 
 ### Patch Changes
