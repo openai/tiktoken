@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pypa/cibuildwheel@v2.21.2
+      - uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
 
@@ -38,19 +38,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04-arm]
         python-version: [39, 310, 311, 312, 313]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.2
+        uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
@@ -60,7 +55,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cibw-wheelsaarch64-${{ matrix.os }}-${{ strategy.job-index }}
+          name: cibw-wheels-aarch64-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -85,3 +80,15 @@ jobs:
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./dist/*.tar.gz
+
+  join_artifacts:
+    name: Join artifacts
+    runs-on: ubuntu-latest
+    needs: [build_wheels, build_wheels_aarch64, build_sdist]
+    steps:
+     - name: Merge artifacts
+       uses: actions/upload-artifact/merge@v4
+       with:
+         name: cibw-wheels
+         pattern: cibw-wheels-*
+         delete-merged: true

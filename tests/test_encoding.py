@@ -78,6 +78,17 @@ def test_encode_empty():
 def test_encode_bytes():
     enc = tiktoken.get_encoding("cl100k_base")
     assert enc._encode_bytes(b" \xec\x8b\xa4\xed") == [62085]
+    for i in range(10):
+        bytestring = b"\x80" * i
+        assert enc.decode_bytes(enc._encode_bytes(bytestring)) == bytestring
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+@hypothesis.given(bytestring=st.binary())
+@hypothesis.settings(deadline=None)
+def test_hyp_encode_bytes(make_enc: Callable[[], tiktoken.Encoding], bytestring: bytes):
+    enc = make_enc()
+    assert enc.decode_bytes(enc._encode_bytes(bytestring)) == bytestring
 
 
 def test_encode_surrogate_pairs():

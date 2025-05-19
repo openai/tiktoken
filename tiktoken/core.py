@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import functools
 from concurrent.futures import ThreadPoolExecutor
-from typing import AbstractSet, Collection, Literal, NoReturn, Sequence
+from typing import TYPE_CHECKING, AbstractSet, Collection, Literal, NoReturn, Sequence
 
 import regex
 
 from tiktoken import _tiktoken
+
+if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
 
 
 class Encoding:
@@ -127,6 +131,32 @@ class Encoding:
             # Also we use errors="replace" to handle weird things like lone surrogates.
             text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
             return self._core_bpe.encode(text, allowed_special)
+
+    def encode_to_numpy(
+        self,
+        text: str,
+        *,
+        allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
+        disallowed_special: Literal["all"] | Collection[str] = "all",
+    ) -> npt.NDArray[np.uint32]:
+        """Encodes a string into tokens, returning a numpy array.
+
+        Avoids the overhead of copying the token buffer into a Python list.
+        """
+        if allowed_special == "all":
+            allowed_special = self.special_tokens_set
+        if disallowed_special == "all":
+            disallowed_special = self.special_tokens_set - allowed_special
+        if disallowed_special:
+            if not isinstance(disallowed_special, frozenset):
+                disallowed_special = frozenset(disallowed_special)
+            if match := _special_token_regex(disallowed_special).search(text):
+                raise_disallowed_special_token(match.group())
+
+        import numpy as np
+
+        buffer = self._core_bpe.encode_to_tiktoken_buffer(text, self.special_tokens_set)
+        return np.frombuffer(buffer, dtype=np.uint32)
 
     def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
         """Encodes a list of strings into tokens, in parallel, ignoring special tokens.
@@ -331,6 +361,10 @@ class Encoding:
     @functools.cached_property
     def special_tokens_set(self) -> set[str]:
         return set(self._special_tokens.keys())
+
+    def is_special_token(self, token: int) -> bool:
+        assert isinstance(token, int)
+        return token in self._special_token_values
 
     @property
     def n_vocab(self) -> int:
