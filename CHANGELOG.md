@@ -2,7 +2,12 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.10.0]
+
+- Support for gpt-4.1 and gpt-4.5 models
+
 ## [v0.9.0]
+
 - Support for `o1` and `o3` models
 - Better error messages when loading invalid vocabulary files
 - Support for encoding to numpy arrays
