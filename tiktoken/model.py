@@ -11,6 +11,8 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "chatgpt-4o-": "o200k_base",
     "gpt-4o-": "o200k_base",  # e.g., gpt-4o-2024-05-13
     "gpt-4-": "cl100k_base",  # e.g., gpt-4-0314, etc., plus gpt-4-32k
+    "gpt-4.1-": "o200k_base",  # e.g., gpt-4.1-nano, gpt-4.1-mini
+    "gpt-4.5-": "o200k_base", # e.g., gpt-4.5-preview
     "gpt-3.5-turbo-": "cl100k_base",  # e.g, gpt-3.5-turbo-0301, -0401, etc.
     "gpt-35-turbo-": "cl100k_base",  # Azure deployment name
     # fine-tuned
@@ -28,6 +30,8 @@ MODEL_TO_ENCODING: dict[str, str] = {
     # chat
     "gpt-4o": "o200k_base",
     "gpt-4": "cl100k_base",
+    "gpt-4.1": "o200k_base",
+    "gpt-4.5": "o200k_base",
     "gpt-3.5-turbo": "cl100k_base",
     "gpt-3.5": "cl100k_base",  # Common shorthand
     "gpt-35-turbo": "cl100k_base",  # Azure deployment name
