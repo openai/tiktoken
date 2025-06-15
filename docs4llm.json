@@ -1,0 +1,702 @@
+{
+  ".github": {
+    "workflows": {
+      "build_wheels.yml": {
+        "path": ".github/workflows/build_wheels.yml",
+        "name": "build_wheels.yml",
+        "summary": "Defines a GitHub Actions workflow to build and upload Python wheels and source distributions for the project across multiple platforms and Python versions."
+      }
+    }
+  },
+  ".gitignore": {
+    "path": ".gitignore",
+    "name": ".gitignore",
+    "summary": "Specifies intentionally untracked files that Git should ignore.",
+    "key_sections": [
+      "Byte-compiled / optimized / DLL files",
+      "C extensions",
+      "Distribution / packaging",
+      "Environments",
+      "Tools",
+      "General"
+    ]
+  },
+  "CHANGELOG.md": {
+    "path": "CHANGELOG.md",
+    "name": "CHANGELOG.md",
+    "summary": "Lists the changes made to each version of the tiktoken library.",
+    "key_sections": [
+      "v0.9.0",
+      "v0.8.0",
+      "v0.7.0",
+      "v0.6.0",
+      "v0.5.2",
+      "v0.5.1",
+      "v0.5.0",
+      "v0.4.0",
+      "v0.3.3",
+      "v0.3.2",
+      "v0.3.1",
+      "v0.3.0",
+      "v0.2.0",
+      "v0.1.2",
+      "v0.1.1"
+    ]
+  },
+  "Cargo.toml": {
+    "path": "Cargo.toml",
+    "name": "Cargo.toml",
+    "summary": "Defines the Rust package 'tiktoken' and its dependencies, including build configurations.",
+    "configuration_summary": "Specifies package metadata, dependencies (including pyo3 for Python bindings), and build features."
+  },
+  "LICENSE": {
+    "path": "LICENSE",
+    "name": "LICENSE",
+    "summary": "Contains the MIT License for the software.",
+    "key_sections": [
+      "MIT License",
+      "Copyright",
+      "Permission",
+      "Disclaimer of Warranty"
+    ]
+  },
+  "MANIFEST.in": {
+    "path": "MANIFEST.in",
+    "name": "MANIFEST.in",
+    "summary": "Specifies files to include in the Python package distribution."
+  },
+  "README.md": {
+    "path": "README.md",
+    "name": "README.md",
+    "summary": "Provides documentation and usage examples for the tiktoken library, a fast BPE tokeniser for OpenAI models.",
+    "key_sections": [
+      "Performance",
+      "Getting help",
+      "What is BPE anyway?",
+      "Extending tiktoken"
+    ]
+  },
+  "pyproject.toml": {
+    "path": "pyproject.toml",
+    "name": "pyproject.toml",
+    "summary": "Defines the project's metadata, dependencies, build system, and configuration for the tiktoken library.",
+    "configuration_summary": "Specifies project name, version, dependencies, build backend, and CI/CD configuration for building wheels, including environment variables and test commands."
+  },
+  "scripts": {
+    "benchmark.py": {
+      "path": "scripts/benchmark.py",
+      "name": "benchmark.py",
+      "summary": "Benchmarks the performance of tokenization using tiktoken and Hugging Face tokenizers.",
+      "exports": [
+        "benchmark_batch"
+      ],
+      "key_functions": [
+        {
+          "name": "benchmark_batch",
+          "params": [
+            "documents: list[str]"
+          ],
+          "returns": "None. Prints performance metrics to standard output."
+        }
+      ]
+    },
+    "redact.py": {
+      "path": "scripts/redact.py",
+      "name": "redact.py",
+      "summary": "This script redacts specified content within files or deletes them, primarily intended for removing sensitive information during development or testing.",
+      "exports": [
+        "redact_file",
+        "redact"
+      ],
+      "key_functions": [
+        {
+          "name": "redact_file",
+          "params": [
+            "path: Path",
+            "dry_run: bool"
+          ],
+          "returns": "None. Modifies or deletes the file at the given path based on the presence of redaction markers."
+        },
+        {
+          "name": "redact",
+          "params": [
+            "dry_run: bool"
+          ],
+          "returns": "None.  Applies the redact_file function to all files within the tiktoken project, based on git ls-files output or all files if git fails."
+        }
+      ]
+    }
+  },
+  "setup.py": {
+    "path": "setup.py",
+    "name": "setup.py",
+    "summary": "Configures and builds the tiktoken Python package, including Rust extensions.",
+    "exports": [],
+    "key_functions": []
+  },
+  "src": {
+    "lib.rs": {
+      "path": "src/lib.rs",
+      "name": "lib.rs",
+      "summary": "Implements the core Byte Pair Encoding (BPE) logic for tokenization, including encoding, decoding, and handling special tokens and regex patterns, serving as the Rust backend for a tokenizer library.",
+      "exports": [
+        "Rank",
+        "DecodeKeyError",
+        "DecodeError",
+        "CoreBPE",
+        "byte_pair_encode",
+        "byte_pair_split"
+      ],
+      "key_functions": [
+        {
+          "name": "CoreBPE::new",
+          "params": [
+            "encoder: HashMap<Vec<u8>, Rank>",
+            "special_tokens_encoder: HashMap<String, Rank>",
+            "pattern: &str"
+          ],
+          "returns": "A new CoreBPE instance or an error."
+        },
+        {
+          "name": "CoreBPE::encode",
+          "params": [
+            "text: &str",
+            "allowed_special: &HashSet<&str>"
+          ],
+          "returns": "(Vec<Rank>, usize) - encoded tokens and last piece token length for unstable tokens."
+        },
+        {
+          "name": "CoreBPE::encode_ordinary",
+          "params": [
+            "text: &str"
+          ],
+          "returns": "Vec<Rank> - encoded tokens without special token handling."
+        },
+        {
+          "name": "CoreBPE::encode_with_special_tokens",
+          "params": [
+            "text: &str"
+          ],
+          "returns": "Vec<Rank> - encoded tokens, allowing all special tokens."
+        },
+        {
+          "name": "CoreBPE::decode_bytes",
+          "params": [
+            "tokens: &[Rank]"
+          ],
+          "returns": "Result<Vec<u8>, DecodeKeyError> - decoded bytes."
+        },
+        {
+          "name": "byte_pair_encode",
+          "params": [
+            "piece: &[u8]",
+            "ranks: &HashMap<Vec<u8>, Rank>"
+          ],
+          "returns": "Vec<Rank> - encoded piece."
+        },
+        {
+          "name": "byte_pair_split",
+          "params": [
+            "piece: &[u8]",
+            "ranks: &HashMap<Vec<u8>, Rank>"
+          ],
+          "returns": "Vec<&[u8]> - split pieces."
+        }
+      ]
+    },
+    "py.rs": {
+      "path": "src/py.rs",
+      "name": "py.rs",
+      "summary": "Provides Python bindings for the CoreBPE struct, enabling tokenization and detokenization functionalities.",
+      "exports": [
+        "CoreBPE",
+        "_tiktoken"
+      ],
+      "key_functions": [
+        {
+          "name": "py_new",
+          "params": [
+            "encoder: HashMap<Vec<u8>, Rank>",
+            "special_tokens_encoder: HashMap<String, Rank>",
+            "pattern: &str"
+          ],
+          "returns": "A new CoreBPE instance."
+        },
+        {
+          "name": "encode_ordinary",
+          "params": [
+            "text: &str"
+          ],
+          "returns": "A vector of token IDs."
+        },
+        {
+          "name": "encode",
+          "params": [
+            "text: &str",
+            "allowed_special: HashSet<PyBackedStr>"
+          ],
+          "returns": "A vector of token IDs."
+        },
+        {
+          "name": "decode_bytes",
+          "params": [
+            "tokens: Vec<Rank>"
+          ],
+          "returns": "Decoded bytes as PyBytes."
+        },
+        {
+          "name": "token_byte_values",
+          "params": [],
+          "returns": "A vector of token bytes as PyBytes."
+        }
+      ]
+    }
+  },
+  "tests": {
+    "__init__.py": {
+      "path": "tests/__init__.py"
+    },
+    "test_encoding.py": {
+      "path": "tests/test_encoding.py",
+      "name": "test_encoding.py",
+      "summary": "Tests the encoding and decoding functionality of the tiktoken library, including various encoding schemes and special token handling.",
+      "exports": [],
+      "key_functions": [
+        {
+          "name": "test_simple",
+          "params": [],
+          "returns": "Tests basic encoding and decoding with different encodings."
+        },
+        {
+          "name": "test_simple_repeated",
+          "params": [],
+          "returns": "Tests encoding of repeated characters."
+        },
+        {
+          "name": "test_simple_regex",
+          "params": [],
+          "returns": "Tests encoding of strings with special characters."
+        },
+        {
+          "name": "test_basic_encode",
+          "params": [],
+          "returns": "Tests basic encoding functionality."
+        },
+        {
+          "name": "test_encode_empty",
+          "params": [],
+          "returns": "Tests encoding of an empty string."
+        },
+        {
+          "name": "test_encode_bytes",
+          "params": [],
+          "returns": "Tests encoding and decoding of byte strings."
+        },
+        {
+          "name": "test_hyp_encode_bytes",
+          "params": [
+            "make_enc: Callable[[], tiktoken.Encoding]",
+            "bytestring: bytes"
+          ],
+          "returns": "Tests encoding of byte strings using hypothesis."
+        },
+        {
+          "name": "test_encode_surrogate_pairs",
+          "params": [],
+          "returns": "Tests encoding of surrogate pairs."
+        },
+        {
+          "name": "test_catastrophically_repetitive",
+          "params": [
+            "make_enc: Callable[[], tiktoken.Encoding]"
+          ],
+          "returns": "Tests encoding of very repetitive strings."
+        },
+        {
+          "name": "test_basic_roundtrip",
+          "params": [
+            "make_enc"
+          ],
+          "returns": "Tests roundtrip encoding and decoding."
+        },
+        {
+          "name": "test_hyp_roundtrip",
+          "params": [
+            "make_enc: Callable[[], tiktoken.Encoding]",
+            "text"
+          ],
+          "returns": "Tests roundtrip encoding and decoding using hypothesis."
+        },
+        {
+          "name": "test_single_token_roundtrip",
+          "params": [
+            "make_enc: Callable[[], tiktoken.Encoding]"
+          ],
+          "returns": "Tests roundtrip encoding and decoding of single tokens."
+        },
+        {
+          "name": "test_special_token",
+          "params": [],
+          "returns": "Tests encoding and decoding of special tokens."
+        },
+        {
+          "name": "test_hyp_special_ordinary",
+          "params": [
+            "make_enc",
+            "text: str"
+          ],
+          "returns": "Tests encoding special and ordinary tokens using hypothesis."
+        },
+        {
+          "name": "test_batch_encode",
+          "params": [
+            "make_enc: Callable[[], tiktoken.Encoding]"
+          ],
+          "returns": "Tests batch encoding and decoding."
+        },
+        {
+          "name": "test_hyp_batch_roundtrip",
+          "params": [
+            "make_enc: Callable[[], tiktoken.Encoding]",
+            "batch"
+          ],
+          "returns": "Tests batch roundtrip encoding and decoding using hypothesis."
+        }
+      ],
+      "tests_summary": "Contains unit tests for the encoding and decoding functionalities of tiktoken library."
+    },
+    "test_helpers.py": {
+      "path": "tests/test_helpers.py",
+      "name": "test_helpers.py",
+      "summary": "Defines helper variables and fixtures for use in tiktoken test files.",
+      "exports": [
+        "ENCODINGS",
+        "SOME_ENCODINGS",
+        "ENCODING_FACTORIES",
+        "SOME_ENCODING_FACTORIES"
+      ]
+    },
+    "test_misc.py": {
+      "path": "tests/test_misc.py",
+      "name": "test_misc.py",
+      "summary": "Contains miscellaneous tests for the tiktoken library, including encoding selection and optional dependency checks.",
+      "exports": [
+        "test_encoding_for_model",
+        "test_optional_blobfile_dependency"
+      ],
+      "key_functions": [
+        {
+          "name": "test_encoding_for_model",
+          "params": [],
+          "returns": "Tests that `encoding_for_model` returns the expected encodings for various model names."
+        },
+        {
+          "name": "test_optional_blobfile_dependency",
+          "params": [],
+          "returns": "Tests that the `blobfile` dependency is not imported if it is not installed."
+        }
+      ]
+    },
+    "test_offsets.py": {
+      "path": "tests/test_offsets.py",
+      "name": "test_offsets.py",
+      "summary": "Tests the functionality of decoding tokens with character offsets using various encoding methods.",
+      "exports": [
+        "test_hyp_offsets",
+        "test_basic_offsets"
+      ],
+      "key_functions": [
+        {
+          "name": "test_hyp_offsets",
+          "params": [
+            "make_enc: Callable[[], tiktoken.Encoding]",
+            "data"
+          ],
+          "returns": "None"
+        },
+        {
+          "name": "test_basic_offsets",
+          "params": [],
+          "returns": "None"
+        }
+      ]
+    },
+    "test_pickle.py": {
+      "path": "tests/test_pickle.py",
+      "name": "test_pickle.py",
+      "summary": "Tests the pickling and unpickling of tiktoken Encoding objects to ensure they are preserved correctly.",
+      "exports": [],
+      "key_functions": [
+        {
+          "name": "test_pickle",
+          "params": [],
+          "returns": "None. Asserts the encoding and decoding results using pickle."
+        }
+      ]
+    },
+    "test_simple_public.py": {
+      "path": "tests/test_simple_public.py",
+      "name": "test_simple_public.py",
+      "summary": "Contains unit tests for the public interface of the tiktoken library, focusing on basic encoding and decoding.",
+      "exports": [
+        "test_simple",
+        "test_encoding_for_model",
+        "test_optional_blobfile_dependency"
+      ],
+      "key_functions": [
+        {
+          "name": "test_simple",
+          "params": [],
+          "returns": "Tests basic encoding and decoding functionality."
+        },
+        {
+          "name": "test_encoding_for_model",
+          "params": [],
+          "returns": "Tests the `encoding_for_model` function."
+        },
+        {
+          "name": "test_optional_blobfile_dependency",
+          "params": [],
+          "returns": "Tests that the optional 'blobfile' dependency is not imported."
+        }
+      ]
+    }
+  },
+  "tiktoken": {
+    "__init__.py": {
+      "path": "tiktoken/__init__.py",
+      "name": "__init__.py",
+      "summary": "Defines the public API for the tiktoken library, re-exporting core functionalities and version information.",
+      "exports": [
+        "Encoding",
+        "encoding_for_model",
+        "encoding_name_for_model",
+        "get_encoding",
+        "list_encoding_names"
+      ]
+    },
+    "core.py": {
+      "path": "tiktoken/core.py",
+      "name": "core.py",
+      "summary": "Defines the core `Encoding` class for Byte Pair Encoding (BPE) tokenization, handling text encoding into tokens and decoding tokens back into text.",
+      "exports": [
+        "Encoding"
+      ],
+      "key_functions": [
+        {
+          "name": "Encoding.__init__",
+          "params": [
+            "name: str",
+            "pat_str: str",
+            "mergeable_ranks: dict[bytes, int]",
+            "special_tokens: dict[str, int]",
+            "explicit_n_vocab: int | None"
+          ],
+          "returns": "None"
+        },
+        {
+          "name": "Encoding.encode",
+          "params": [
+            "text: str",
+            "allowed_special: Literal['all'] | AbstractSet[str]",
+            "disallowed_special: Literal['all'] | Collection[str]"
+          ],
+          "returns": "list[int]"
+        },
+        {
+          "name": "Encoding.encode_ordinary",
+          "params": [
+            "text: str"
+          ],
+          "returns": "list[int]"
+        },
+        {
+          "name": "Encoding.encode_to_numpy",
+          "params": [
+            "text: str",
+            "allowed_special: Literal['all'] | AbstractSet[str]",
+            "disallowed_special: Literal['all'] | Collection[str]"
+          ],
+          "returns": "npt.NDArray[np.uint32]"
+        },
+        {
+          "name": "Encoding.encode_batch",
+          "params": [
+            "text: list[str]",
+            "num_threads: int",
+            "allowed_special: Literal['all'] | AbstractSet[str]",
+            "disallowed_special: Literal['all'] | Collection[str]"
+          ],
+          "returns": "list[list[int]]"
+        },
+        {
+          "name": "Encoding.decode",
+          "params": [
+            "tokens: Sequence[int]",
+            "errors: str"
+          ],
+          "returns": "str"
+        },
+        {
+          "name": "Encoding.decode_bytes",
+          "params": [
+            "tokens: Sequence[int]"
+          ],
+          "returns": "bytes"
+        },
+        {
+          "name": "Encoding.decode_batch",
+          "params": [
+            "batch: Sequence[Sequence[int]]",
+            "errors: str",
+            "num_threads: int"
+          ],
+          "returns": "list[str]"
+        },
+        {
+          "name": "Encoding.token_byte_values",
+          "params": [],
+          "returns": "list[bytes]"
+        }
+      ]
+    },
+    "load.py": {
+      "path": "tiktoken/load.py",
+      "name": "load.py",
+      "summary": "Provides functions for reading and caching files, including BPE vocabularies, and converting between different BPE format representations.",
+      "exports": [
+        "read_file",
+        "check_hash",
+        "read_file_cached",
+        "data_gym_to_mergeable_bpe_ranks",
+        "dump_tiktoken_bpe",
+        "load_tiktoken_bpe"
+      ],
+      "key_functions": [
+        {
+          "name": "read_file_cached",
+          "params": [
+            "blobpath: str",
+            "expected_hash: str | None = None"
+          ],
+          "returns": "bytes: File content, cached if possible."
+        },
+        {
+          "name": "data_gym_to_mergeable_bpe_ranks",
+          "params": [
+            "vocab_bpe_file: str",
+            "encoder_json_file: str",
+            "vocab_bpe_hash: str | None = None",
+            "encoder_json_hash: str | None = None"
+          ],
+          "returns": "dict[bytes, int]: BPE merge ranks."
+        },
+        {
+          "name": "dump_tiktoken_bpe",
+          "params": [
+            "bpe_ranks: dict[bytes, int]",
+            "tiktoken_bpe_file: str"
+          ],
+          "returns": "None: Writes BPE ranks to a file."
+        },
+        {
+          "name": "load_tiktoken_bpe",
+          "params": [
+            "tiktoken_bpe_file: str",
+            "expected_hash: str | None = None"
+          ],
+          "returns": "dict[bytes, int]: Loads BPE ranks from a file."
+        }
+      ]
+    },
+    "model.py": {
+      "path": "tiktoken/model.py",
+      "name": "model.py",
+      "summary": "Provides functions to map model names to their corresponding tiktoken encoding names and instances.",
+      "exports": [
+        "encoding_name_for_model",
+        "encoding_for_model"
+      ],
+      "key_functions": [
+        {
+          "name": "encoding_name_for_model",
+          "params": [
+            "model_name: str"
+          ],
+          "returns": "The name of the encoding used by the given model, raises KeyError if not found."
+        },
+        {
+          "name": "encoding_for_model",
+          "params": [
+            "model_name: str"
+          ],
+          "returns": "The Encoding object for the given model, raises KeyError if not found."
+        }
+      ]
+    },
+    "registry.py": {
+      "path": "tiktoken/registry.py",
+      "name": "registry.py",
+      "summary": "Manages the registration and retrieval of text encodings, including loading encodings from plugins.",
+      "exports": [
+        "get_encoding",
+        "list_encoding_names"
+      ],
+      "key_functions": [
+        {
+          "name": "get_encoding",
+          "params": [
+            "encoding_name: str"
+          ],
+          "returns": "An Encoding object for the given encoding name."
+        },
+        {
+          "name": "list_encoding_names",
+          "params": [],
+          "returns": "A list of available encoding names."
+        }
+      ]
+    }
+  },
+  "tiktoken_ext": {
+    "openai_public.py": {
+      "path": "tiktoken_ext/openai_public.py",
+      "name": "openai_public.py",
+      "summary": "Defines and provides access to various OpenAI-related tokenization configurations.",
+      "exports": [
+        "gpt2",
+        "r50k_base",
+        "p50k_base",
+        "p50k_edit",
+        "cl100k_base",
+        "o200k_base"
+      ],
+      "key_functions": [
+        {
+          "name": "gpt2",
+          "returns": "Configuration for gpt2 tokenizer."
+        },
+        {
+          "name": "r50k_base",
+          "returns": "Configuration for r50k_base tokenizer."
+        },
+        {
+          "name": "p50k_base",
+          "returns": "Configuration for p50k_base tokenizer."
+        },
+        {
+          "name": "p50k_edit",
+          "returns": "Configuration for p50k_edit tokenizer."
+        },
+        {
+          "name": "cl100k_base",
+          "returns": "Configuration for cl100k_base tokenizer."
+        },
+        {
+          "name": "o200k_base",
+          "returns": "Configuration for o200k_base tokenizer."
+        }
+      ]
+    }
+  }
+}
