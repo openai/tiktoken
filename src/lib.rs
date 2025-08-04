@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-use std::borrow::Cow;
 use std::collections::HashSet;
 use std::num::NonZeroU64;
 use std::thread;
@@ -11,6 +9,11 @@ use rustc_hash::FxHashMap as HashMap;
 
 #[cfg(feature = "python")]
 mod py;
+
+pub mod uniffi_bindings;
+
+// UniFfiTag is required by UniFFI for type checking
+pub struct UniFfiTag;
 
 pub type Rank = u32;
 
@@ -73,17 +76,22 @@ fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize,
 }
 
 pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Rank> {
+    if piece.is_empty() {
+        return vec![];
+    }
     if piece.len() == 1 {
-        return vec![ranks[piece]];
+        return ranks.get(piece).copied().map_or(vec![], |r| vec![r]);
     }
     _byte_pair_merge(ranks, piece)
         .windows(2)
-        .map(|part| ranks[&piece[part[0].0..part[1].0]])
+        .filter_map(|part| ranks.get(&piece[part[0].0..part[1].0]).copied())
         .collect()
 }
 
 pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<&'a [u8]> {
-    assert!(piece.len() > 1);
+    if piece.len() <= 1 {
+        return vec![piece];
+    }
     _byte_pair_merge(ranks, piece)
         .windows(2)
         .map(|part| &piece[part[0].0..part[1].0])
@@ -177,13 +185,13 @@ const MAX_NUM_THREADS: usize = 128;
 #[cfg_attr(feature = "python", pyclass)]
 #[derive(Clone)]
 pub struct CoreBPE {
-    encoder: HashMap<Vec<u8>, Rank>,
-    special_tokens_encoder: HashMap<String, Rank>,
-    decoder: HashMap<Rank, Vec<u8>>,
-    special_tokens_decoder: HashMap<Rank, Vec<u8>>,
-    regex_tls: Vec<Regex>,
-    special_regex_tls: Vec<Regex>,
-    sorted_token_bytes: Vec<Vec<u8>>,
+    pub(crate) encoder: HashMap<Vec<u8>, Rank>,
+    pub(crate) special_tokens_encoder: HashMap<String, Rank>,
+    pub(crate) decoder: HashMap<Rank, Vec<u8>>,
+    pub(crate) special_tokens_decoder: HashMap<Rank, Vec<u8>>,
+    pub(crate) regex_tls: Vec<Regex>,
+    pub(crate) special_regex_tls: Vec<Regex>,
+    pub(crate) sorted_token_bytes: Vec<Vec<u8>>,
 }
 
 impl CoreBPE {
@@ -201,7 +209,7 @@ impl CoreBPE {
     /// Decodes tokens into a list of bytes.
     ///
     /// The bytes are not gauranteed to be a valid utf-8 string.
-    fn decode_bytes(&self, tokens: &[Rank]) -> Result<Vec<u8>, DecodeKeyError> {
+    pub(crate) fn decode_bytes(&self, tokens: &[Rank]) -> Result<Vec<u8>, DecodeKeyError> {
         let mut ret = Vec::with_capacity(tokens.len() * 2);
         for &token in tokens {
             let token_bytes = match self.decoder.get(&token) {
@@ -287,7 +295,7 @@ impl CoreBPE {
         (ret, last_piece_token_len)
     }
 
-    fn _increase_last_piece_token_len(
+    pub(crate) fn _increase_last_piece_token_len(
         &self,
         tokens: Vec<Rank>,
         mut last_piece_token_len: usize,
@@ -461,7 +469,7 @@ impl CoreBPE {
         )
     }
 
-    fn new_internal(
+    pub(crate) fn new_internal(
         encoder: HashMap<Vec<u8>, Rank>,
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
