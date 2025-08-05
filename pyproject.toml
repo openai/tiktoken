@@ -20,6 +20,7 @@ requires = ["setuptools>=62.4", "wheel", "setuptools-rust>=1.5.2"]
 
 [tool.cibuildwheel]
 build-frontend = "build"
+enable = ["cpython-freethreading"]
 build-verbosity = 1
 
 linux.before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal"
