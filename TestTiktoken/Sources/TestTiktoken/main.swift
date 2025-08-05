@@ -23,21 +23,15 @@ do {
         print("❌ Failed to decode tokens")
     }
     
-    // Test special tokens
-    let specialTokens = encoder.specialTokens()
-    print("\n🎯 Special tokens: \(specialTokens)")
+    // Test encoding with special tokens
+    let textWithSpecial = "hello <|endoftext|> world"
+    let tokensWithSpecial = encoder.encodeWithSpecialTokens(text: textWithSpecial)
+    print("\n📝 Text with special: '\(textWithSpecial)'")
+    print("🔢 Encoded tokens: \(tokensWithSpecial)")
     
-    // Test vocabulary info
-    let vocabSize = encoder.nVocab()
-    let maxToken = encoder.maxTokenValue()
-    print("📊 Vocabulary size: \(vocabSize)")
-    print("📊 Max token value: \(maxToken)")
-    
-    // Test encoding with details
-    let details = encoder.encodeWithDetails(text: text, allowedSpecial: [])
-    print("\n🔍 Encoding details:")
-    print("   Tokens: \(details.tokens)")
-    print("   Last piece token length: \(details.lastPieceTokenLen)")
+    // Test ordinary encoding (without special tokens)
+    let ordinaryTokens = encoder.encodeOrdinary(text: text)
+    print("\n📝 Ordinary encoding: \(ordinaryTokens)")
     
     print("\n✅ All tests passed!")
     

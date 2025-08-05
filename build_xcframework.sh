@@ -34,7 +34,24 @@ else
     echo "✅ lipo found"
 fi
 
-# First, we need to generate the Swift bindings
+# Clean build artifacts to ensure fresh build
+echo ""
+echo "🧹 Cleaning previous build artifacts..."
+cargo clean
+
+# First, test that we can build with uniffi feature
+echo ""
+echo "🧪 Testing uniffi build..."
+cargo build --release --no-default-features --features uniffi || {
+    echo "❌ Failed to build with uniffi feature"
+    echo ""
+    echo "📝 Build output:"
+    cargo build --release --no-default-features --features uniffi 2>&1
+    exit 1
+}
+echo "✅ Uniffi build successful"
+
+# Generate the Swift bindings
 echo ""
 echo "🔧 Generating Swift bindings..."
 mkdir -p swift-bindings
@@ -93,35 +110,38 @@ add_target_if_needed "x86_64-apple-darwin"
 echo ""
 echo "🦀 Building Rust library for all Apple platforms..."
 
+# Set environment to handle cross-compilation without Python
+export PYO3_NO_PYTHON=1
+
 # Build for iOS arm64
 echo "  📱 Building for iOS (arm64)..."
-cargo build --release --target aarch64-apple-ios || {
+cargo build --release --no-default-features --features uniffi --target aarch64-apple-ios || {
     echo "  ❌ Failed to build for iOS arm64"
     exit 1
 }
 
 # Build for iOS simulator (arm64 + x86_64)
 echo "  📱 Building for iOS Simulator (arm64)..."
-cargo build --release --target aarch64-apple-ios-sim || {
+cargo build --release --no-default-features --features uniffi --target aarch64-apple-ios-sim || {
     echo "  ❌ Failed to build for iOS Simulator arm64"
     exit 1
 }
 
 echo "  📱 Building for iOS Simulator (x86_64)..."
-cargo build --release --target x86_64-apple-ios || {
+cargo build --release --no-default-features --features uniffi --target x86_64-apple-ios || {
     echo "  ❌ Failed to build for iOS Simulator x86_64"
     exit 1
 }
 
 # Build for macOS (arm64 + x86_64)
 echo "  💻 Building for macOS (arm64)..."
-cargo build --release --target aarch64-apple-darwin || {
+cargo build --release --no-default-features --features uniffi --target aarch64-apple-darwin || {
     echo "  ❌ Failed to build for macOS arm64"
     exit 1
 }
 
 echo "  💻 Building for macOS (x86_64)..."
-cargo build --release --target x86_64-apple-darwin || {
+cargo build --release --no-default-features --features uniffi --target x86_64-apple-darwin || {
     echo "  ❌ Failed to build for macOS x86_64"
     exit 1
 }
@@ -280,10 +300,6 @@ if [ -d "$TIKTOKEN_SWIFT_DIR/Sources/TiktokenFFI" ]; then
         sed -i '' '/#if canImport(TiktokenFFI)/,/#endif/d' "$TIKTOKEN_SWIFT_DIR/Sources/TiktokenSwift/TiktokenFFI.swift"
         sed -i '' '/^import Foundation$/a\
 import TiktokenFFI' "$TIKTOKEN_SWIFT_DIR/Sources/TiktokenSwift/TiktokenFFI.swift"
-        
-        # Add warning suppression
-        sed -i '' 's/fatalError("UniFFI contract version mismatch/print("Warning: UniFFI contract version mismatch") \/\/ fatalError("UniFFI contract version mismatch/' "$TIKTOKEN_SWIFT_DIR/Sources/TiktokenSwift/TiktokenFFI.swift"
-        sed -i '' 's/fatalError("UniFFI API checksum mismatch/print("Warning: UniFFI API checksum mismatch") \/\/ fatalError("UniFFI API checksum mismatch/' "$TIKTOKEN_SWIFT_DIR/Sources/TiktokenSwift/TiktokenFFI.swift"
     fi
 fi
 

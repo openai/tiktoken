@@ -1,56 +1,22 @@
 namespace tiktoken {
     [Throws=TiktokenError]
-    CoreBpe new_core_bpe(record<DOMString, u32> encoder, record<DOMString, u32> special_tokens_encoder, string pattern);
+    CoreBpe new_core_bpe(
+        record<sequence<u8>, u32> encoder,
+        record<string, u32> special_tokens_encoder,
+        string pattern
+    );
 };
 
 [Error]
-enum TiktokenError {
-    "ValueError",
-    "KeyError", 
-    "DecodeError",
-};
-
-dictionary EncodingResult {
-    sequence<u32> tokens;
-    u64 last_piece_token_len;
-};
-
-dictionary UnstableEncodingResult {
-    sequence<u32> tokens;
-    sequence<sequence<u32>> completions;
+interface TiktokenError {
+    RegexError(string message);
+    DecodeError(string message);
 };
 
 interface CoreBpe {
-    constructor(record<DOMString, u32> encoder, record<DOMString, u32> special_tokens_encoder, string pattern);
-    
-    sequence<u32> encode_ordinary(string text);
-    
     sequence<u32> encode(string text, sequence<string> allowed_special);
-    
-    EncodingResult encode_with_details(string text, sequence<string> allowed_special);
-    
-    UnstableEncodingResult encode_with_unstable(string text, sequence<string> allowed_special);
-    
-    sequence<u32> encode_bytes(bytes input);
-    
-    [Throws=TiktokenError]
-    u32 encode_single_token(bytes piece);
-    
-    sequence<u32> encode_single_piece(bytes piece);
-    
-    [Throws=TiktokenError]
-    bytes decode_bytes(sequence<u32> tokens);
-    
-    [Throws=TiktokenError]
-    bytes decode_single_token_bytes(u32 token);
-    
-    sequence<bytes> token_byte_values();
-    
-    sequence<string> special_tokens();
-    
+    sequence<u32> encode_ordinary(string text);
     sequence<u32> encode_with_special_tokens(string text);
-    
-    u32 max_token_value();
-    
-    u32 n_vocab();
+    [Throws=TiktokenError]
+    sequence<u8> decode_bytes(sequence<u32> tokens);
 };
