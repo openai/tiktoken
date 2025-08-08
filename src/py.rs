@@ -176,7 +176,21 @@ impl CoreBPE {
             .map(|x| PyBytes::new(py, x).into())
             .collect()
     }
-}
+
+    // ====================
+    // TUI Environment
+    // ====================
+
+    #[pyo3(name = "_environment")]
+    fn py_environment(&self, _py : Python, name : &str, allowed_special: HashSet<PyBackedStr>) -> PyResult<()>{
+        // Convert PyBackedStr to &str
+        let allowed_special: HashSet<&str> =
+                allowed_special.iter().map(|s| s.as_ref()).collect();
+        
+        self._environment(name, allowed_special)
+    }
+    
+}  
 
 #[pyclass]
 struct TiktokenBuffer {

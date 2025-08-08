@@ -4,15 +4,36 @@ use std::collections::HashSet;
 use std::num::NonZeroU64;
 use std::thread;
 
+use bstr::ByteSlice;
 use fancy_regex::Regex;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+use pyo3::pyclass;
+use pyo3::PyResult;
+use pyo3::types::{PyBytes, PyList, PyTuple};
+
 use rustc_hash::FxHashMap as HashMap;
+
+// so many imports :D
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+use ratatui::prelude::{Span, Constraint};
+use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
+use ratatui::layout::{Layout, Direction, Margin};
+use ratatui::text::Line;
+use ratatui::widgets::{
+    block::Title, Block, Padding, Borders, Paragraph, Scrollbar, ScrollbarOrientation,
+    ScrollbarState, Wrap,
+};
+use ratatui::style::{Color, Style};
+use tui_textarea::TextArea;
 
 #[cfg(feature = "python")]
 mod py;
 
-pub type Rank = u32;
+type Rank = u32;
 
 fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize, Rank)> {
     // This is a vector of (start, rank).
@@ -515,11 +536,159 @@ impl CoreBPE {
             .collect()
     }
 
-    pub fn encode_with_special_tokens(&self, text: &str) -> Vec<Rank> {
-        let allowed_special = self.special_tokens();
-        self.encode(text, &allowed_special).0
+    fn _environment(&self, name : &str, allowed_special: HashSet<&str>) -> PyResult<()> {
+        let stdout = std::io::stdout();
+        let mut stdout = stdout.lock();
+    
+        enable_raw_mode()?;
+        crossterm::execute!(stdout, EnterAlternateScreen)?;
+        let backend = CrosstermBackend::new(stdout);
+        let mut term = Terminal::new(backend)?;
+    
+        let mut textarea = TextArea::default();
+        textarea.set_block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!("{} Encoder",name)).padding(Padding::new(1, 1, 1, 0))
+        );
+    
+        let colours = vec![Color::Red, Color::Green, Color::Blue, Color::Yellow, Color::Magenta, Color::Cyan];
+        
+        let parent_layout = Layout::default()
+            .constraints([Constraint::Percentage(100), Constraint::Min(1)]);
+
+        let layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref());
+
+
+        let mut vertical_scroll = 0;
+        let mut line_count : usize = 0;
+        loop {
+            let mut current_color_index = 0;
+            term.draw(|f| {
+                let chunks = parent_layout.split(f.size());
+                
+                let sub_chunk = layout.split(chunks[0]);
+                
+                let tokens: Vec<Vec<String>> = textarea.lines().iter().map(|line| {
+
+                    // Encode the line
+                    let encoding = self.encode(line, &allowed_special).0;
+                    
+                    // Decode the encoded line
+                    let decoding: Vec<Vec<u8>> = encoding.iter()
+                        .map(|&token| self.decode_bytes(&[token]).unwrap())
+                        .collect();
+            
+                    // Convert decoded tokens to Strings
+                    let tokens: Vec<String> = decoding.iter().map(|bytes| {
+                        bytes.to_str()
+                             .unwrap()
+                             .to_string()
+
+                    }).collect();
+        
+                    tokens
+                    // Create spans for the line
+
+                }).collect();
+
+                let mut lines : Vec<Line> = Vec::new();
+                let mut token_count = 0;
+                for token in &tokens{
+                    let span : Vec<Span> = token.iter().map(|token| {
+                        let color = colours[current_color_index];
+                        current_color_index = (current_color_index + 1) % colours.len();
+                        token_count += 1; // Increment the token count
+                        Span::styled(token, Style::default().bg(color).fg(Color::White))
+                    }).collect();
+                    lines.push(Line::from(span));
+                    
+                }   
+
+
+                let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(Some("↑"))
+                .end_symbol(Some("↓"));
+
+
+                let paragraph = Paragraph::new(lines.clone())
+                    .block(Block::default().borders(Borders::ALL)
+                                           .title("Decoded Tokens")
+                                           .title(Title::from(Line::from(vec![
+                                                        Span::styled(token_count.to_string(), 
+                                                        Style::new().fg(Color::Green)), 
+                                                        Span::from(" token(s)")]))
+                                                .alignment(ratatui::layout::Alignment::Center)
+                                                .position(ratatui::widgets::block::Position::Bottom))
+                                           .padding(Padding::new(1, 1, 1, 1)))
+                                           .scroll((vertical_scroll as u16, 0))
+                                           .wrap(Wrap { trim: true });
+
+                let menu: Block<'_> = Block::new()
+                    .title(Title::from("[Esc] Exit").alignment(ratatui::layout::Alignment::Left))
+                    .title(Title::from("[Ctrl+S] Scroll Down").alignment(ratatui::layout::Alignment::Center))
+                    .title(Title::from("[Ctrl+A] Scroll Up").alignment(ratatui::layout::Alignment::Center))
+                    .padding(Padding::horizontal(5u16))
+                    .border_style(Style::default().fg(Color::White))
+                    .borders(Borders::TOP);
+
+                line_count = lines.len();
+                let mut scrollbar_state = ScrollbarState::new(line_count)
+                    .position(vertical_scroll);
+                
+                f.render_widget(menu, chunks[1]);
+                f.render_widget(textarea.widget(), sub_chunk[0]);
+                f.render_widget(paragraph, sub_chunk[1]);
+
+                f.render_stateful_widget(
+                    scrollbar,
+                    sub_chunk[1].inner(Margin {
+                        // using an inner vertical margin of 1 unit makes the scrollbar inside the block
+                        vertical: 1,
+                        horizontal: 0,
+                    }),
+                    &mut scrollbar_state,
+                );
+
+            })?;
+            
+            match crossterm::event::read()? {
+                crossterm::event::Event::Key(key) => {
+                    match key.code {
+                        crossterm::event::KeyCode::Esc => break,
+                        crossterm::event::KeyCode::Char('s') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                            if vertical_scroll < line_count - 1 {
+                                vertical_scroll += 1;
+                            }
+                        },
+                        crossterm::event::KeyCode::Char('a') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                            if vertical_scroll > 0 {
+                                vertical_scroll -= 1;
+                            }
+                        },
+                        _ => {
+                            textarea.input(key);
+                        }
+                    }
+                },
+                _ => {}
+            }
+        }
+    
+        disable_raw_mode()?;
+        crossterm::execute!(
+            term.backend_mut(),
+            LeaveAlternateScreen,
+        )?;
+        term.show_cursor()?;
+    
+        Ok(())
+
     }
 }
+
 
 #[cfg(test)]
 mod tests {

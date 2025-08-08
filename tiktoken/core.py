@@ -119,6 +119,10 @@ class Encoding:
                 disallowed_special = frozenset(disallowed_special)
             if match := _special_token_regex(disallowed_special).search(text):
                 raise_disallowed_special_token(match.group())
+    
+        # https://github.com/PyO3/pyo3/pull/3632
+        if isinstance(allowed_special, frozenset):
+            allowed_special = set(allowed_special)
 
         try:
             return self._core_bpe.encode(text, allowed_special)
@@ -371,6 +375,18 @@ class Encoding:
         """For backwards compatibility. Prefer to use `enc.max_token_value + 1`."""
         return self.max_token_value + 1
 
+    def environment(self,
+                    *,
+                    allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
+                    disallowed_special: Literal["all"] | Collection[str] = "all",) -> None:
+        """Builds a Text User Interface (TUI) environment to test out encoding."""
+        
+        if allowed_special == "all":
+            allowed_special = self.special_tokens_set
+        if disallowed_special == "all":
+            disallowed_special = self.special_tokens_set - allowed_special
+
+        return self._core_bpe._environment(self.name, allowed_special)
     # ====================
     # Private
     # ====================
