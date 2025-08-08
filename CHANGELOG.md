@@ -7,6 +7,7 @@ This is the changelog for the open source version of tiktoken.
 - Update version of `pyo3`
 - Use new Rust edition
 - Fix special token handling in `encode_to_numpy`
+- Better error handling
 - Improvements to private APIs
 
 ## [v0.10.0]

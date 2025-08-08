@@ -172,6 +172,19 @@ impl std::fmt::Display for DecodeError {
 
 impl std::error::Error for DecodeError {}
 
+#[derive(Debug, Clone)]
+pub struct EncodeError {
+    pub message: String,
+}
+
+impl std::fmt::Display for EncodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Could not encode string: {}", self.message)
+    }
+}
+
+impl std::error::Error for EncodeError {}
+
 const MAX_NUM_THREADS: usize = 128;
 
 #[cfg_attr(feature = "python", pyclass)]
@@ -231,7 +244,11 @@ impl CoreBPE {
         ret
     }
 
-    pub fn encode(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<Rank>, usize) {
+    pub fn encode(
+        &self,
+        text: &str,
+        allowed_special: &HashSet<&str>,
+    ) -> Result<(Vec<Rank>, usize), EncodeError> {
         let special_regex = self._get_tl_special_regex();
         let regex = self._get_tl_regex();
         let mut ret = vec![];
@@ -257,8 +274,17 @@ impl CoreBPE {
             let end = next_special.map_or(text.len(), |m| m.start());
 
             // Okay, here we go, compare this logic to encode_ordinary
-            for mat in regex.find_iter(&text[start..end]) {
-                let piece = mat.unwrap().as_str().as_bytes();
+            for mat_res in regex.find_iter(&text[start..end]) {
+                let mat = match mat_res {
+                    Ok(m) => m,
+                    Err(e) => {
+                        return Err(EncodeError {
+                            message: format!("Regex error while tokenizing: {e}"),
+                        });
+                    }
+                };
+
+                let piece = mat.as_str().as_bytes();
                 if let Some(token) = self.encoder.get(piece) {
                     last_piece_token_len = 1;
                     ret.push(*token);
@@ -284,7 +310,7 @@ impl CoreBPE {
 
         // last_piece_token_len is how many tokens came from the last regex split. This is used
         // for determining unstable tokens, since you can't merge across (stable) regex splits
-        (ret, last_piece_token_len)
+        Ok((ret, last_piece_token_len))
     }
 
     fn _increase_last_piece_token_len(
@@ -331,7 +357,7 @@ impl CoreBPE {
         text: &str,
         allowed_special: &HashSet<&str>,
     ) -> (Vec<Rank>, HashSet<Vec<Rank>>) {
-        let (tokens, last_piece_token_len) = self.encode(text, allowed_special);
+        let (tokens, last_piece_token_len) = self.encode(text, allowed_special).unwrap();
         if last_piece_token_len == 0 {
             // If last_piece_token_len is zero, the last token was a special token and we have
             // no unstable bytes
@@ -427,7 +453,7 @@ impl CoreBPE {
         if unstable_bytes.len() > 1 {
             let last_decoded = bstr::decode_last_utf8(unstable_bytes.as_slice());
             if unstable_bytes.len() - last_decoded.1 > 0
-                && last_decoded.0.map_or(false, |c| c.is_whitespace())
+                && last_decoded.0.is_some_and(|c| c.is_whitespace())
             {
                 let mut reencoded = byte_pair_encode(
                     &unstable_bytes[..unstable_bytes.len() - last_decoded.1],
@@ -517,7 +543,7 @@ impl CoreBPE {
 
     pub fn encode_with_special_tokens(&self, text: &str) -> Vec<Rank> {
         let allowed_special = self.special_tokens();
-        self.encode(text, &allowed_special).0
+        self.encode(text, &allowed_special).unwrap().0
     }
 }
 

@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
 use pyo3::{
-    PyResult, exceptions,
+    IntoPyObjectExt, PyResult, exceptions,
     prelude::*,
     pybacked::PyBackedStr,
-    types::{PyBytes, PyList, PyTuple},
+    types::{PyBytes, PyList},
 };
 use rustc_hash::FxHashMap as HashMap;
 
@@ -37,11 +37,14 @@ impl CoreBPE {
         py: Python,
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
-    ) -> Vec<Rank> {
+    ) -> PyResult<Vec<Rank>> {
         py.allow_threads(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
-            self.encode(text, &allowed_special).0
+            match self.encode(text, &allowed_special) {
+                Ok((tokens, _)) => Ok(tokens),
+                Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.message)),
+            }
         })
     }
 
@@ -50,14 +53,20 @@ impl CoreBPE {
         py: Python,
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
-    ) -> Py<PyAny> {
-        let tokens = py.allow_threads(|| {
+    ) -> PyResult<Py<PyAny>> {
+        let tokens_res = py.allow_threads(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
-            self.encode(text, &allowed_special).0
+            self.encode(text, &allowed_special)
         });
+
+        let tokens = match tokens_res {
+            Ok((tokens, _)) => tokens,
+            Err(e) => return Err(PyErr::new::<exceptions::PyValueError, _>(e.message)),
+        };
+
         let buffer = TiktokenBuffer { tokens };
-        buffer.into_py(py)
+        buffer.into_py_any(py)
     }
 
     fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<Rank> {
@@ -69,7 +78,8 @@ impl CoreBPE {
                 // Unicode space, so we make our best guess at where we would have splits
                 Err(e) => {
                     let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
-                    let (tokens, last_piece_token_len) = self.encode(text, &HashSet::new());
+                    let (tokens, last_piece_token_len) =
+                        self.encode(text, &HashSet::new()).unwrap();
                     let (mut tokens, last_piece_token_len) =
                         self._increase_last_piece_token_len(tokens, last_piece_token_len);
 
@@ -110,19 +120,14 @@ impl CoreBPE {
         py: Python,
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
-    ) -> Py<PyTuple> {
-        let (tokens, completions) = py.allow_threads(|| {
+    ) -> PyResult<(Vec<Rank>, Py<PyList>)> {
+        let (tokens, completions): (Vec<Rank>, HashSet<Vec<Rank>>) = py.allow_threads(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
             self._encode_unstable_native(text, &allowed_special)
         });
-        let py_completions = PyList::new_bound(
-            py,
-            completions
-                .iter()
-                .map(|seq| PyList::new_bound(py, &seq[..])),
-        );
-        (tokens, py_completions).into_py(py)
+        let py_completions = PyList::new(py, completions.into_iter())?;
+        Ok((tokens, py_completions.into()))
     }
 
     fn encode_single_token(&self, piece: &[u8]) -> PyResult<Rank> {
@@ -151,17 +156,17 @@ impl CoreBPE {
     #[pyo3(name = "decode_bytes")]
     fn py_decode_bytes(&self, py: Python, tokens: Vec<Rank>) -> Result<Py<PyBytes>, PyErr> {
         match py.allow_threads(|| self.decode_bytes(&tokens)) {
-            Ok(bytes) => Ok(PyBytes::new_bound(py, &bytes).into()),
+            Ok(bytes) => Ok(PyBytes::new(py, &bytes).into()),
             Err(e) => Err(pyo3::exceptions::PyKeyError::new_err(format!("{}", e))),
         }
     }
 
     fn decode_single_token_bytes(&self, py: Python, token: Rank) -> PyResult<Py<PyBytes>> {
         if let Some(bytes) = self.decoder.get(&token) {
-            return Ok(PyBytes::new_bound(py, bytes).into());
+            return Ok(PyBytes::new(py, bytes).into());
         }
         if let Some(bytes) = self.special_tokens_decoder.get(&token) {
-            return Ok(PyBytes::new_bound(py, bytes).into());
+            return Ok(PyBytes::new(py, bytes).into());
         }
         Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string()))
     }
