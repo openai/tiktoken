@@ -2,6 +2,17 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.11.0]
+- Support for `GPT-5`
+- Update version of `pyo3`
+- Use new Rust edition
+- Fix special token handling in `encode_to_numpy`
+- Improvements to private APIs
+
+## [v0.10.0]
+- Support for newer models
+- Improvements to private APIs
+
 ## [v0.9.0]
 - Support for `o1` and `o3` models
 - Better error messages when loading invalid vocabulary files

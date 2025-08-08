@@ -9,6 +9,7 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "o3-": "o200k_base",
     "o4-mini-": "o200k_base",
     # chat
+    "gpt-5-": "o200k_base",
     "gpt-4.5-": "o200k_base",
     "gpt-4.1-": "o200k_base",
     "chatgpt-4o-": "o200k_base",

@@ -481,7 +481,9 @@ impl CoreBPE {
 
         assert!(
             encoder.len() == decoder.len(),
-            "Encoder and decoder must be of equal length; maybe you had duplicate token indices in your encoder?"
+            "Encoder and decoder must be of equal length. Encoder length: {}, decoder length: {}.\nMaybe you had duplicate token indices in your encoder?",
+            encoder.len(),
+            decoder.len()
         );
 
         let special_tokens_decoder: HashMap<Rank, Vec<u8>> = special_tokens_encoder
@@ -524,7 +526,7 @@ mod tests {
     use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::{byte_pair_split, Rank};
+    use crate::{Rank, byte_pair_split};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
         HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])

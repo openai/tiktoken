@@ -1,15 +1,14 @@
 use std::collections::HashSet;
 
 use pyo3::{
-    exceptions,
+    PyResult, exceptions,
     prelude::*,
     pybacked::PyBackedStr,
     types::{PyBytes, PyList, PyTuple},
-    PyResult,
 };
 use rustc_hash::FxHashMap as HashMap;
 
-use crate::{byte_pair_encode, CoreBPE, Rank};
+use crate::{CoreBPE, Rank, byte_pair_encode};
 
 #[pymethods]
 impl CoreBPE {
@@ -19,12 +18,8 @@ impl CoreBPE {
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
     ) -> PyResult<Self> {
-        Self::new_internal(
-            encoder,
-            special_tokens_encoder,
-            pattern,
-        )
-        .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))
+        Self::new_internal(encoder, special_tokens_encoder, pattern)
+            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))
     }
 
     // ====================
@@ -178,7 +173,7 @@ impl CoreBPE {
     fn token_byte_values(&self, py: Python) -> Vec<Py<PyBytes>> {
         self.sorted_token_bytes
             .iter()
-            .map(|x| PyBytes::new_bound(py, x).into())
+            .map(|x| PyBytes::new(py, x).into())
             .collect()
     }
 }
@@ -204,39 +199,47 @@ impl TiktokenBuffer {
                 "Object is not writable",
             ));
         }
+        unsafe {
+            let view_ref = &mut *view;
+            view_ref.obj = slf.clone().into_any().into_ptr();
 
-        (*view).obj = slf.clone().into_any().into_ptr();
-
-        let data = &slf.borrow().tokens;
-        (*view).buf = data.as_ptr() as *mut std::os::raw::c_void;
-        (*view).len = (data.len() * std::mem::size_of::<Rank>()) as isize;
-        (*view).readonly = 1;
-        (*view).itemsize = std::mem::size_of::<Rank>() as isize;
-        (*view).format = if (flags & pyo3::ffi::PyBUF_FORMAT) == pyo3::ffi::PyBUF_FORMAT {
-            let msg = std::ffi::CString::new("I").unwrap();
-            msg.into_raw()
-        } else {
-            std::ptr::null_mut()
-        };
-        (*view).ndim = 1;
-        (*view).shape = if (flags & pyo3::ffi::PyBUF_ND) == pyo3::ffi::PyBUF_ND {
-            &mut (*view).len
-        } else {
-            std::ptr::null_mut()
-        };
-        (*view).strides = if (flags & pyo3::ffi::PyBUF_STRIDES) == pyo3::ffi::PyBUF_STRIDES {
-            &mut (*view).itemsize
-        } else {
-            std::ptr::null_mut()
-        };
-        (*view).suboffsets = std::ptr::null_mut();
-        (*view).internal = std::ptr::null_mut();
+            let data = &slf.borrow().tokens;
+            view_ref.buf = data.as_ptr() as *mut std::os::raw::c_void;
+            view_ref.len = (data.len() * std::mem::size_of::<Rank>()) as isize;
+            view_ref.readonly = 1;
+            view_ref.itemsize = std::mem::size_of::<Rank>() as isize;
+            view_ref.format = if (flags & pyo3::ffi::PyBUF_FORMAT) == pyo3::ffi::PyBUF_FORMAT {
+                let msg = std::ffi::CString::new("I").unwrap();
+                msg.into_raw()
+            } else {
+                std::ptr::null_mut()
+            };
+            view_ref.ndim = 1;
+            view_ref.shape = if (flags & pyo3::ffi::PyBUF_ND) == pyo3::ffi::PyBUF_ND {
+                &mut view_ref.len
+            } else {
+                std::ptr::null_mut()
+            };
+            view_ref.strides = if (flags & pyo3::ffi::PyBUF_STRIDES) == pyo3::ffi::PyBUF_STRIDES {
+                &mut view_ref.itemsize
+            } else {
+                std::ptr::null_mut()
+            };
+            view_ref.suboffsets = std::ptr::null_mut();
+            view_ref.internal = std::ptr::null_mut();
+        }
 
         Ok(())
     }
 
     unsafe fn __releasebuffer__(&self, view: *mut pyo3::ffi::Py_buffer) {
-        std::mem::drop(std::ffi::CString::from_raw((*view).format));
+        // Note that Py_buffer doesn't have a Drop impl
+        unsafe {
+            let view_ref = &mut *view;
+            if !view_ref.format.is_null() {
+                std::mem::drop(std::ffi::CString::from_raw(view_ref.format));
+            }
+        }
     }
 }
 
