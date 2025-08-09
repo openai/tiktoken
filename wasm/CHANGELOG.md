@@ -1,5 +1,12 @@
 # tiktoken
 
+## 1.0.22
+
+### Patch Changes
+
+- f5dac19: Add get_encoding_name_for_model method
+- 5775a4f: Add gpt-5 models
+
 ## 1.0.21
 
 ### Patch Changes
