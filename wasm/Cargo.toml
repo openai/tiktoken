@@ -23,3 +23,9 @@ gloo-utils = { version = "0.1", features = ["serde"] }
 [features]
 default = ["inline"]
 inline = []
+
+[package.metadata.wasm-pack.profile.profiling]
+wasm-opt = ['-O', '']
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-O', '--enable-bulk-memory']

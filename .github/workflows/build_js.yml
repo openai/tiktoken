@@ -1,6 +1,6 @@
 name: Build and Test JS/WASM
 
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}

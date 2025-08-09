@@ -318,7 +318,14 @@ export function getEncodingNameForModel(model: TiktokenModel) {
     case "gpt-4.1-nano":
     case "gpt-4.1-nano-2025-04-14":
     case "gpt-4.5-preview":
-    case "gpt-4.5-preview-2025-02-27": {
+    case "gpt-4.5-preview-2025-02-27":
+    case "gpt-5":
+    case "gpt-5-2025-08-07":
+    case "gpt-5-nano":
+    case "gpt-5-nano-2025-08-07":
+    case "gpt-5-mini":
+    case "gpt-5-mini-2025-08-07":
+    case "gpt-5-chat-latest": {
       return "o200k_base";
     }
     default:
