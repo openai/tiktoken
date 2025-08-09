@@ -58,6 +58,35 @@ jobs:
           name: cibw-wheels-aarch64-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
+  build_wheels_windows_arm64:
+    name: py${{ matrix.python-version }} on ${{ matrix.os }} (arm64)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-11-arm]
+        python-version: [39, 310, 311, 312, 313]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust for Windows ARM64
+        run: |
+          Invoke-WebRequest https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe -UseBasicParsing -Outfile rustup-init.exe
+          .\rustup-init.exe -y --default-toolchain stable --profile minimal
+          $env:PATH = "$env:PATH;$env:USERPROFILE\.cargo\bin"
+          & "$env:USERPROFILE\.cargo\bin\rustc" --version
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22.0
+        env:
+          CIBW_BUILD: "cp${{ matrix.python-version}}-*"
+          CIBW_ARCHS: ARM64
+          CIBW_BUILD_VERBOSITY: 3
+          CIBW_ENVIRONMENT_WINDOWS: PATH="$PATH;$USERPROFILE\\.cargo\\bin"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-windows-arm64-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
   build_sdist:
     name: sdist
     runs-on: ubuntu-latest
@@ -84,7 +113,7 @@ jobs:
   join_artifacts:
     name: Join artifacts
     runs-on: ubuntu-latest
-    needs: [build_wheels, build_wheels_aarch64, build_sdist]
+    needs: [build_wheels, build_wheels_aarch64, build_wheels_windows_arm64, build_sdist]
     steps:
      - name: Merge artifacts
        uses: actions/upload-artifact/merge@v4
