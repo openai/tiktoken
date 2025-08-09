@@ -97,5 +97,12 @@
     "gpt-4.1-nano": "o200k_base",
     "gpt-4.1-nano-2025-04-14": "o200k_base",
     "gpt-4.5-preview": "o200k_base",
-    "gpt-4.5-preview-2025-02-27": "o200k_base"
+    "gpt-4.5-preview-2025-02-27": "o200k_base",
+    "gpt-5": "o200k_base",
+    "gpt-5-2025-08-07": "o200k_base",
+    "gpt-5-nano": "o200k_base",
+    "gpt-5-nano-2025-08-07": "o200k_base",
+    "gpt-5-mini": "o200k_base",
+    "gpt-5-mini-2025-08-07": "o200k_base",
+    "gpt-5-chat-latest": "o200k_base"
 }

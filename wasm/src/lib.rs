@@ -462,7 +462,14 @@ export type TiktokenModel =
     | "gpt-4.1-nano"
     | "gpt-4.1-nano-2025-04-14"
     | "gpt-4.5-preview"
-    | "gpt-4.5-preview-2025-02-27";
+    | "gpt-4.5-preview-2025-02-27"
+    | "gpt-5"
+    | "gpt-5-2025-08-07"
+    | "gpt-5-nano"
+    | "gpt-5-nano-2025-08-07"
+    | "gpt-5-mini"
+    | "gpt-5-mini-2025-08-07"
+    | "gpt-5-chat-latest";
 
 /**
  * @param {TiktokenModel} encoding
@@ -578,6 +585,13 @@ pub fn encoding_for_model(
         "gpt-4.1-nano-2025-04-14" => Ok("o200k_base"),
         "gpt-4.5-preview" => Ok("o200k_base"),
         "gpt-4.5-preview-2025-02-27" => Ok("o200k_base"),
+        "gpt-5" => Ok("o200k_base"),
+        "gpt-5-2025-08-07" => Ok("o200k_base"),
+        "gpt-5-nano" => Ok("o200k_base"),
+        "gpt-5-nano-2025-08-07" => Ok("o200k_base"),
+        "gpt-5-mini" => Ok("o200k_base"),
+        "gpt-5-mini-2025-08-07" => Ok("o200k_base"),
+        "gpt-5-chat-latest" => Ok("o200k_base"),
         model => Err(JsError::new(
             format!("Invalid model: {}", model.to_string()).as_str(),
         )),
