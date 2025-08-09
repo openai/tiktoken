@@ -1,5 +1,11 @@
 # js-tiktoken
 
+## 1.0.21
+
+### Patch Changes
+
+- 5775a4f: Add gpt-5 models
+
 ## 1.0.20
 
 ### Patch Changes
