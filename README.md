@@ -22,43 +22,6 @@ The tokeniser API is documented in `tiktoken/core.py`.
 Example code using `tiktoken` can be found in the
 [OpenAI Cookbook](https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb).
 
-## Swift Bindings
-
-This fork includes Swift bindings for tiktoken, allowing you to use the same high-performance BPE tokenizer in iOS, macOS, and other Apple platform applications.
-
-### Quick Start (Swift)
-
-```swift
-import TiktokenSwift
-
-// Load an encoding
-let encoder = try await CoreBpe.cl100kBase()
-
-// Encode text to tokens
-let tokens = encoder.encode(text: "hello world", allowedSpecial: [])
-
-// Decode tokens back to text
-let decoded = try encoder.decodeBytes(tokens: tokens)
-let text = String(data: decoded, encoding: .utf8)!
-```
-
-### Installation (Swift Package Manager)
-
-Add the TiktokenSwift package to your project:
-
-1. In Xcode, go to File → Add Package Dependencies
-2. Add the local package from `TiktokenSwift/` directory
-
-Or add to your `Package.swift`:
-```swift
-dependencies: [
-    .package(path: "../path/to/tiktoken/TiktokenSwift")
-]
-```
-
-For detailed Swift documentation, see [SWIFT_GUIDE.md](SWIFT_GUIDE.md).
-
-
 ## Performance
 
 `tiktoken` is between 3-6x faster than a comparable open source tokeniser:

@@ -7,7 +7,7 @@ let package = Package(
         .macOS(.v10_15)
     ],
     dependencies: [
-        .package(path: "/Users/nicholasarner/Development/Active/TiktokenSwift")
+        .package(path: "/Users/nicholasarner/Development/Active/TiktokenSwift/TiktokenSwift")
     ],
     targets: [
         .executableTarget(

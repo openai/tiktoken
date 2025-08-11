@@ -40,7 +40,7 @@ impl CoreBpe {
     pub fn encode(&self, text: String, allowed_special: Vec<String>) -> Vec<u32> {
         use std::collections::HashSet;
         let allowed_special: HashSet<&str> = allowed_special.iter().map(|s| s.as_str()).collect();
-        self.inner.encode(&text, &allowed_special).0
+        self.inner.encode(&text, &allowed_special).unwrap().0
     }
     
     pub fn encode_ordinary(&self, text: String) -> Vec<u32> {
