@@ -1,15 +1,14 @@
 use std::collections::HashSet;
 
 use pyo3::{
-    exceptions,
+    IntoPyObjectExt, PyResult, exceptions,
     prelude::*,
     pybacked::PyBackedStr,
-    types::{PyBytes, PyList, PyTuple},
-    PyResult,
+    types::{PyBytes, PyList},
 };
 use rustc_hash::FxHashMap as HashMap;
 
-use crate::{byte_pair_encode, CoreBPE, Rank};
+use crate::{CoreBPE, Rank, byte_pair_encode};
 
 #[pymethods]
 impl CoreBPE {
@@ -19,12 +18,8 @@ impl CoreBPE {
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
     ) -> PyResult<Self> {
-        Self::new_internal(
-            encoder,
-            special_tokens_encoder,
-            pattern,
-        )
-        .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))
+        Self::new_internal(encoder, special_tokens_encoder, pattern)
+            .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.to_string()))
     }
 
     // ====================
@@ -42,11 +37,14 @@ impl CoreBPE {
         py: Python,
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
-    ) -> Vec<Rank> {
+    ) -> PyResult<Vec<Rank>> {
         py.allow_threads(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
-            self.encode(text, &allowed_special).0
+            match self.encode(text, &allowed_special) {
+                Ok((tokens, _)) => Ok(tokens),
+                Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.message)),
+            }
         })
     }
 
@@ -55,14 +53,20 @@ impl CoreBPE {
         py: Python,
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
-    ) -> Py<PyAny> {
-        let tokens = py.allow_threads(|| {
+    ) -> PyResult<Py<PyAny>> {
+        let tokens_res = py.allow_threads(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
-            self.encode(text, &allowed_special).0
+            self.encode(text, &allowed_special)
         });
+
+        let tokens = match tokens_res {
+            Ok((tokens, _)) => tokens,
+            Err(e) => return Err(PyErr::new::<exceptions::PyValueError, _>(e.message)),
+        };
+
         let buffer = TiktokenBuffer { tokens };
-        buffer.into_py(py)
+        buffer.into_py_any(py)
     }
 
     fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<Rank> {
@@ -74,7 +78,8 @@ impl CoreBPE {
                 // Unicode space, so we make our best guess at where we would have splits
                 Err(e) => {
                     let text = unsafe { std::str::from_utf8_unchecked(&bytes[..e.valid_up_to()]) };
-                    let (tokens, last_piece_token_len) = self.encode(text, &HashSet::new());
+                    let (tokens, last_piece_token_len) =
+                        self.encode(text, &HashSet::new()).unwrap();
                     let (mut tokens, last_piece_token_len) =
                         self._increase_last_piece_token_len(tokens, last_piece_token_len);
 
@@ -115,19 +120,14 @@ impl CoreBPE {
         py: Python,
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
-    ) -> Py<PyTuple> {
-        let (tokens, completions) = py.allow_threads(|| {
+    ) -> PyResult<(Vec<Rank>, Py<PyList>)> {
+        let (tokens, completions): (Vec<Rank>, HashSet<Vec<Rank>>) = py.allow_threads(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
             self._encode_unstable_native(text, &allowed_special)
         });
-        let py_completions = PyList::new_bound(
-            py,
-            completions
-                .iter()
-                .map(|seq| PyList::new_bound(py, &seq[..])),
-        );
-        (tokens, py_completions).into_py(py)
+        let py_completions = PyList::new(py, completions.into_iter())?;
+        Ok((tokens, py_completions.into()))
     }
 
     fn encode_single_token(&self, piece: &[u8]) -> PyResult<Rank> {
@@ -156,17 +156,17 @@ impl CoreBPE {
     #[pyo3(name = "decode_bytes")]
     fn py_decode_bytes(&self, py: Python, tokens: Vec<Rank>) -> Result<Py<PyBytes>, PyErr> {
         match py.allow_threads(|| self.decode_bytes(&tokens)) {
-            Ok(bytes) => Ok(PyBytes::new_bound(py, &bytes).into()),
+            Ok(bytes) => Ok(PyBytes::new(py, &bytes).into()),
             Err(e) => Err(pyo3::exceptions::PyKeyError::new_err(format!("{}", e))),
         }
     }
 
     fn decode_single_token_bytes(&self, py: Python, token: Rank) -> PyResult<Py<PyBytes>> {
         if let Some(bytes) = self.decoder.get(&token) {
-            return Ok(PyBytes::new_bound(py, bytes).into());
+            return Ok(PyBytes::new(py, bytes).into());
         }
         if let Some(bytes) = self.special_tokens_decoder.get(&token) {
-            return Ok(PyBytes::new_bound(py, bytes).into());
+            return Ok(PyBytes::new(py, bytes).into());
         }
         Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string()))
     }
@@ -178,7 +178,7 @@ impl CoreBPE {
     fn token_byte_values(&self, py: Python) -> Vec<Py<PyBytes>> {
         self.sorted_token_bytes
             .iter()
-            .map(|x| PyBytes::new_bound(py, x).into())
+            .map(|x| PyBytes::new(py, x).into())
             .collect()
     }
 }
@@ -204,39 +204,47 @@ impl TiktokenBuffer {
                 "Object is not writable",
             ));
         }
+        unsafe {
+            let view_ref = &mut *view;
+            view_ref.obj = slf.clone().into_any().into_ptr();
 
-        (*view).obj = slf.clone().into_any().into_ptr();
-
-        let data = &slf.borrow().tokens;
-        (*view).buf = data.as_ptr() as *mut std::os::raw::c_void;
-        (*view).len = (data.len() * std::mem::size_of::<Rank>()) as isize;
-        (*view).readonly = 1;
-        (*view).itemsize = std::mem::size_of::<Rank>() as isize;
-        (*view).format = if (flags & pyo3::ffi::PyBUF_FORMAT) == pyo3::ffi::PyBUF_FORMAT {
-            let msg = std::ffi::CString::new("I").unwrap();
-            msg.into_raw()
-        } else {
-            std::ptr::null_mut()
-        };
-        (*view).ndim = 1;
-        (*view).shape = if (flags & pyo3::ffi::PyBUF_ND) == pyo3::ffi::PyBUF_ND {
-            &mut (*view).len
-        } else {
-            std::ptr::null_mut()
-        };
-        (*view).strides = if (flags & pyo3::ffi::PyBUF_STRIDES) == pyo3::ffi::PyBUF_STRIDES {
-            &mut (*view).itemsize
-        } else {
-            std::ptr::null_mut()
-        };
-        (*view).suboffsets = std::ptr::null_mut();
-        (*view).internal = std::ptr::null_mut();
+            let data = &slf.borrow().tokens;
+            view_ref.buf = data.as_ptr() as *mut std::os::raw::c_void;
+            view_ref.len = (data.len() * std::mem::size_of::<Rank>()) as isize;
+            view_ref.readonly = 1;
+            view_ref.itemsize = std::mem::size_of::<Rank>() as isize;
+            view_ref.format = if (flags & pyo3::ffi::PyBUF_FORMAT) == pyo3::ffi::PyBUF_FORMAT {
+                let msg = std::ffi::CString::new("I").unwrap();
+                msg.into_raw()
+            } else {
+                std::ptr::null_mut()
+            };
+            view_ref.ndim = 1;
+            view_ref.shape = if (flags & pyo3::ffi::PyBUF_ND) == pyo3::ffi::PyBUF_ND {
+                &mut view_ref.len
+            } else {
+                std::ptr::null_mut()
+            };
+            view_ref.strides = if (flags & pyo3::ffi::PyBUF_STRIDES) == pyo3::ffi::PyBUF_STRIDES {
+                &mut view_ref.itemsize
+            } else {
+                std::ptr::null_mut()
+            };
+            view_ref.suboffsets = std::ptr::null_mut();
+            view_ref.internal = std::ptr::null_mut();
+        }
 
         Ok(())
     }
 
     unsafe fn __releasebuffer__(&self, view: *mut pyo3::ffi::Py_buffer) {
-        std::mem::drop(std::ffi::CString::from_raw((*view).format));
+        // Note that Py_buffer doesn't have a Drop impl
+        unsafe {
+            let view_ref = &mut *view;
+            if !view_ref.format.is_null() {
+                std::mem::drop(std::ffi::CString::from_raw(view_ref.format));
+            }
+        }
     }
 }
 

@@ -201,6 +201,19 @@ impl fmt::Display for DecodeError {
 
 impl std::error::Error for DecodeError {}
 
+#[derive(Debug, Clone)]
+pub struct EncodeError {
+    pub message: String,
+}
+
+impl std::fmt::Display for EncodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Could not encode string: {}", self.message)
+    }
+}
+
+impl std::error::Error for EncodeError {}
+
 const MAX_NUM_THREADS: usize = 128;
 
 #[cfg_attr(feature = "python", pyclass)]
@@ -261,7 +274,11 @@ impl CoreBPE {
         ret
     }
 
-    pub fn encode(&self, text: &str, allowed_special: &HashSet<&str>) -> (Vec<Rank>, usize) {
+    pub fn encode(
+        &self,
+        text: &str,
+        allowed_special: &HashSet<&str>,
+    ) -> Result<(Vec<Rank>, usize), EncodeError> {
         let special_regex = self._get_tl_special_regex();
         let regex = self._get_tl_regex();
         let mut ret = vec![];
@@ -287,8 +304,17 @@ impl CoreBPE {
             let end = next_special.map_or(text.len(), |m| m.start());
 
             // Okay, here we go, compare this logic to encode_ordinary
-            for mat in regex.find_iter(&text[start..end]) {
-                let piece = mat.unwrap().as_str().as_bytes();
+            for mat_res in regex.find_iter(&text[start..end]) {
+                let mat = match mat_res {
+                    Ok(m) => m,
+                    Err(e) => {
+                        return Err(EncodeError {
+                            message: format!("Regex error while tokenizing: {e}"),
+                        });
+                    }
+                };
+
+                let piece = mat.as_str().as_bytes();
                 if let Some(token) = self.encoder.get(piece) {
                     last_piece_token_len = 1;
                     ret.push(*token);
@@ -314,7 +340,7 @@ impl CoreBPE {
 
         // last_piece_token_len is how many tokens came from the last regex split. This is used
         // for determining unstable tokens, since you can't merge across (stable) regex splits
-        (ret, last_piece_token_len)
+        Ok((ret, last_piece_token_len))
     }
 
     fn _increase_last_piece_token_len(
@@ -361,7 +387,7 @@ impl CoreBPE {
         text: &str,
         allowed_special: &HashSet<&str>,
     ) -> (Vec<Rank>, HashSet<Vec<Rank>>) {
-        let (tokens, last_piece_token_len) = self.encode(text, allowed_special);
+        let (tokens, last_piece_token_len) = self.encode(text, allowed_special).unwrap();
         if last_piece_token_len == 0 {
             // If last_piece_token_len is zero, the last token was a special token and we have
             // no unstable bytes
@@ -413,54 +439,28 @@ impl CoreBPE {
             }
         }
 
-        // Now apply even more heuristics to find other likely continuations
-        // It's important to keep this logic fast since this gets called a lot
-        // TODO: this doesn't do anything if there are no possible continuations
-        for i in 1..unstable_bytes.len() {
-            let prefix = &unstable_bytes[..i];
-            let suffix = &unstable_bytes[i..];
-            let mut tokens = Vec::with_capacity(5);
-            // This is a leaf of the BPE tree, so the token must be encoded as itself if it exists
-            if let Some(&token) = self.encoder.get(prefix) {
-                tokens.push(token);
-            } else {
-                // This is not a leaf of the BPE tree, so it must be encoded as a sequence of
-                // tokens. Do one step of BPE and then recurse
-                let pairs = byte_pair_split(prefix, &self.encoder);
-                if let Some(pair) = pairs.first() {
-                    if pair.len() == 1 {
-                        tokens.push(self.encoder[&vec![pair[0]]]);
-                    } else if let Some(&token) = self.encoder.get(*pair) {
-                        tokens.push(token);
-                    } else {
-                        // We would have to do another step of BPE here, but that's too slow
-                        // Just skip this token
-                        continue;
-                    }
-                    // TODO: this is a bit inefficient, but I think it's rare
-                    tokens.extend(byte_pair_encode(&prefix[pair.len()..], &self.encoder));
-                } else {
-                    // I don't think this is reachable, but it's hard to tell
-                    continue;
-                }
-            }
-
-            for tokens_tmp in &self.sorted_token_bytes {
-                let s = tokens_tmp.as_slice();
-                if s < suffix {
-                    continue;
-                } else if s == suffix {
-                    tokens.push(self.encoder[tokens_tmp]);
-                    completions.insert(tokens);
-                    break;
-                } else {
-                    // s > suffix
-                    if s.starts_with(suffix) {
-                        tokens.push(self.encoder[tokens_tmp]);
-                        completions.insert(tokens);
-                    }
-                    break;
-                }
+        // This is also not straightforward. While we generally assume that regex splits are stable,
+        // unfortunately, they are not. That is, if adding bytes were to make a split appear in
+        // unstable_bytes, this could make tokens possible which our logic would otherwise think
+        // would be merged.
+        // For example, with gpt2, the use of \s+(?!\S) means that "\n\n" could
+        // develop a split, e.g. "\n\n0" splits into "\n"+"\n"+"0", making "\n" a possible token.
+        // Here is a quick and dirty fix:
+        // This isn't right if we ever remove \s+(?!\S)
+        if unstable_bytes.len() > 1 {
+            let last_decoded = bstr::decode_last_utf8(unstable_bytes.as_slice());
+            if unstable_bytes.len() - last_decoded.1 > 0
+                && last_decoded.0.is_some_and(|c| c.is_whitespace())
+            {
+                let mut reencoded = byte_pair_encode(
+                    &unstable_bytes[..unstable_bytes.len() - last_decoded.1],
+                    &self.encoder,
+                );
+                reencoded.extend(byte_pair_encode(
+                    &unstable_bytes[unstable_bytes.len() - last_decoded.1..],
+                    &self.encoder,
+                ));
+                completions.insert(reencoded);
             }
         }
 
@@ -566,5 +566,31 @@ impl CoreBPE {
         pattern: &str,
     ) -> Result<Self, fancy_regex::Error> {
         Self::new_internal(encoder, special_tokens_encoder, pattern)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use fancy_regex::Regex;
+    use rustc_hash::FxHashMap as HashMap;
+
+    use crate::{Rank, byte_pair_split};
+
+    fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
+        HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
+    }
+
+    #[test]
+    fn test_simple_characters() {
+        let ranks = setup_ranks();
+        let res = byte_pair_split(b"abcd", &ranks);
+        assert_eq!(res, vec![b"ab", b"cd"]);
+    }
+
+    #[test]
+    fn test_repeated_characters() {
+        let ranks = setup_ranks();
+        let res = byte_pair_split(b"abab", &ranks);
+        assert_eq!(res, vec![b"ab", b"ab"]);
     }
 }

@@ -1,6 +1,6 @@
 [project]
 name = "tiktoken"
-version = "0.10.0"
+version = "0.11.0"
 description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -22,7 +22,7 @@ requires = ["setuptools>=62.4", "wheel", "setuptools-rust>=1.5.2"]
 build-frontend = "build"
 build-verbosity = 1
 
-linux.before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal"
+linux.before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
 linux.environment = { PATH = "$PATH:$HOME/.cargo/bin" }
 macos.before-all = "rustup target add aarch64-apple-darwin x86_64-apple-darwin"
 macos.environment = { MACOSX_DEPLOYMENT_TARGET = "10.12" }

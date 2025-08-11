@@ -16,7 +16,7 @@ def read_file(blobpath: str) -> bytes:
         with blobfile.BlobFile(blobpath, "rb") as f:
             return f.read()
 
-    # avoiding blobfile for public files helps avoid auth issues, like MFA prompts
+    # avoiding blobfile for public files helps avoid auth issues, like MFA prompts.
     import requests
 
     resp = requests.get(blobpath)
@@ -88,6 +88,7 @@ def data_gym_to_mergeable_bpe_ranks(
     encoder_json_file: str,
     vocab_bpe_hash: str | None = None,
     encoder_json_hash: str | None = None,
+    clobber_one_byte_tokens: bool = False,
 ) -> dict[bytes, int]:
     # NB: do not add caching to this function
     rank_to_intbyte = [b for b in range(2**8) if chr(b).isprintable() and chr(b) != " "]
@@ -109,7 +110,10 @@ def data_gym_to_mergeable_bpe_ranks(
         return bytes(data_gym_byte_to_byte[b] for b in value)
 
     # add the single byte tokens
+    # if clobber_one_byte_tokens is True, we'll replace these with ones from the encoder json
     bpe_ranks = {bytes([b]): i for i, b in enumerate(rank_to_intbyte)}
+    del rank_to_intbyte
+
     # add the merged tokens
     n = len(bpe_ranks)
     for first, second in bpe_merges:
@@ -126,6 +130,12 @@ def data_gym_to_mergeable_bpe_ranks(
     # drop these two special tokens if present, since they're not mergeable bpe tokens
     encoder_json_loaded.pop(b"<|endoftext|>", None)
     encoder_json_loaded.pop(b"<|startoftext|>", None)
+
+    if clobber_one_byte_tokens:
+        for k in encoder_json_loaded:
+            if len(k) == 1:
+                bpe_ranks[k] = encoder_json_loaded[k]
+
     assert bpe_ranks == encoder_json_loaded
 
     return bpe_ranks

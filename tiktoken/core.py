@@ -155,7 +155,7 @@ class Encoding:
 
         import numpy as np
 
-        buffer = self._core_bpe.encode_to_tiktoken_buffer(text, self.special_tokens_set)
+        buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
         return np.frombuffer(buffer, dtype=np.uint32)
 
     def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
@@ -394,7 +394,7 @@ class Encoding:
         _unused_pat = regex.compile(self._pat_str)
         ret = []
         for piece in regex.findall(_unused_pat, text):
-            ret.extend(self._core_bpe.encode_single_piece(piece))
+            ret.extend(self._core_bpe.encode_single_piece(piece.encode("utf-8")))
         return ret
 
     def _encode_bytes(self, text: bytes) -> list[int]:
