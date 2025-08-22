@@ -307,9 +307,8 @@ impl CoreBPE {
                         next_special = token;
                         next_special_token_pos = pos;
                     }
-                    None => {},
+                    None => break,
                 }
-                break
             }
             let end = match next_special_token_pos {
                 Some(pos) => pos,
@@ -346,9 +345,7 @@ impl CoreBPE {
                     start = end + next_special_token.len();
                     last_piece_token_len = 0;
                 }
-                None => {
-                    break
-                }
+                None => break
             }
         }
 
@@ -468,7 +465,7 @@ impl CoreBPE {
                     // notice all the big holes in the previous unstable token implementation)
                     Err(_) => byte_pair_encode(&possibility, &self.encoder),
                     // Something like the following is intriguing but incorrect:
-                    // Err(e) => self.encode_ordinar(unsafe {
+                    // Err(e) => self.encode_ordinary(unsafe {
                     //     std::str::from_utf8_unchecked(&possibility[..e.valid_up_to()])
                     // }),
                 };
