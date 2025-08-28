@@ -14,7 +14,7 @@ python = [
 ]
 
 [dependencies]
-pyo3 = { version = "0.24.1", default-features = false, features = [
+pyo3 = { version = "0.25.1", default-features = false, features = [
     "extension-module",
     "macros",
 ], optional = true }
