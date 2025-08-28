@@ -17,14 +17,15 @@ jobs:
         # cibuildwheel builds linux wheels inside a manylinux container
         # it also takes care of procuring the correct python version for us
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: [39, 310, 311, 312, 313]
+        python-version: [39, 310, 311, 312, 313, 313t, 314, 314t]
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pypa/cibuildwheel@v2.22.0
+      - uses: pypa/cibuildwheel@v3.1.4
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
+          CIBW_ENABLE: cpython-freethreading
 
       - uses: actions/upload-artifact@v4
         with:
@@ -39,19 +40,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04-arm]
-        python-version: [39, 310, 311, 312, 313]
+        python-version: [39, 310, 311, 312, 313, 313t, 314, 314t]
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22.0
+        uses: pypa/cibuildwheel@v3.1.4
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
           CIBW_BUILD_VERBOSITY: 3
           # https://github.com/rust-lang/cargo/issues/10583
           CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
+          CIBW_ENABLE: cpython-freethreading
 
       - uses: actions/upload-artifact@v4
         with:

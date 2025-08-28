@@ -183,7 +183,7 @@ impl CoreBPE {
     }
 }
 
-#[pyclass]
+#[pyclass(frozen)]
 struct TiktokenBuffer {
     tokens: Vec<Rank>,
 }
@@ -248,7 +248,7 @@ impl TiktokenBuffer {
     }
 }
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn _tiktoken(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CoreBPE>()?;
     Ok(())
