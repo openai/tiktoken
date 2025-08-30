@@ -6,6 +6,10 @@ import os
 
 
 def read_file(blobpath: str) -> bytes:
+    if os.path.exists(blobpath):
+        with open(blobpath, "rb") as f:
+            return f.read()
+
     if not blobpath.startswith("http://") and not blobpath.startswith("https://"):
         try:
             import blobfile
