@@ -3,10 +3,23 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import io
+import urllib.parse
 
 
 def read_file(blobpath: str) -> bytes:
-    if not blobpath.startswith("http://") and not blobpath.startswith("https://"):
+    url = urllib.parse.urlparse(blobpath)
+    if url.scheme is None or url.scheme == "":
+        with open(blobpath, "rb") as f:
+            return f.read()
+    elif url.scheme in ["http", "https"]:
+        # avoiding blobfile for public files helps avoid auth issues, like MFA prompts
+        import requests
+
+        resp = requests.get(blobpath)
+        resp.raise_for_status()
+        return resp.content
+    else:
         try:
             import blobfile
         except ImportError as e:
@@ -15,13 +28,6 @@ def read_file(blobpath: str) -> bytes:
             ) from e
         with blobfile.BlobFile(blobpath, "rb") as f:
             return f.read()
-
-    # avoiding blobfile for public files helps avoid auth issues, like MFA prompts.
-    import requests
-
-    resp = requests.get(blobpath)
-    resp.raise_for_status()
-    return resp.content
 
 
 def check_hash(data: bytes, expected_hash: str) -> bool:
