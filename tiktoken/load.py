@@ -6,6 +6,18 @@ import os
 
 
 def read_file(blobpath: str) -> bytes:
+    """Reads the contents of a file specified by the given blobpath.
+
+    Args:
+        blobpath (str): The path or URL to the file to be read.
+
+    Returns:
+        bytes: The binary content of the file.
+
+    Raises:
+        ImportError: If blobfile is not installed for local file access.
+        requests.exceptions.RequestException: If the HTTP request fails.
+    """
     if not blobpath.startswith("http://") and not blobpath.startswith("https://"):
         try:
             import blobfile
@@ -25,11 +37,37 @@ def read_file(blobpath: str) -> bytes:
 
 
 def check_hash(data: bytes, expected_hash: str) -> bool:
+    """Checks if the hash of the given data matches the expected hash.
+
+    Args:
+        data (bytes): The binary data to be hashed.
+        expected_hash (str): The expected hash value.
+
+    Returns:
+        bool: True if the actual hash matches the expected hash, False otherwise.
+    """
     actual_hash = hashlib.sha256(data).hexdigest()
     return actual_hash == expected_hash
 
 
 def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
+    """Reads and caches the contents of a file specified by the given blobpath.
+
+    If the file exists in cache and the hash matches (if provided), returns the cached content.
+    Otherwise, fetches it from the source, caches it, and returns the content.
+
+    Args:
+        blobpath (str): The path or URL to the file to be read.
+        expected_hash (str | None, optional): The expected hash value of the file content.
+            Defaults to None.
+
+    Returns:
+        bytes: The binary content of the file.
+
+    Raises:
+        ValueError: If the downloaded content's hash doesn't match the expected hash.
+        OSError: If there are issues writing to a user-specified cache directory.
+    """
     user_specified_cache = True
     if "TIKTOKEN_CACHE_DIR" in os.environ:
         cache_dir = os.environ["TIKTOKEN_CACHE_DIR"]
@@ -90,6 +128,22 @@ def data_gym_to_mergeable_bpe_ranks(
     encoder_json_hash: str | None = None,
     clobber_one_byte_tokens: bool = False,
 ) -> dict[bytes, int]:
+    """Converts a vocab BPE file and an encoder JSON file into mergeable BPE ranks.
+
+    Args:
+        vocab_bpe_file (str): The path to the vocabulary BPE file.
+        encoder_json_file (str): The path to the encoder JSON file.
+        vocab_bpe_hash (str | None, optional): The expected hash value of the vocabulary BPE file.
+            Defaults to None.
+        encoder_json_hash (str | None, optional): The expected hash value of the encoder JSON file.
+            Defaults to None.
+
+    Returns:
+        dict[bytes, int]: A dictionary mapping mergeable BPE tokens to their ranks.
+
+    Note:
+        This function does not implement caching internally.
+    """
     # NB: do not add caching to this function
     rank_to_intbyte = [b for b in range(2**8) if chr(b).isprintable() and chr(b) != " "]
 
@@ -142,6 +196,15 @@ def data_gym_to_mergeable_bpe_ranks(
 
 
 def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> None:
+    """Dumps the mergeable BPE ranks to a TikToken BPE file.
+
+    Args:
+        bpe_ranks (dict[bytes, int]): A dictionary mapping mergeable BPE tokens to their ranks.
+        tiktoken_bpe_file (str): The path to the TikToken BPE file.
+
+    Raises:
+        ImportError: If blobfile is not installed.
+    """
     try:
         import blobfile
     except ImportError as e:
@@ -153,7 +216,25 @@ def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> No
             f.write(base64.b64encode(token) + b" " + str(rank).encode() + b"\n")
 
 
-def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: str | None = None) -> dict[bytes, int]:
+def load_tiktoken_bpe(
+    tiktoken_bpe_file: str, expected_hash: str | None = None
+) -> dict[bytes, int]:
+    """Loads mergeable BPE ranks from a TikToken BPE file.
+
+    Args:
+        tiktoken_bpe_file (str): The path to the TikToken BPE file.
+        expected_hash (str | None, optional): The expected hash value of the file content.
+            Defaults to None.
+
+    Returns:
+        dict[bytes, int]: A dictionary mapping mergeable BPE tokens to their ranks.
+
+    Raises:
+        ValueError: If there are errors parsing the BPE file.
+
+    Note:
+        This function does not implement caching internally.
+    """
     # NB: do not add caching to this function
     contents = read_file_cached(tiktoken_bpe_file, expected_hash)
     ret = {}
