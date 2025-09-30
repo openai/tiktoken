@@ -90,24 +90,21 @@ def encoding_name_for_model(model_name: str) -> str:
 
     Raises a KeyError if the model name is not recognised.
     """
-    encoding_name = None
+    # Check if the model name matches a known model
     if model_name in MODEL_TO_ENCODING:
-        encoding_name = MODEL_TO_ENCODING[model_name]
-    else:
-        # Check if the model matches a known prefix
-        # Prefix matching avoids needing library updates for every model version release
-        # Note that this can match on non-existent models (e.g., gpt-3.5-turbo-FAKE)
-        for model_prefix, model_encoding_name in MODEL_PREFIX_TO_ENCODING.items():
-            if model_name.startswith(model_prefix):
-                return model_encoding_name
+        return MODEL_TO_ENCODING[model_name]
 
-    if encoding_name is None:
-        raise KeyError(
-            f"Could not automatically map {model_name} to a tokeniser. "
-            "Please use `tiktoken.get_encoding` to explicitly get the tokeniser you expect."
-        ) from None
+    # Check if the model name matches a known model prefix
+    # Prefix matching avoids needing library updates for every model version release
+    # Note that this can match on non-existent models (e.g., gpt-3.5-turbo-FAKE)
+    for model_prefix, model_encoding_name in MODEL_PREFIX_TO_ENCODING.items():
+        if model_name.startswith(model_prefix):
+            return model_encoding_name
 
-    return encoding_name
+    raise KeyError(
+        f"Could not automatically map {model_name} to a tokeniser. "
+        "Please use `tiktoken.get_encoding` to explicitly get the tokeniser you expect."
+    ) from None
 
 
 def encoding_for_model(model_name: str) -> Encoding:
