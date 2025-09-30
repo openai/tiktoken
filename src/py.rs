@@ -28,7 +28,7 @@ impl CoreBPE {
 
     #[pyo3(name = "encode_ordinary")]
     fn py_encode_ordinary(&self, py: Python, text: &str) -> Vec<Rank> {
-        py.allow_threads(|| self.encode_ordinary(text))
+        py.detach(|| self.encode_ordinary(text))
     }
 
     #[pyo3(name = "encode")]
@@ -38,7 +38,7 @@ impl CoreBPE {
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
     ) -> PyResult<Vec<Rank>> {
-        py.allow_threads(|| {
+        py.detach(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
             match self.encode(text, &allowed_special) {
@@ -54,7 +54,7 @@ impl CoreBPE {
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
     ) -> PyResult<Py<PyAny>> {
-        let tokens_res = py.allow_threads(|| {
+        let tokens_res = py.detach(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
             self.encode(text, &allowed_special)
@@ -70,7 +70,7 @@ impl CoreBPE {
     }
 
     fn _encode_bytes(&self, py: Python, bytes: &[u8]) -> Vec<Rank> {
-        py.allow_threads(|| {
+        py.detach(|| {
             match std::str::from_utf8(bytes) {
                 // Straightforward case
                 Ok(text) => self.encode_ordinary(text),
@@ -121,7 +121,7 @@ impl CoreBPE {
         text: &str,
         allowed_special: HashSet<PyBackedStr>,
     ) -> PyResult<(Vec<Rank>, Py<PyList>)> {
-        let (tokens, completions): (Vec<Rank>, HashSet<Vec<Rank>>) = py.allow_threads(|| {
+        let (tokens, completions): (Vec<Rank>, HashSet<Vec<Rank>>) = py.detach(|| {
             let allowed_special: HashSet<&str> =
                 allowed_special.iter().map(|s| s.as_ref()).collect();
             self._encode_unstable_native(text, &allowed_special)
@@ -155,7 +155,7 @@ impl CoreBPE {
 
     #[pyo3(name = "decode_bytes")]
     fn py_decode_bytes(&self, py: Python, tokens: Vec<Rank>) -> Result<Py<PyBytes>, PyErr> {
-        match py.allow_threads(|| self.decode_bytes(&tokens)) {
+        match py.detach(|| self.decode_bytes(&tokens)) {
             Ok(bytes) => Ok(PyBytes::new(py, &bytes).into()),
             Err(e) => Err(pyo3::exceptions::PyKeyError::new_err(format!("{}", e))),
         }

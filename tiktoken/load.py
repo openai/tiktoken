@@ -6,22 +6,26 @@ import os
 
 
 def read_file(blobpath: str) -> bytes:
-    if not blobpath.startswith("http://") and not blobpath.startswith("https://"):
-        try:
-            import blobfile
-        except ImportError as e:
-            raise ImportError(
-                "blobfile is not installed. Please install it by running `pip install blobfile`."
-            ) from e
-        with blobfile.BlobFile(blobpath, "rb") as f:
+    if "://" not in blobpath:
+        with open(blobpath, "rb", buffering=0) as f:
             return f.read()
 
-    # avoiding blobfile for public files helps avoid auth issues, like MFA prompts.
-    import requests
+    if blobpath.startswith(("http://", "https://")):
+        # avoiding blobfile for public files helps avoid auth issues, like MFA prompts.
+        import requests
 
-    resp = requests.get(blobpath)
-    resp.raise_for_status()
-    return resp.content
+        resp = requests.get(blobpath)
+        resp.raise_for_status()
+        return resp.content
+
+    try:
+        import blobfile
+    except ImportError as e:
+        raise ImportError(
+            "blobfile is not installed. Please install it by running `pip install blobfile`."
+        ) from e
+    with blobfile.BlobFile(blobpath, "rb") as f:
+        return f.read()
 
 
 def check_hash(data: bytes, expected_hash: str) -> bool:
@@ -49,7 +53,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
 
     cache_path = os.path.join(cache_dir, cache_key)
     if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
+        with open(cache_path, "rb", buffering=0) as f:
             data = f.read()
         if expected_hash is None or check_hash(data, expected_hash):
             return data
