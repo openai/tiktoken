@@ -41,3 +41,12 @@ htmlcov
 
 Cargo.lock
 target/
+
+# Swift and UniFFI generated files
+swift-bindings/
+TiktokenFFI.xcframework/
+.swiftpm/
+.build/
+xcuserdata/
+DerivedData/
+*.xcodeproj
