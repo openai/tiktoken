@@ -1,0 +1,5 @@
+[bindings.swift]
+package_name = "TiktokenSwift"
+ffi_module_name = "TiktokenFFI"
+module_name = "TiktokenFFI"
+omit_argument_labels = false
