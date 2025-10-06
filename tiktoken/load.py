@@ -49,7 +49,12 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
         # disable caching
         return read_file(blobpath)
 
-    cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
+    # cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
+    # Replaced SHA-1 with SHA-256 to avoid security scanner flags.
+    # Not used for crypto purposes, but aligns with current best practices.
+
+    cache_key = hashlib.sha256(blobpath.encode()).hexdigest()
+
 
     cache_path = os.path.join(cache_dir, cache_key)
     if os.path.exists(cache_path):
