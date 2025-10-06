@@ -2,6 +2,15 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.12.0]
+- Build wheels for Python 3.14
+- Build musllinux aarch64 wheels
+- Support for free-threaded Python
+- Update version of `pyo3` and `rustc-hash`
+- Avoid use of `blobfile` for reading local files
+- Recognise `gpt-5` model identifier
+- Minor performance improvement for file reading
+
 ## [v0.11.0]
 - Support for `GPT-5`
 - Update version of `pyo3`
