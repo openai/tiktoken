@@ -232,14 +232,25 @@ impl CoreBPE {
     pub fn encode_ordinary(&self, text: &str) -> Vec<Rank> {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
+
+        // The cache is a HashMap, populated first with encoder items, but keys are strings.
+        // The 0.05 ratio is experimental
+        let initial_capacity = (text.len() as f64 * 0.05) as usize;
+        let mut cache: HashMap<&str, Vec<Rank>> = HashMap::with_capacity_and_hasher(initial_capacity, Default::default());
+
+        for (k, &v) in self.encoder.iter() {
+            if let Ok(key_str) = std::str::from_utf8(k) {
+                cache.insert(key_str, vec![v]);
+            }
+        }
+
+        //lookup piece in cache, and add it if it is a nonekey
         let regex = self._get_tl_regex();
         let mut ret = vec![];
         for mat in regex.find_iter(text) {
-            let piece = mat.unwrap().as_str().as_bytes();
-            match self.encoder.get(piece) {
-                Some(token) => ret.push(*token),
-                None => ret.extend(&byte_pair_encode(piece, &self.encoder)),
-            }
+            let piece = mat.unwrap().as_str();
+            let encoded_tokens = cache.entry(piece).or_insert_with(|| byte_pair_encode(&piece.as_bytes(), &self.encoder));
+            ret.extend(&*encoded_tokens);
         }
         ret
     }
