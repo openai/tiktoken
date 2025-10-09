@@ -158,7 +158,7 @@ class Encoding:
         buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
         return np.frombuffer(buffer, dtype=np.uint32)
 
-    def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
+    def encode_ordinary_batch(self, text: Sequence[str], *, num_threads: int = 8) -> list[list[int]]:
         """Encodes a list of strings into tokens, in parallel, ignoring special tokens.
 
         This is equivalent to `encode_batch(text, disallowed_special=())` (but slightly faster).
@@ -174,7 +174,7 @@ class Encoding:
 
     def encode_batch(
         self,
-        text: list[str],
+        text: Sequence[str],
         *,
         num_threads: int = 8,
         allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
