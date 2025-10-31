@@ -24,7 +24,6 @@ fancy-regex = "0.13.0"
 regex = "1.10.3"
 rustc-hash = "2"
 bstr = "1.5.0"
-utf8proc = "0.1.1"
 unicode-properties = { version = "0.1.4", default-features = false, features = ["general-category"] }
 rand = { version = "0.8", features = ["std"] }
 base64 = "0.21"

@@ -312,11 +312,11 @@ fn run_file_bench(path: &str, iterations: usize) {
     let mut custom_total = custom_first; // include first pass
     for _ in 1..iterations { // already did one
         let t0 = Instant::now();
-        let f = bpe_fancy.encode_ordinary(&input);
+        let _f = bpe_fancy.encode_ordinary(&input);
         fancy_total += t0.elapsed();
 
         let t1 = Instant::now();
-        let c = bpe_custom.encode_ordinary(&input);
+        let _c = bpe_custom.encode_ordinary(&input);
         custom_total += t1.elapsed();
     }
 
