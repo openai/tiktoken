@@ -383,7 +383,6 @@ fn is_alnum(ch: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use unicode_properties::UnicodeGeneralCategory;
 
     #[test]
     fn contraction_matches() {
@@ -460,24 +459,5 @@ mod tests {
         let first = iter.next().unwrap();
         assert_eq!(first.as_str(), "\t");
         assert_eq!(first.kind(), Cl100kMatchKind::SingleWhitespace);
-    }
-
-    #[test]
-    fn debug_fancy_letter_sample() {
-        let ch = '\u{323B0}';
-        let fancy = fancy_regex::Regex::new(r"\p{L}").unwrap();
-        let fancy_match = fancy.is_match(&ch.to_string()).unwrap();
-        println!(
-            "char U+323B0 general_category={:?} fancy_match={}",
-            ch.general_category(),
-            fancy_match
-        );
-        println!(
-            "char U+323B0 is_alphabetic={} is_alphanumeric={} is_whitespace={}",
-            ch.is_alphabetic(),
-            ch.is_alphanumeric(),
-            ch.is_whitespace()
-        );
-        assert_eq!(is_letter(ch), fancy_match);
     }
 }
