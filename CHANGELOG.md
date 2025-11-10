@@ -2,6 +2,27 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.12.0]
+- Build wheels for Python 3.14
+- Build musllinux aarch64 wheels
+- Support for free-threaded Python
+- Update version of `pyo3` and `rustc-hash`
+- Avoid use of `blobfile` for reading local files
+- Recognise `gpt-5` model identifier
+- Minor performance improvement for file reading
+
+## [v0.11.0]
+- Support for `GPT-5`
+- Update version of `pyo3`
+- Use new Rust edition
+- Fix special token handling in `encode_to_numpy`
+- Better error handling
+- Improvements to private APIs
+
+## [v0.10.0]
+- Support for newer models
+- Improvements to private APIs
+
 ## [v0.9.0]
 - Support for `o1` and `o3` models
 - Better error messages when loading invalid vocabulary files

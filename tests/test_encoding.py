@@ -49,6 +49,13 @@ def test_simple_repeated():
     assert enc.encode("00000000000000000") == [8269, 10535, 830]
 
 
+def test_large_repeated():
+    enc = tiktoken.get_encoding("o200k_base")
+
+    with pytest.raises(ValueError):
+        enc.encode("x" * 1_000_000)
+
+
 def test_simple_regex():
     enc = tiktoken.get_encoding("cl100k_base")
     assert enc.encode("rer") == [38149]
@@ -85,7 +92,7 @@ def test_encode_bytes():
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(bytestring=st.binary())
-@hypothesis.settings(deadline=None)
+@hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
 def test_hyp_encode_bytes(make_enc: Callable[[], tiktoken.Encoding], bytestring: bytes):
     enc = make_enc()
     assert enc.decode_bytes(enc._encode_bytes(bytestring)) == bytestring
@@ -140,7 +147,7 @@ def test_basic_roundtrip(make_enc):
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(text=st.text())
-@hypothesis.settings(deadline=None)
+@hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
 def test_hyp_roundtrip(make_enc: Callable[[], tiktoken.Encoding], text):
     enc = make_enc()
 
@@ -246,11 +253,11 @@ def test_batch_encode(make_enc: Callable[[], tiktoken.Encoding]):
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(batch=st.lists(st.text()))
-@hypothesis.settings(deadline=None)
+@hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
 def test_hyp_batch_roundtrip(make_enc: Callable[[], tiktoken.Encoding], batch):
     enc = make_enc()
 
-    encoded = enc.encode_batch(batch)
-    assert encoded == [enc.encode(t) for t in batch]
+    encoded = enc.encode_batch(batch, allowed_special="all")
+    assert encoded == [enc.encode(t, allowed_special="all") for t in batch]
     decoded = enc.decode_batch(encoded)
     assert decoded == batch

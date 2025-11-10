@@ -4,11 +4,11 @@ import functools
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, AbstractSet, Collection, Literal, NoReturn, Sequence
 
-import regex
-
 from tiktoken import _tiktoken
 
 if TYPE_CHECKING:
+    import re
+
     import numpy as np
     import numpy.typing as npt
 
@@ -155,7 +155,7 @@ class Encoding:
 
         import numpy as np
 
-        buffer = self._core_bpe.encode_to_tiktoken_buffer(text, self.special_tokens_set)
+        buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
         return np.frombuffer(buffer, dtype=np.uint32)
 
     def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
@@ -391,10 +391,13 @@ class Encoding:
 
     def _encode_only_native_bpe(self, text: str) -> list[int]:
         """Encodes a string into tokens, but do regex splitting in Python."""
+        # We need specifically `regex` in order to compile pat_str due to e.g. \p
+        import regex
+
         _unused_pat = regex.compile(self._pat_str)
         ret = []
         for piece in regex.findall(_unused_pat, text):
-            ret.extend(self._core_bpe.encode_single_piece(piece))
+            ret.extend(self._core_bpe.encode_single_piece(piece.encode("utf-8")))
         return ret
 
     def _encode_bytes(self, text: bytes) -> list[int]:
@@ -423,9 +426,13 @@ class Encoding:
 
 
 @functools.lru_cache(maxsize=128)
-def _special_token_regex(tokens: frozenset[str]) -> "regex.Pattern[str]":
-    inner = "|".join(regex.escape(token) for token in tokens)
-    return regex.compile(f"({inner})")
+def _special_token_regex(tokens: frozenset[str]) -> re.Pattern[str]:
+    try:
+        import regex as re
+    except ImportError:
+        import re
+    inner = "|".join(re.escape(token) for token in tokens)
+    return re.compile(f"({inner})")
 
 
 def raise_disallowed_special_token(token: str) -> NoReturn:

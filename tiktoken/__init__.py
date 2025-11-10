@@ -5,4 +5,4 @@ from .model import encoding_name_for_model as encoding_name_for_model
 from .registry import get_encoding as get_encoding
 from .registry import list_encoding_names as list_encoding_names
 
-__version__ = "0.9.0"
+__version__ = "0.12.0"
