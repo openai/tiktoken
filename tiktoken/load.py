@@ -3,22 +3,24 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
-import requests
 from typing import Any, Protocol
 
+import requests
+
+
 class HttpClient(Protocol):
-    def get(self, url: str, **kwargs: Any) -> Any:
-        ...
+    def get(self, url: str, **kwargs: Any) -> Any: ...
 
 
-def read_file(blobpath: str, http_client: HttpClient = requests.Session()) -> bytes:
+def read_file(blobpath: str, http_client: HttpClient | None = None) -> bytes:
     if "://" not in blobpath:
         with open(blobpath, "rb", buffering=0) as f:
             return f.read()
 
     if blobpath.startswith(("http://", "https://")):
         # avoiding blobfile for public files helps avoid auth issues, like MFA prompts.
-
+        if http_client is None:
+            http_client = requests.Session()
 
         resp = http_client.get(blobpath)
         resp.raise_for_status()
@@ -39,7 +41,11 @@ def check_hash(data: bytes, expected_hash: str) -> bool:
     return actual_hash == expected_hash
 
 
-def read_file_cached(blobpath: str, expected_hash: str | None = None, http_client: HttpClient = requests.Session()) -> bytes:
+def read_file_cached(
+    blobpath: str,
+    expected_hash: str | None = None,
+    http_client: HttpClient | None = None,
+) -> bytes:
     user_specified_cache = True
     if "TIKTOKEN_CACHE_DIR" in os.environ:
         cache_dir = os.environ["TIKTOKEN_CACHE_DIR"]
@@ -99,8 +105,10 @@ def data_gym_to_mergeable_bpe_ranks(
     vocab_bpe_hash: str | None = None,
     encoder_json_hash: str | None = None,
     clobber_one_byte_tokens: bool = False,
-    http_client: HttpClient = requests.Session(),
+    http_client: HttpClient | None = None,
 ) -> dict[bytes, int]:
+    if http_client is None:
+        http_client = requests.Session()
     # NB: do not add caching to this function
     rank_to_intbyte = [b for b in range(2**8) if chr(b).isprintable() and chr(b) != " "]
 
@@ -136,7 +144,11 @@ def data_gym_to_mergeable_bpe_ranks(
     # check that the encoder file matches the merges file
     # this sanity check is important since tiktoken assumes that ranks are ordered the same
     # as merge priority
-    encoder_json = json.loads(read_file_cached(encoder_json_file, encoder_json_hash, http_client=http_client).decode())
+    encoder_json = json.loads(
+        read_file_cached(
+            encoder_json_file, encoder_json_hash, http_client=http_client
+        ).decode()
+    )
     encoder_json_loaded = {decode_data_gym(k): v for k, v in encoder_json.items()}
     # drop these two special tokens if present, since they're not mergeable bpe tokens
     encoder_json_loaded.pop(b"<|endoftext|>", None)
@@ -164,7 +176,13 @@ def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> No
             f.write(base64.b64encode(token) + b" " + str(rank).encode() + b"\n")
 
 
-def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: str | None = None, http_client: HttpClient = requests.Session()) -> dict[bytes, int]:
+def load_tiktoken_bpe(
+    tiktoken_bpe_file: str,
+    expected_hash: str | None = None,
+    http_client: HttpClient | None = None,
+) -> dict[bytes, int]:
+    if http_client is None:
+        http_client = requests.Session()
     # NB: do not add caching to this function
     contents = read_file_cached(tiktoken_bpe_file, expected_hash, http_client=http_client)
     ret = {}
