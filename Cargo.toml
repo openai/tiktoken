@@ -14,13 +14,13 @@ python = [
 ]
 
 [dependencies]
-pyo3 = { version = "0.26.0", default-features = false, features = [
+pyo3 = { version = "0.27.2", default-features = false, features = [
     "extension-module",
     "macros",
 ], optional = true }
 
 # tiktoken dependencies
-fancy-regex = "0.13.0"
+fancy-regex = "0.17.0"
 regex = "1.10.3"
 rustc-hash = "2"
 bstr = "1.5.0"
