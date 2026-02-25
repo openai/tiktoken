@@ -52,8 +52,9 @@ def test_simple_repeated():
 def test_large_repeated():
     enc = tiktoken.get_encoding("o200k_base")
 
-    with pytest.raises(ValueError):
-        enc.encode("x" * 1_000_000)
+    # Large inputs should be handled without raising.
+    tokens = enc.encode("x" * 1_000_000)
+    assert tokens
 
 
 def test_simple_regex():

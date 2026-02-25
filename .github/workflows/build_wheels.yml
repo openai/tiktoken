@@ -20,14 +20,14 @@ jobs:
         python-version: [39, 310, 311, 312, 313, 313t, 314, 314t]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: pypa/cibuildwheel@v3.1.4
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ENABLE: cpython-freethreading
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -43,7 +43,7 @@ jobs:
         python-version: [39, 310, 311, 312, 313, 313t, 314, 314t]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.1.4
@@ -55,7 +55,7 @@ jobs:
           CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
           CIBW_ENABLE: cpython-freethreading
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-aarch64-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         name: Install Python
         with:
@@ -78,7 +78,7 @@ jobs:
         run: |
           pip install --upgrade build
           python -m build --sdist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./dist/*.tar.gz

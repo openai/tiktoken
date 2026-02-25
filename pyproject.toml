@@ -5,8 +5,8 @@ description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Shantanu Jain" }, { email = "shantanu@openai.com" }]
-dependencies = ["regex>=2022.1.18", "requests>=2.26.0"]
-optional-dependencies = { blobfile = ["blobfile>=2"] }
+dependencies = ["regex", "requests"]
+optional-dependencies = { blobfile = ["blobfile>=3"] }
 requires-python = ">=3.9"
 
 [project.urls]
