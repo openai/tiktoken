@@ -3,7 +3,7 @@ name = "tiktoken"
 version = "0.12.0"
 description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = { text = "MIT" }
 authors = [{ name = "Shantanu Jain" }, { email = "shantanu@openai.com" }]
 dependencies = ["regex", "requests"]
 optional-dependencies = { blobfile = ["blobfile>=3"] }
