@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pypa/cibuildwheel@v3.1.4
+      - uses: pypa/cibuildwheel@v3.4.0
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ENABLE: cpython-freethreading
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.4
+        uses: pypa/cibuildwheel@v3.4.0
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
@@ -89,7 +89,7 @@ jobs:
     needs: [build_wheels, build_wheels_aarch64, build_sdist]
     steps:
      - name: Merge artifacts
-       uses: actions/upload-artifact/merge@v4
+       uses: actions/upload-artifact/merge@v7
        with:
          name: cibw-wheels
          pattern: cibw-wheels-*
