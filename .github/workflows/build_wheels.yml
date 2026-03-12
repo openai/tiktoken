@@ -83,7 +83,6 @@ jobs:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_SKIP: "*-musllinux_armv7l"
           CIBW_ARCHS_LINUX: armv7l
-          CIBW_ALLOW_EMPTY: "1"
           CIBW_BUILD_VERBOSITY: 3
           CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
           CIBW_ENABLE: cpython-freethreading
