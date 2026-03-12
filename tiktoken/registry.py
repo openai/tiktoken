@@ -73,7 +73,12 @@ def get_encoding(encoding_name: str) -> Encoding:
 
         if ENCODING_CONSTRUCTORS is None:
             _find_constructors()
-            assert ENCODING_CONSTRUCTORS is not None
+            if ENCODING_CONSTRUCTORS is None:
+                raise RuntimeError(
+                    "Could not find any encoding constructors. "
+                    f"Plugins found: {_available_plugin_modules()}\n"
+                    f"tiktoken version: {tiktoken.__version__}"
+                )
 
         if encoding_name not in ENCODING_CONSTRUCTORS:
             raise ValueError(
@@ -92,5 +97,10 @@ def list_encoding_names() -> list[str]:
     with _lock:
         if ENCODING_CONSTRUCTORS is None:
             _find_constructors()
-            assert ENCODING_CONSTRUCTORS is not None
+            if ENCODING_CONSTRUCTORS is None:
+                raise RuntimeError(
+                    "Could not find any encoding constructors. "
+                    f"Plugins found: {_available_plugin_modules()}\n"
+                    f"tiktoken version: {tiktoken.__version__}"
+                )
         return list(ENCODING_CONSTRUCTORS)

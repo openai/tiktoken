@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, AbstractSet, Collection, Literal, NoReturn, Sequence
 
@@ -11,6 +12,9 @@ if TYPE_CHECKING:
 
     import numpy as np
     import numpy.typing as npt
+
+# Default thread count for batch operations, based on available CPU cores
+_MAX_THREADS = min(os.cpu_count() or 8, 32)
 
 
 class Encoding:
@@ -155,10 +159,14 @@ class Encoding:
 
         import numpy as np
 
-        buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
+        try:
+            buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
+        except UnicodeEncodeError:
+            text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
         return np.frombuffer(buffer, dtype=np.uint32)
 
-    def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
+    def encode_ordinary_batch(self, text: list[str], *, num_threads: int = _MAX_THREADS) -> list[list[int]]:
         """Encodes a list of strings into tokens, in parallel, ignoring special tokens.
 
         This is equivalent to `encode_batch(text, disallowed_special=())` (but slightly faster).
@@ -176,7 +184,7 @@ class Encoding:
         self,
         text: list[str],
         *,
-        num_threads: int = 8,
+        num_threads: int = _MAX_THREADS,
         allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
         disallowed_special: Literal["all"] | Collection[str] = "all",
     ) -> list[list[int]]:
@@ -193,8 +201,9 @@ class Encoding:
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
             disallowed_special = self.special_tokens_set - allowed_special
-        if not isinstance(disallowed_special, frozenset):
-            disallowed_special = frozenset(disallowed_special)
+        if disallowed_special:
+            if not isinstance(disallowed_special, frozenset):
+                disallowed_special = frozenset(disallowed_special)
 
         encoder = functools.partial(
             self.encode, allowed_special=allowed_special, disallowed_special=disallowed_special
@@ -332,7 +341,7 @@ class Encoding:
         return text, offsets
 
     def decode_batch(
-        self, batch: Sequence[Sequence[int]], *, errors: str = "replace", num_threads: int = 8
+        self, batch: Sequence[Sequence[int]], *, errors: str = "replace", num_threads: int = _MAX_THREADS
     ) -> list[str]:
         """Decodes a batch (list of lists of tokens) into a list of strings."""
         decoder = functools.partial(self.decode, errors=errors)
@@ -340,7 +349,7 @@ class Encoding:
             return list(e.map(decoder, batch))
 
     def decode_bytes_batch(
-        self, batch: Sequence[Sequence[int]], *, num_threads: int = 8
+        self, batch: Sequence[Sequence[int]], *, num_threads: int = _MAX_THREADS
     ) -> list[bytes]:
         """Decodes a batch (list of lists of tokens) into a list of bytes."""
         with ThreadPoolExecutor(num_threads) as e:
@@ -364,7 +373,7 @@ class Encoding:
 
     def is_special_token(self, token: int) -> bool:
         assert isinstance(token, int)
-        return token in self._special_token_values
+        return token in self._special_tokens.values()
 
     @property
     def n_vocab(self) -> int:
@@ -394,9 +403,9 @@ class Encoding:
         # We need specifically `regex` in order to compile pat_str due to e.g. \p
         import regex
 
-        _unused_pat = regex.compile(self._pat_str)
+        pat = regex.compile(self._pat_str)
         ret = []
-        for piece in regex.findall(_unused_pat, text):
+        for piece in regex.findall(pat, text):
             ret.extend(self._core_bpe.encode_single_piece(piece.encode("utf-8")))
         return ret
 
