@@ -90,7 +90,7 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: cibw-wheels-armhf-${{ strategy.job-index }}
+          name: cibw-wheels-armv7l-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
