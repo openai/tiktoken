@@ -1,5 +1,5 @@
 # ⏳ tiktoken
-tiktoken fork for Test
+tiktoken fork for Test and bug fixes
 
 
 tiktoken is a fast [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
