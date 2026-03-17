@@ -9,6 +9,9 @@ dependencies = ["regex", "requests"]
 optional-dependencies = { blobfile = ["blobfile>=3"] }
 requires-python = ">=3.9"
 
+[project.entry-points.pyinstaller40]
+hook-dirs = "tiktoken._pyinstaller:get_hook_dirs"
+
 [project.urls]
 homepage = "https://github.com/openai/tiktoken"
 repository = "https://github.com/openai/tiktoken"
