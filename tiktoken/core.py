@@ -51,6 +51,7 @@ class Encoding:
             assert len(mergeable_ranks) + len(special_tokens) == explicit_n_vocab
             assert self.max_token_value == explicit_n_vocab - 1
 
+        self._special_token_values = set(special_tokens.values())
         self._core_bpe = _tiktoken.CoreBPE(mergeable_ranks, special_tokens, pat_str)
 
     def __repr__(self) -> str:
