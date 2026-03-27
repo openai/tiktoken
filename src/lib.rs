@@ -7,8 +7,22 @@ use fancy_regex::Regex;
 use pyo3::prelude::*;
 use rustc_hash::FxHashMap as HashMap;
 
+pub mod cl100k;
+
 #[cfg(feature = "python")]
 mod py;
+
+#[derive(Clone)]
+enum PatternBackend {
+    FancyRegex(Vec<Regex>),
+    Cl100k(cl100k::Cl100kParser),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PatternBackendChoice {
+    FancyRegex,
+    Cl100kParser,
+}
 
 pub type Rank = u32;
 
@@ -322,17 +336,23 @@ pub struct CoreBPE {
     special_tokens_encoder: HashMap<String, Rank>,
     decoder: HashMap<Rank, Vec<u8>>,
     special_tokens_decoder: HashMap<Rank, Vec<u8>>,
-    regex_tls: Vec<Regex>,
+    pattern_backend: PatternBackend,
     special_regex_tls: Vec<Regex>,
     sorted_token_bytes: Vec<Vec<u8>>,
 }
 
 impl CoreBPE {
-    fn _get_tl_regex(&self) -> &Regex {
-        // See performance notes above for what this is about
-        // It's also a little janky, please make a better version of it!
-        // However, it's nice that this doesn't leak memory to short-lived threads
-        &self.regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+    #[inline(always)]
+    fn encode_piece_into(&self, piece: &[u8], out: &mut Vec<Rank>) -> usize {
+        if let Some(token) = self.encoder.get(piece) {
+            out.push(*token);
+            1
+        } else {
+            let tokens = byte_pair_encode(piece, &self.encoder);
+            let len = tokens.len();
+            out.extend(&tokens);
+            len
+        }
     }
 
     fn _get_tl_special_regex(&self) -> &Regex {
@@ -342,7 +362,7 @@ impl CoreBPE {
     /// Decodes tokens into a list of bytes.
     ///
     /// The bytes are not gauranteed to be a valid utf-8 string.
-    fn decode_bytes(&self, tokens: &[Rank]) -> Result<Vec<u8>, DecodeKeyError> {
+    pub fn decode_bytes(&self, tokens: &[Rank]) -> Result<Vec<u8>, DecodeKeyError> {
         let mut ret = Vec::with_capacity(tokens.len() * 2);
         for &token in tokens {
             let token_bytes = match self.decoder.get(&token) {
@@ -360,13 +380,22 @@ impl CoreBPE {
     pub fn encode_ordinary(&self, text: &str) -> Vec<Rank> {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
-        let regex = self._get_tl_regex();
-        let mut ret = vec![];
-        for mat in regex.find_iter(text) {
-            let piece = mat.unwrap().as_str().as_bytes();
-            match self.encoder.get(piece) {
-                Some(token) => ret.push(*token),
-                None => ret.extend(&byte_pair_encode(piece, &self.encoder)),
+        let mut ret = Vec::new();
+        match &self.pattern_backend {
+            PatternBackend::Cl100k(parser) => {
+                for mat in parser.find_iter(text) {
+                    self.encode_piece_into(mat.as_str().as_bytes(), &mut ret);
+                }
+            }
+            PatternBackend::FancyRegex(regex_tls) => {
+                let regex = &regex_tls[hash_current_thread() % MAX_NUM_THREADS];
+                for mat in regex.find_iter(text) {
+                    let piece = mat
+                        .expect("fancy-regex error while tokenizing")
+                        .as_str()
+                        .as_bytes();
+                    self.encode_piece_into(piece, &mut ret);
+                }
             }
         }
         ret
@@ -378,8 +407,19 @@ impl CoreBPE {
         allowed_special: &HashSet<&str>,
     ) -> Result<(Vec<Rank>, usize), EncodeError> {
         let special_regex = self._get_tl_special_regex();
-        let regex = self._get_tl_regex();
-        let mut ret = vec![];
+        enum PatternRunner<'a> {
+            Cl100k(&'a cl100k::Cl100kParser),
+            Fancy(&'a Regex),
+        }
+
+        let pattern_runner = match &self.pattern_backend {
+            PatternBackend::Cl100k(parser) => PatternRunner::Cl100k(parser),
+            PatternBackend::FancyRegex(regex_tls) => {
+                PatternRunner::Fancy(&regex_tls[hash_current_thread() % MAX_NUM_THREADS])
+            }
+        };
+
+        let mut ret = Vec::new();
 
         let mut start = 0;
         let mut last_piece_token_len = 0;
@@ -402,25 +442,28 @@ impl CoreBPE {
             let end = next_special.map_or(text.len(), |m| m.start());
 
             // Okay, here we go, compare this logic to encode_ordinary
-            for mat_res in regex.find_iter(&text[start..end]) {
-                let mat = match mat_res {
-                    Ok(m) => m,
-                    Err(e) => {
-                        return Err(EncodeError {
-                            message: format!("Regex error while tokenizing: {e}"),
-                        });
+            let segment = &text[start..end];
+            match &pattern_runner {
+                PatternRunner::Cl100k(parser) => {
+                    for mat in parser.find_iter(segment) {
+                        last_piece_token_len =
+                            self.encode_piece_into(mat.as_str().as_bytes(), &mut ret);
                     }
-                };
-
-                let piece = mat.as_str().as_bytes();
-                if let Some(token) = self.encoder.get(piece) {
-                    last_piece_token_len = 1;
-                    ret.push(*token);
-                    continue;
                 }
-                let tokens = byte_pair_encode(piece, &self.encoder);
-                last_piece_token_len = tokens.len();
-                ret.extend(&tokens);
+                PatternRunner::Fancy(regex) => {
+                    for mat_res in regex.find_iter(segment) {
+                        let mat = match mat_res {
+                            Ok(m) => m,
+                            Err(e) => {
+                                return Err(EncodeError {
+                                    message: format!("Regex error while tokenizing: {e}"),
+                                });
+                            }
+                        };
+                        last_piece_token_len =
+                            self.encode_piece_into(mat.as_str().as_bytes(), &mut ret);
+                    }
+                }
             }
 
             match next_special {
@@ -615,12 +658,46 @@ impl CoreBPE {
         )
     }
 
+    pub fn new_with_backend<E, SE, NSE>(
+        encoder: E,
+        special_tokens_encoder: SE,
+        pattern: &str,
+        backend_choice: PatternBackendChoice,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>>
+    where
+        E: IntoIterator<Item = (Vec<u8>, Rank)>,
+        SE: IntoIterator<Item = (String, Rank)>,
+        NSE: IntoIterator<Item = (String, (Rank, Rank))>,
+    {
+        Self::new_internal_with_backend(
+            HashMap::from_iter(encoder),
+            HashMap::from_iter(special_tokens_encoder),
+            pattern,
+            backend_choice,
+        )
+    }
+
     fn new_internal(
         encoder: HashMap<Vec<u8>, Rank>,
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let regex = Regex::new(pattern)?;
+        let default_choice = default_backend_for_pattern(pattern);
+        Self::new_internal_with_backend(
+            encoder,
+            special_tokens_encoder,
+            pattern,
+            default_choice,
+        )
+    }
+
+    fn new_internal_with_backend(
+        encoder: HashMap<Vec<u8>, Rank>,
+        special_tokens_encoder: HashMap<String, Rank>,
+        pattern: &str,
+        backend_choice: PatternBackendChoice,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let pattern_backend = build_pattern_backend(pattern, backend_choice)?;
 
         let special_regex = {
             let parts = special_tokens_encoder
@@ -654,7 +731,7 @@ impl CoreBPE {
             special_tokens_encoder,
             decoder,
             special_tokens_decoder,
-            regex_tls: (0..MAX_NUM_THREADS).map(|_| regex.clone()).collect(),
+            pattern_backend,
             special_regex_tls: (0..MAX_NUM_THREADS)
                 .map(|_| special_regex.clone())
                 .collect(),
@@ -672,6 +749,43 @@ impl CoreBPE {
     pub fn encode_with_special_tokens(&self, text: &str) -> Vec<Rank> {
         let allowed_special = self.special_tokens();
         self.encode(text, &allowed_special).unwrap().0
+    }
+}
+
+fn build_pattern_backend(
+    pattern: &str,
+    backend_choice: PatternBackendChoice,
+) -> Result<PatternBackend, Box<dyn std::error::Error + Send + Sync>> {
+    match backend_choice {
+        PatternBackendChoice::Cl100kParser => {
+            if pattern == cl100k::CL100K_PATTERN {
+                Ok(PatternBackend::Cl100k(cl100k::Cl100kParser::new()))
+            } else {
+                // Error if Cl100kParser requested but pattern is not CL100K_PATTERN
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!(
+                        "Cannot use PatternBackendChoice::Cl100kParser with a pattern other than cl100k::CL100K_PATTERN.\nGot pattern: '{}'\nExpected: '{}'",
+                        pattern, cl100k::CL100K_PATTERN
+                    ),
+                )
+                .into());
+            }
+        }
+        PatternBackendChoice::FancyRegex => {
+            let regex = Regex::new(pattern)?;
+            Ok(PatternBackend::FancyRegex(
+                (0..MAX_NUM_THREADS).map(|_| regex.clone()).collect(),
+            ))
+        }
+    }
+}
+
+fn default_backend_for_pattern(pattern: &str) -> PatternBackendChoice {
+    if pattern == cl100k::CL100K_PATTERN {
+        PatternBackendChoice::Cl100kParser
+    } else {
+        PatternBackendChoice::FancyRegex
     }
 }
 
