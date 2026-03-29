@@ -142,7 +142,12 @@ def o200k_harmony():
         "<|reserved_200010|>": 200010,
         "<|reserved_200011|>": 200011,
         "<|call|>": 200012,
-    } | {f"<|reserved_{i}|>": i for i in range(200013, 201088)}
+        "<|reserved_200013|>": 200013,
+        "<|reserved_200014|>": 200014,
+        "<|reserved_200015|>": 200015,
+        "<|reserved_200016|>": 200016,
+        "<|reserved_200017|>": 200017,
+    } | {f"<|reserved_{i}|>": i for i in range(200019, 201088)}
     return {
         "name": name,
         "pat_str": pat_str,
