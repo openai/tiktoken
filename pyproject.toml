@@ -30,6 +30,7 @@ macos.environment = { MACOSX_DEPLOYMENT_TARGET = "10.12" }
 skip = [
   "*-manylinux_i686",
   "*-musllinux_i686",
+  "*-musllinux_ppc64le",
   "*-win32",
 ]
 macos.archs = ["x86_64", "arm64"]
