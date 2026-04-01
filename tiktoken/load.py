@@ -24,8 +24,7 @@ def read_file(blobpath: str) -> bytes:
         raise ImportError(
             "blobfile is not installed. Please install it by running `pip install blobfile`."
         ) from e
-    with blobfile.BlobFile(blobpath, "rb") as f:
-        return f.read()
+    return blobfile.read_bytes(blobpath)
 
 
 def check_hash(data: bytes, expected_hash: str) -> bool:

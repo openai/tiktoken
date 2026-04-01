@@ -20,14 +20,14 @@ jobs:
         python-version: [39, 310, 311, 312, 313, 313t, 314, 314t]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: pypa/cibuildwheel@v3.1.4
+      - uses: pypa/cibuildwheel@65b8265957fd86372d9689a0acdfd55813970d5d # v3.1.4
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ENABLE: cpython-freethreading
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -43,10 +43,10 @@ jobs:
         python-version: [39, 310, 311, 312, 313, 313t, 314, 314t]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.4
+        uses: pypa/cibuildwheel@65b8265957fd86372d9689a0acdfd55813970d5d # v3.1.4
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
@@ -55,7 +55,7 @@ jobs:
           CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
           CIBW_ENABLE: cpython-freethreading
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: cibw-wheels-aarch64-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -65,8 +65,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         name: Install Python
         with:
           python-version: "3.9"
@@ -78,7 +78,7 @@ jobs:
         run: |
           pip install --upgrade build
           python -m build --sdist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./dist/*.tar.gz
@@ -89,7 +89,7 @@ jobs:
     needs: [build_wheels, build_wheels_aarch64, build_sdist]
     steps:
      - name: Merge artifacts
-       uses: actions/upload-artifact/merge@v4
+       uses: actions/upload-artifact/merge@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
        with:
          name: cibw-wheels
          pattern: cibw-wheels-*
