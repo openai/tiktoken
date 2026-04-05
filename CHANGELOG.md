@@ -2,6 +2,10 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.13.0]
+
+- Loosened `Encoding`'s batch encoding methods' typing to allow for `Sequence`
+
 ## [v0.12.0]
 - Build wheels for Python 3.14
 - Build musllinux aarch64 wheels
