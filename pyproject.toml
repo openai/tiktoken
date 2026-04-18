@@ -3,7 +3,7 @@ name = "tiktoken"
 version = "0.12.0"
 description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
 authors = [{ name = "Shantanu Jain" }, { email = "shantanu@openai.com" }]
 dependencies = ["regex", "requests"]
 optional-dependencies = { blobfile = ["blobfile>=3"] }
@@ -17,6 +17,9 @@ changelog = "https://github.com/openai/tiktoken/blob/main/CHANGELOG.md"
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = ["setuptools>=62.4", "wheel", "setuptools-rust>=1.5.2"]
+
+[tool.setuptools]
+license-files = ["LICENSE"]
 
 [tool.cibuildwheel]
 build-frontend = "build"
