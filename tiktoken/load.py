@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+from urllib.parse import urlparse
 
 
 def read_file(blobpath: str) -> bytes:
@@ -32,6 +33,17 @@ def check_hash(data: bytes, expected_hash: str) -> bool:
     return actual_hash == expected_hash
 
 
+def _legacy_cache_path(cache_dir: str, blobpath: str) -> str | None:
+    if "://" not in blobpath:
+        return os.path.join(cache_dir, os.path.basename(blobpath))
+
+    parsed = urlparse(blobpath)
+    filename = os.path.basename(parsed.path)
+    if not filename:
+        return None
+    return os.path.join(cache_dir, filename)
+
+
 def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     user_specified_cache = True
     if "TIKTOKEN_CACHE_DIR" in os.environ:
@@ -50,8 +62,15 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
 
     cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
 
-    cache_path = os.path.join(cache_dir, cache_key)
-    if os.path.exists(cache_path):
+    cache_paths = [os.path.join(cache_dir, cache_key)]
+    legacy_cache_path = _legacy_cache_path(cache_dir, blobpath)
+    if legacy_cache_path and legacy_cache_path not in cache_paths:
+        cache_paths.append(legacy_cache_path)
+
+    for cache_path in cache_paths:
+        if not os.path.exists(cache_path):
+            continue
+
         with open(cache_path, "rb", buffering=0) as f:
             data = f.read()
         if expected_hash is None or check_hash(data, expected_hash):
@@ -62,6 +81,9 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
             os.remove(cache_path)
         except OSError:
             pass
+
+    if os.environ.get("TIKTOKEN_OFFLINE") not in (None, "", "0"):
+        raise FileNotFoundError(f"offline mode enabled and cache miss for {blobpath}")
 
     contents = read_file(blobpath)
     if expected_hash and not check_hash(contents, expected_hash):
