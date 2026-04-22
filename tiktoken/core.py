@@ -113,7 +113,10 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            if not allowed_special:
+                disallowed_special = self._special_tokens_frozen
+            else:
+                disallowed_special = self._special_tokens_frozen - allowed_special
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
@@ -123,12 +126,6 @@ class Encoding:
         try:
             return self._core_bpe.encode(text, allowed_special)
         except UnicodeEncodeError:
-            # BPE operates on bytes, but the regex operates on unicode. If we pass a str that is
-            # invalid UTF-8 to Rust, it will rightfully complain. Here we do a quick and dirty
-            # fixup for any surrogate pairs that may have sneaked their way into the text.
-            # Technically, this introduces a place where encode + decode doesn't roundtrip a Python
-            # string, but given that this is input we want to support, maybe that's okay.
-            # Also we use errors="replace" to handle weird things like lone surrogates.
             text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
             return self._core_bpe.encode(text, allowed_special)
 
@@ -146,7 +143,10 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            if not allowed_special:
+                disallowed_special = self._special_tokens_frozen
+            else:
+                disallowed_special = self._special_tokens_frozen - allowed_special
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
@@ -168,9 +168,13 @@ class Encoding:
         [[31373, 995], [11274, 16390, 995]]
         ```
         """
-        encoder = functools.partial(self.encode_ordinary)
+        if num_threads <= 1 or len(text) <= 1:
+            try:
+                return list(map(self._core_bpe.encode_ordinary, text))
+            except UnicodeEncodeError:
+                return list(map(self.encode_ordinary, text))
         with ThreadPoolExecutor(num_threads) as e:
-            return list(e.map(encoder, text))
+            return list(e.map(self.encode_ordinary, text))
 
     def encode_batch(
         self,
@@ -192,10 +196,15 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            if not allowed_special:
+                disallowed_special = self._special_tokens_frozen
+            else:
+                disallowed_special = self._special_tokens_frozen - allowed_special
         if not isinstance(disallowed_special, frozenset):
             disallowed_special = frozenset(disallowed_special)
 
+        if num_threads <= 1 or len(text) <= 1:
+            return [self.encode(t, allowed_special=allowed_special, disallowed_special=disallowed_special) for t in text]
         encoder = functools.partial(
             self.encode, allowed_special=allowed_special, disallowed_special=disallowed_special
         )
@@ -230,7 +239,10 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            if not allowed_special:
+                disallowed_special = self._special_tokens_frozen
+            else:
+                disallowed_special = self._special_tokens_frozen - allowed_special
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
@@ -304,7 +316,7 @@ class Encoding:
         >>> enc.decode_tokens_bytes([31373, 995])
         [b'hello', b' world']
         """
-        return [self.decode_single_token_bytes(token) for token in tokens]
+        return list(map(self._core_bpe.decode_single_token_bytes, tokens))
 
     def decode_with_offsets(self, tokens: Sequence[int]) -> tuple[str, list[int]]:
         """Decodes a list of tokens into a string and a list of offsets.
@@ -319,22 +331,43 @@ class Encoding:
         >>> enc.decode_with_offsets([31373, 995])
         ('hello world', [0, 5])
         """
-        token_bytes = self.decode_tokens_bytes(tokens)
+        raw = self._core_bpe.decode_bytes(tokens)
 
+        if not raw or raw.isascii():
+            _tbl = self._token_byte_lengths
+            text_len = 0
+            offsets = []
+            for t in tokens:
+                offsets.append(text_len)
+                text_len += _tbl[t]
+            return raw.decode("ascii") if raw else "", offsets
+
+        token_bytes = self.decode_tokens_bytes(tokens)
         text_len = 0
         offsets = []
         for token in token_bytes:
-            offsets.append(max(0, text_len - (0x80 <= token[0] < 0xC0)))
-            text_len += sum(1 for c in token if not 0x80 <= c < 0xC0)
+            b0 = token[0]
+            offsets.append(text_len - (0x80 <= b0 < 0xC0) if text_len > 0 else 0)
+            tlen = len(token)
+            if tlen == 1:
+                text_len += b0 < 0x80 or b0 >= 0xC0
+            elif b0 < 0x80 and token.isascii():
+                text_len += tlen
+            else:
+                for c in token:
+                    if not (0x80 <= c < 0xC0):
+                        text_len += 1
 
-        # TODO: assess correctness for errors="ignore" and errors="replace"
-        text = b"".join(token_bytes).decode("utf-8", errors="strict")
+        text = raw.decode("utf-8", errors="strict")
         return text, offsets
 
     def decode_batch(
         self, batch: Sequence[Sequence[int]], *, errors: str = "replace", num_threads: int = 8
     ) -> list[str]:
         """Decodes a batch (list of lists of tokens) into a list of strings."""
+        if num_threads <= 1 or len(batch) <= 1:
+            _decode_bytes = self._core_bpe.decode_bytes
+            return [_decode_bytes(tokens).decode("utf-8", errors=errors) for tokens in batch]
         decoder = functools.partial(self.decode, errors=errors)
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(decoder, batch))
@@ -343,6 +376,8 @@ class Encoding:
         self, batch: Sequence[Sequence[int]], *, num_threads: int = 8
     ) -> list[bytes]:
         """Decodes a batch (list of lists of tokens) into a list of bytes."""
+        if num_threads <= 1 or len(batch) <= 1:
+            return list(map(self._core_bpe.decode_bytes, batch))
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(self.decode_bytes, batch))
 
@@ -361,6 +396,20 @@ class Encoding:
     @functools.cached_property
     def special_tokens_set(self) -> set[str]:
         return set(self._special_tokens.keys())
+
+    @functools.cached_property
+    def _special_tokens_frozen(self) -> frozenset[str]:
+        return frozenset(self._special_tokens.keys())
+
+    @functools.cached_property
+    def _token_byte_lengths(self) -> tuple[int, ...]:
+        n = self.max_token_value + 1
+        result = [0] * n
+        for token_bytes, rank in self._mergeable_ranks.items():
+            result[rank] = len(token_bytes)
+        for token_str, rank in self._special_tokens.items():
+            result[rank] = len(token_str.encode("utf-8"))
+        return tuple(result)
 
     def is_special_token(self, token: int) -> bool:
         assert isinstance(token, int)
