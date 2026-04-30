@@ -60,6 +60,38 @@ jobs:
           name: cibw-wheels-aarch64-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
+  build_wheels_riscv64:
+    name: py${{ matrix.python-version }} on ubuntu-latest (riscv64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [310, 311, 312, 313, 313t, 314, 314t]
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        with:
+          platforms: linux/riscv64
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@65b8265957fd86372d9689a0acdfd55813970d5d # v3.1.4
+        env:
+          CIBW_BUILD: "cp${{ matrix.python-version}}-*"
+          CIBW_ARCHS: riscv64
+          CIBW_SKIP: "*-musllinux*"
+          CIBW_BUILD_VERBOSITY: 3
+          CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
+          CIBW_ENABLE: cpython-freethreading
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: cibw-wheels-riscv64-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
   build_sdist:
     name: sdist
     runs-on: ubuntu-latest
@@ -86,7 +118,7 @@ jobs:
   join_artifacts:
     name: Join artifacts
     runs-on: ubuntu-latest
-    needs: [build_wheels, build_wheels_aarch64, build_sdist]
+    needs: [build_wheels, build_wheels_aarch64, build_wheels_riscv64, build_sdist]
     steps:
      - name: Merge artifacts
        uses: actions/upload-artifact/merge@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
