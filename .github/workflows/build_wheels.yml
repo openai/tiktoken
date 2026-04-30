@@ -70,15 +70,15 @@ jobs:
         python-version: [310, 311, 312, 313, 313t, 314, 314t]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
         with:
           platforms: linux/riscv64
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.4
+        uses: pypa/cibuildwheel@65b8265957fd86372d9689a0acdfd55813970d5d # v3.1.4
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: riscv64
@@ -87,7 +87,7 @@ jobs:
           CIBW_ENVIRONMENT_LINUX: PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI=true
           CIBW_ENABLE: cpython-freethreading
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: cibw-wheels-riscv64-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
