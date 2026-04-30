@@ -223,6 +223,17 @@ def test_special_token():
     assert fim in tokens
 
 
+def test_is_special_token():
+    enc = tiktoken.get_encoding("cl100k_base")
+
+    eot = enc.encode_single_token("<|endoftext|>")
+    assert enc.is_special_token(eot)
+
+    # a regular token should not be special
+    hello_tokens = enc.encode("hello")
+    assert not enc.is_special_token(hello_tokens[0])
+
+
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(text=st.text())
 @hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
