@@ -364,7 +364,7 @@ class Encoding:
 
     def is_special_token(self, token: int) -> bool:
         assert isinstance(token, int)
-        return token in self._special_token_values
+        return token in self._special_tokens.values()
 
     @property
     def n_vocab(self) -> int:
