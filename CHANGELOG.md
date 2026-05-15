@@ -2,6 +2,13 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.13.0]
+- Update fancy-regex for significantly increased performance
+- Branch byte pair encoding to fix performance on unusual input
+- Fix AttributeError caused by incomplete redaction of experimental code
+- Update version of `pyo3`
+- Update version of optional dependency `blobfile`
+
 ## [v0.12.0]
 - Build wheels for Python 3.14
 - Build musllinux aarch64 wheels
