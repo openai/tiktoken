@@ -24,3 +24,9 @@ fancy-regex = "0.17.0"
 regex = "1.10.3"
 rustc-hash = "2"
 bstr = "1.5.0"
+
+[profile.release]
+# Keep line tables in release builds so panic stack traces include
+# file/line numbers without significantly inflating wheel size or
+# affecting runtime performance.
+debug = "line-tables-only"
