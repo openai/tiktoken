@@ -1,6 +1,6 @@
 [package]
 name = "tiktoken"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2024"
 
 [lib]
@@ -14,7 +14,7 @@ python = [
 ]
 
 [dependencies]
-pyo3 = { version = "0.27.2", default-features = false, features = [
+pyo3 = { version = "0.28.3", default-features = false, features = [
     "extension-module",
     "macros",
 ], optional = true }
