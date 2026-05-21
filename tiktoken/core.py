@@ -71,6 +71,7 @@ class Encoding:
         ```
         >>> enc.encode_ordinary("hello world")
         [31373, 995]
+        ```
         """
         try:
             return self._core_bpe.encode_ordinary(text)
