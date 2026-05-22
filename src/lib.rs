@@ -12,6 +12,9 @@ mod py;
 
 pub type Rank = u32;
 
+// Every distinct 2-byte sequence (256 byte values × 256). Indexed by (byte_a << 8) | byte_b.
+const PAIR_TABLE_SIZE: usize = 256 * 256;
+
 use std::collections::BinaryHeap;
 
 #[derive(Eq, PartialEq, Clone, Copy)]
@@ -47,7 +50,7 @@ struct State {
 fn _byte_pair_merge_large(
     ranks: &HashMap<Vec<u8>, Rank>,
     piece: &[u8],
-    pair_table: Option<&[Rank; 65536]>,
+    pair_table: Option<&[Rank; PAIR_TABLE_SIZE]>,
 ) -> Vec<Rank> {
     let mut state = Vec::with_capacity(piece.len());
     state.push(State {
@@ -153,7 +156,7 @@ fn _byte_pair_merge_large(
 fn _byte_pair_merge(
     ranks: &HashMap<Vec<u8>, Rank>,
     piece: &[u8],
-    pair_table: Option<&[Rank; 65536]>,
+    pair_table: Option<&[Rank; PAIR_TABLE_SIZE]>,
 ) -> Vec<(usize, Rank)> {
     // This is a vector of (start, rank).
     // The rank is of the pair starting at position start.
@@ -163,9 +166,9 @@ fn _byte_pair_merge(
     // the way we currently do, this is equivalent. An easy way to break this would be to decouple
     // merge priority from token index or to prevent specific token merges.
     //
-    // When `pair_table` is Some, the initial pair scan uses a flat 65k-entry array indexed by
-    // the 2-byte pair instead of the hashmap. Subsequent merges (3+ byte sequences) always go
-    // through the hashmap, since 3+ byte keys don't fit in a u16.
+    // When `pair_table` is Some, the initial pair scan uses a flat `PAIR_TABLE_SIZE`-entry
+    // array indexed by the 2-byte pair instead of the hashmap. Subsequent merges (3+ byte
+    // sequences) always go through the hashmap, since 3+ byte keys don't fit in a u16.
     let mut min_rank: (Rank, usize) = (Rank::MAX, usize::MAX);
     for i in 0..piece.len() - 1 {
         let rank = match pair_table {
@@ -240,7 +243,7 @@ pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Ran
 fn byte_pair_encode_with_table(
     piece: &[u8],
     ranks: &HashMap<Vec<u8>, Rank>,
-    pair_table: &[Rank; 65536],
+    pair_table: &[Rank; PAIR_TABLE_SIZE],
 ) -> Vec<Rank> {
     let piece_len = piece.len();
 
@@ -374,7 +377,7 @@ pub struct CoreBPE {
     /// Precomputed 2-byte pair to rank lookup table (~256 KB, built once at
     /// construction). Used by encoding methods to skip the hashmap lookup for
     /// the hot initial adjacent-pair scan inside `_byte_pair_merge`.
-    pair_table: Box<[Rank; 65536]>,
+    pair_table: Box<[Rank; PAIR_TABLE_SIZE]>,
 }
 
 impl CoreBPE {
@@ -606,11 +609,10 @@ impl CoreBPE {
                     // notice all the big holes in the previous unstable token implementation)
                     Err(_) => {
                         byte_pair_encode_with_table(&possibility, &self.encoder, &self.pair_table)
-                    }
-                    // Something like the following is intriguing but incorrect:
-                    // Err(e) => self.encode_ordinary(unsafe {
-                    //     std::str::from_utf8_unchecked(&possibility[..e.valid_up_to()])
-                    // }),
+                    } // Something like the following is intriguing but incorrect:
+                      // Err(e) => self.encode_ordinary(unsafe {
+                      //     std::str::from_utf8_unchecked(&possibility[..e.valid_up_to()])
+                      // }),
                 };
                 let mut seq = Vec::new();
                 let mut seq_len = 0;
@@ -708,7 +710,7 @@ impl CoreBPE {
         sorted_token_bytes.sort();
 
         // Build the 2-byte pair lookup table (~256 KB, sub-millisecond one-time cost).
-        let mut pair_table: Box<[Rank; 65536]> = Box::new([Rank::MAX; 65536]);
+        let mut pair_table: Box<[Rank; PAIR_TABLE_SIZE]> = Box::new([Rank::MAX; PAIR_TABLE_SIZE]);
         for (key, &rank) in &encoder {
             if key.len() == 2 {
                 let idx = ((key[0] as u16) << 8 | key[1] as u16) as usize;
@@ -766,5 +768,116 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
+    }
+}
+
+/// Tests that the precomputed 2-byte pair lookup table produces output
+/// byte-identical to the vanilla hashmap-lookup path. Covers both the
+/// linear `_byte_pair_merge` (pieces < 100 bytes) and the heap-based
+/// `_byte_pair_merge_large` (pieces >= 100 bytes) code paths.
+#[cfg(test)]
+mod pair_table_equivalence {
+    use super::*;
+
+    /// Build a small synthetic encoder: all ASCII a-z and 0-9 as single-byte
+    /// tokens, plus a handful of common 2-byte and 3-byte merges. Enough to
+    /// exercise real merge dynamics without depending on a downloaded vocab.
+    fn synthetic_encoder() -> HashMap<Vec<u8>, Rank> {
+        let mut encoder = HashMap::default();
+        let mut rank: Rank = 0;
+        for b in b'a'..=b'z' {
+            encoder.insert(vec![b], rank);
+            rank += 1;
+        }
+        for b in b'0'..=b'9' {
+            encoder.insert(vec![b], rank);
+            rank += 1;
+        }
+        for pair in ["th", "he", "in", "er", "an", "re", "on", "at", "es", "or"] {
+            encoder.insert(pair.as_bytes().to_vec(), rank);
+            rank += 1;
+        }
+        for triple in ["the", "and", "ing", "ion", "for"] {
+            encoder.insert(triple.as_bytes().to_vec(), rank);
+            rank += 1;
+        }
+        encoder
+    }
+
+    fn build_pair_table(encoder: &HashMap<Vec<u8>, Rank>) -> Box<[Rank; PAIR_TABLE_SIZE]> {
+        let mut pair_table: Box<[Rank; PAIR_TABLE_SIZE]> = Box::new([Rank::MAX; PAIR_TABLE_SIZE]);
+        for (key, &rank) in encoder {
+            if key.len() == 2 {
+                let idx = ((key[0] as u16) << 8 | key[1] as u16) as usize;
+                pair_table[idx] = rank;
+            }
+        }
+        pair_table
+    }
+
+    fn check_equivalence(piece: &[u8]) {
+        let encoder = synthetic_encoder();
+        let pair_table = build_pair_table(&encoder);
+        let vanilla = byte_pair_encode(piece, &encoder);
+        let patched = byte_pair_encode_with_table(piece, &encoder, &pair_table);
+        assert_eq!(
+            vanilla,
+            patched,
+            "vanilla vs pair-table diverged on piece of length {}",
+            piece.len(),
+        );
+    }
+
+    /// Generate an alphabetic piece of the requested length by cycling a..z.
+    fn alpha_piece(n: usize) -> Vec<u8> {
+        (0..n).map(|i| b'a' + ((i % 26) as u8)).collect()
+    }
+
+    #[test]
+    fn equivalence_length_1_direct_lookup() {
+        // Single byte takes the early-return path; pair table never consulted.
+        check_equivalence(b"a");
+        check_equivalence(b"z");
+        check_equivalence(b"0");
+    }
+
+    #[test]
+    fn equivalence_short_pieces_linear_path() {
+        // Pieces < 100 bytes go through `_byte_pair_merge` (linear scan).
+        check_equivalence(b"th");
+        check_equivalence(b"the");
+        check_equivalence(b"that");
+        check_equivalence(b"information");
+        check_equivalence(b"theandingionfor");
+    }
+
+    #[test]
+    fn equivalence_just_under_100b_cutoff() {
+        check_equivalence(&alpha_piece(50));
+        check_equivalence(&alpha_piece(98));
+        check_equivalence(&alpha_piece(99));
+    }
+
+    #[test]
+    fn equivalence_at_100b_cutoff() {
+        // 100 bytes is the boundary: dispatches to `_byte_pair_merge_large`.
+        check_equivalence(&alpha_piece(100));
+        check_equivalence(&alpha_piece(101));
+    }
+
+    #[test]
+    fn equivalence_long_pieces_heap_path() {
+        // Well into the heap-based path.
+        check_equivalence(&alpha_piece(200));
+        check_equivalence(&alpha_piece(500));
+        check_equivalence(&alpha_piece(1000));
+    }
+
+    #[test]
+    fn equivalence_repeated_pairs() {
+        // Many identical 2-byte pairs to stress the initial-scan path.
+        check_equivalence(&[b'x'; 5]);
+        check_equivalence(&[b'x'; 99]);
+        check_equivalence(&[b'x'; 150]);
     }
 }
