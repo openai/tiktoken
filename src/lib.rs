@@ -358,14 +358,23 @@ impl CoreBPE {
     /// Pretokenize `text` into (start, end) byte ranges. Dispatches to the
     /// hand-coded lexer when a canonical pattern was detected at construction,
     /// else uses the thread-local `fancy_regex::find_iter`.
-    fn pretok_splits<'a>(&'a self, text: &'a str) -> Box<dyn Iterator<Item = (usize, usize)> + 'a> {
+    ///
+    /// The iterator yields `Result` so callers in the regex-fallback path can
+    /// propagate `fancy_regex` errors (the lexer path is infallible and always
+    /// yields `Ok`).
+    fn pretok_splits<'a>(
+        &'a self,
+        text: &'a str,
+    ) -> Box<dyn Iterator<Item = Result<(usize, usize), EncodeError>> + 'a> {
         match self.lexer_kind {
-            Some(LexerKind::O200kBase) => Box::new(crate::lexer::split(text)),
-            Some(LexerKind::Cl100kBase) => Box::new(crate::lexer::split_cl100k(text)),
-            Some(LexerKind::Gpt2) => Box::new(crate::lexer::split_gpt2(text)),
-            None => Box::new(self._get_tl_regex().find_iter(text).map(|m| {
-                let m = m.expect("regex match");
-                (m.start(), m.end())
+            Some(LexerKind::O200kBase) => Box::new(crate::lexer::split(text).map(Ok)),
+            Some(LexerKind::Cl100kBase) => Box::new(crate::lexer::split_cl100k(text).map(Ok)),
+            Some(LexerKind::Gpt2) => Box::new(crate::lexer::split_gpt2(text).map(Ok)),
+            None => Box::new(self._get_tl_regex().find_iter(text).map(|m| match m {
+                Ok(m) => Ok((m.start(), m.end())),
+                Err(e) => Err(EncodeError {
+                    message: format!("Regex error while tokenizing: {e}"),
+                }),
             })),
         }
     }
@@ -393,7 +402,12 @@ impl CoreBPE {
         // just make things complicated :-)
         let bytes = text.as_bytes();
         let mut ret = vec![];
-        for (start, end) in self.pretok_splits(text) {
+        for item in self.pretok_splits(text) {
+            // `encode_ordinary` returns Vec<Rank> (no Result), so a regex error
+            // here matches the original upstream behaviour of panicking via
+            // `mat.unwrap()`. The lexer path always yields `Ok`, so this only
+            // panics for custom (non-canonical) patterns with internal regex errors.
+            let (start, end) = item.expect("regex error in encode_ordinary");
             let piece = &bytes[start..end];
             match self.encoder.get(piece) {
                 Some(token) => ret.push(*token),
@@ -434,7 +448,8 @@ impl CoreBPE {
             // Okay, here we go, compare this logic to encode_ordinary
             let segment = &text[start..end];
             let bytes = segment.as_bytes();
-            for (p_start, p_end) in self.pretok_splits(segment) {
+            for item in self.pretok_splits(segment) {
+                let (p_start, p_end) = item?;
                 let piece = &bytes[p_start..p_end];
                 if let Some(token) = self.encoder.get(piece) {
                     last_piece_token_len = 1;
