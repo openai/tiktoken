@@ -106,13 +106,23 @@ const CLASS_NEWLINE: u8 = 1 << 6; // \r or \n
 
 const UNICODE_TABLE_SIZE: usize = 0x110000;
 
+/// Number of ASCII codepoints (0x00..=0x7F). The lexer keeps a separate
+/// compile-time ASCII class table because the ASCII range is the common case
+/// and avoiding a heap-backed `LazyLock` lookup for it is worthwhile.
+const ASCII_BOUNDARY: usize = 128;
+
+/// Maximum digit run length in `\p{N}{1,3}` (the number-cluster alt in both
+/// `o200k_base` and `cl100k_base`). After 3 digits the regex forces a new
+/// number-cluster match.
+const MAX_DIGIT_RUN: usize = 3;
+
 /// ASCII portion of the class table — computed at compile time as a `const`
 /// so the common case has zero runtime init cost and the table can be
 /// inlined.
-const ASCII_CLASS: [u8; 128] = {
-    let mut t = [0u8; 128];
+const ASCII_CLASS: [u8; ASCII_BOUNDARY] = {
+    let mut t = [0u8; ASCII_BOUNDARY];
     let mut i: usize = 0;
-    while i < 128 {
+    while i < ASCII_BOUNDARY {
         let b = i as u8;
         let mut c = 0u8;
         if b.is_ascii_uppercase() {
@@ -142,7 +152,7 @@ const ASCII_CLASS: [u8; 128] = {
 /// of the process.
 static UNICODE_CLASS_TABLE: LazyLock<Box<[u8]>> = LazyLock::new(|| {
     let mut t = vec![0u8; UNICODE_TABLE_SIZE].into_boxed_slice();
-    for i in 128..UNICODE_TABLE_SIZE {
+    for i in ASCII_BOUNDARY..UNICODE_TABLE_SIZE {
         if let Some(c) = char::from_u32(i as u32) {
             t[i] = compute_class_byte_from_unicode(c);
         }
@@ -181,7 +191,7 @@ fn compute_class_byte_from_unicode(c: char) -> u8 {
 #[inline(always)]
 fn class_of(c: char) -> u8 {
     let i = c as u32 as usize;
-    if i < 128 {
+    if i < ASCII_BOUNDARY {
         ASCII_CLASS[i]
     } else {
         UNICODE_CLASS_TABLE[i]
@@ -366,12 +376,12 @@ fn try_alt2(input: &str, start: usize) -> Option<usize> {
     None
 }
 
-/// Alt 3: `\p{N}{1,3}` — 1 to 3 digit characters.
+/// Alt 3: `\p{N}{1,3}` — 1 to `MAX_DIGIT_RUN` digit characters.
 fn try_alt3(input: &str, start: usize) -> Option<usize> {
     let mut end = start;
     let mut count = 0;
     for c in input[start..].chars() {
-        if count >= 3 || !is_number(c) {
+        if count >= MAX_DIGIT_RUN || !is_number(c) {
             break;
         }
         end += c.len_utf8();
