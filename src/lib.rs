@@ -44,7 +44,11 @@ struct State {
     cur_rank: Rank,
 }
 
-fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<Rank> {
+fn _byte_pair_merge_large(
+    ranks: &HashMap<Vec<u8>, Rank>,
+    piece: &[u8],
+    pair_table: Option<&[Rank; 65536]>,
+) -> Vec<Rank> {
     let mut state = Vec::with_capacity(piece.len());
     state.push(State {
         prev: usize::MAX,
@@ -56,7 +60,16 @@ fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<R
 
     let mut heap = BinaryHeap::with_capacity(piece.len());
     for i in 0..piece.len() - 1 {
-        if let Some(&rank) = ranks.get(&piece[i..i + 2]) {
+        // When `pair_table` is Some, look up the 2-byte pair rank via flat array index instead
+        // of the hashmap. Same semantics: `Rank::MAX` in the table means "not in vocab" so skip.
+        let rank_opt = match pair_table {
+            Some(table) => {
+                let r = table[((piece[i] as u16) << 8 | piece[i + 1] as u16) as usize];
+                (r != Rank::MAX).then_some(r)
+            }
+            None => ranks.get(&piece[i..i + 2]).copied(),
+        };
+        if let Some(rank) = rank_opt {
             heap.push(Merge { start: i, rank });
             state[i].next_rank = rank;
         }
@@ -137,7 +150,11 @@ fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<R
     result
 }
 
-fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize, Rank)> {
+fn _byte_pair_merge(
+    ranks: &HashMap<Vec<u8>, Rank>,
+    piece: &[u8],
+    pair_table: Option<&[Rank; 65536]>,
+) -> Vec<(usize, Rank)> {
     // This is a vector of (start, rank).
     // The rank is of the pair starting at position start.
     let mut parts = Vec::with_capacity(piece.len() + 1);
@@ -145,9 +162,16 @@ fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize,
     // Note that we hash bytes when indexing into `ranks`, not token pairs. As long as we train BPE
     // the way we currently do, this is equivalent. An easy way to break this would be to decouple
     // merge priority from token index or to prevent specific token merges.
+    //
+    // When `pair_table` is Some, the initial pair scan uses a flat 65k-entry array indexed by
+    // the 2-byte pair instead of the hashmap. Subsequent merges (3+ byte sequences) always go
+    // through the hashmap, since 3+ byte keys don't fit in a u16.
     let mut min_rank: (Rank, usize) = (Rank::MAX, usize::MAX);
     for i in 0..piece.len() - 1 {
-        let rank = *ranks.get(&piece[i..i + 2]).unwrap_or(&Rank::MAX);
+        let rank = match pair_table {
+            Some(table) => table[((piece[i] as u16) << 8 | piece[i + 1] as u16) as usize],
+            None => *ranks.get(&piece[i..i + 2]).unwrap_or(&Rank::MAX),
+        };
         if rank < min_rank.0 {
             min_rank = (rank, i);
         }
@@ -202,17 +226,39 @@ pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Ran
         return vec![ranks[piece]];
     }
     if piece_len < 100 {
-        return _byte_pair_merge(ranks, piece)
+        return _byte_pair_merge(ranks, piece, None)
             .windows(2)
             .map(|part| ranks[&piece[part[0].0..part[1].0]])
             .collect();
     }
-    _byte_pair_merge_large(ranks, piece)
+    _byte_pair_merge_large(ranks, piece, None)
+}
+
+/// Like [`byte_pair_encode`] but uses a precomputed 2-byte pair lookup table
+/// for the initial pair scan. Used internally by `CoreBPE` methods to skip the
+/// hashmap lookup for the hot initial scan.
+fn byte_pair_encode_with_table(
+    piece: &[u8],
+    ranks: &HashMap<Vec<u8>, Rank>,
+    pair_table: &[Rank; 65536],
+) -> Vec<Rank> {
+    let piece_len = piece.len();
+
+    if piece_len == 1 {
+        return vec![ranks[piece]];
+    }
+    if piece_len < 100 {
+        return _byte_pair_merge(ranks, piece, Some(pair_table))
+            .windows(2)
+            .map(|part| ranks[&piece[part[0].0..part[1].0]])
+            .collect();
+    }
+    _byte_pair_merge_large(ranks, piece, Some(pair_table))
 }
 
 pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<&'a [u8]> {
     assert!(piece.len() > 1);
-    _byte_pair_merge(ranks, piece)
+    _byte_pair_merge(ranks, piece, None)
         .windows(2)
         .map(|part| &piece[part[0].0..part[1].0])
         .collect()
@@ -325,6 +371,10 @@ pub struct CoreBPE {
     regex_tls: Vec<Regex>,
     special_regex_tls: Vec<Regex>,
     sorted_token_bytes: Vec<Vec<u8>>,
+    /// Precomputed 2-byte pair to rank lookup table (~256 KB, built once at
+    /// construction). Used by encoding methods to skip the hashmap lookup for
+    /// the hot initial adjacent-pair scan inside `_byte_pair_merge`.
+    pair_table: Box<[Rank; 65536]>,
 }
 
 impl CoreBPE {
@@ -366,7 +416,11 @@ impl CoreBPE {
             let piece = mat.unwrap().as_str().as_bytes();
             match self.encoder.get(piece) {
                 Some(token) => ret.push(*token),
-                None => ret.extend(&byte_pair_encode(piece, &self.encoder)),
+                None => ret.extend(&byte_pair_encode_with_table(
+                    piece,
+                    &self.encoder,
+                    &self.pair_table,
+                )),
             }
         }
         ret
@@ -418,7 +472,7 @@ impl CoreBPE {
                     ret.push(*token);
                     continue;
                 }
-                let tokens = byte_pair_encode(piece, &self.encoder);
+                let tokens = byte_pair_encode_with_table(piece, &self.encoder, &self.pair_table);
                 last_piece_token_len = tokens.len();
                 ret.extend(&tokens);
             }
@@ -550,7 +604,9 @@ impl CoreBPE {
                     // would be a regex split before the UTF-8 truncation point.
                     // Probably niche enough that no one will ever notice (after all, people didn't
                     // notice all the big holes in the previous unstable token implementation)
-                    Err(_) => byte_pair_encode(&possibility, &self.encoder),
+                    Err(_) => {
+                        byte_pair_encode_with_table(&possibility, &self.encoder, &self.pair_table)
+                    }
                     // Something like the following is intriguing but incorrect:
                     // Err(e) => self.encode_ordinary(unsafe {
                     //     std::str::from_utf8_unchecked(&possibility[..e.valid_up_to()])
@@ -583,13 +639,15 @@ impl CoreBPE {
             if unstable_bytes.len() - last_decoded.1 > 0
                 && last_decoded.0.is_some_and(|c| c.is_whitespace())
             {
-                let mut reencoded = byte_pair_encode(
+                let mut reencoded = byte_pair_encode_with_table(
                     &unstable_bytes[..unstable_bytes.len() - last_decoded.1],
                     &self.encoder,
+                    &self.pair_table,
                 );
-                reencoded.extend(byte_pair_encode(
+                reencoded.extend(byte_pair_encode_with_table(
                     &unstable_bytes[unstable_bytes.len() - last_decoded.1..],
                     &self.encoder,
+                    &self.pair_table,
                 ));
                 completions.insert(reencoded);
             }
@@ -649,6 +707,15 @@ impl CoreBPE {
         let mut sorted_token_bytes: Vec<Vec<u8>> = encoder.keys().cloned().collect();
         sorted_token_bytes.sort();
 
+        // Build the 2-byte pair lookup table (~256 KB, sub-millisecond one-time cost).
+        let mut pair_table: Box<[Rank; 65536]> = Box::new([Rank::MAX; 65536]);
+        for (key, &rank) in &encoder {
+            if key.len() == 2 {
+                let idx = ((key[0] as u16) << 8 | key[1] as u16) as usize;
+                pair_table[idx] = rank;
+            }
+        }
+
         Ok(Self {
             encoder,
             special_tokens_encoder,
@@ -659,6 +726,7 @@ impl CoreBPE {
                 .map(|_| special_regex.clone())
                 .collect(),
             sorted_token_bytes,
+            pair_table,
         })
     }
 
