@@ -240,7 +240,15 @@ class Encoding:
             if match := _special_token_regex(disallowed_special).search(text):
                 raise_disallowed_special_token(match.group())
 
-        return self._core_bpe.encode_with_unstable(text, allowed_special)
+        try:
+            return self._core_bpe.encode_with_unstable(text, allowed_special)
+        except UnicodeEncodeError:
+            # Mirror the surrogate-repair fallback used in `encode` / `encode_ordinary`
+            # (see the comment in `encode`): lone surrogates or unmatched surrogate pairs
+            # can't round-trip through UTF-8, so we repair via UTF-16 surrogatepass and
+            # retry rather than surface the raw codec error from the Rust boundary.
+            text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            return self._core_bpe.encode_with_unstable(text, allowed_special)
 
     def encode_single_token(self, text_or_bytes: str | bytes) -> int:
         """Encodes text corresponding to a single token to its token value.
