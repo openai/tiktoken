@@ -19,6 +19,12 @@ def test_encoding_for_model():
     assert enc.name == "o200k_base"
     enc = tiktoken.encoding_for_model("gpt-oss-120b")
     assert enc.name == "o200k_harmony"
+    # Regression for #464: a dotted minor like 'gpt-5.1' does not start
+    # with the 'gpt-5-' prefix, so it needs its own entry / prefix.
+    enc = tiktoken.encoding_for_model("gpt-5.1")
+    assert enc.name == "o200k_base"
+    enc = tiktoken.encoding_for_model("gpt-5.1-2025-11")
+    assert enc.name == "o200k_base"
 
 
 def test_optional_blobfile_dependency():

@@ -9,6 +9,12 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "o3-": "o200k_base",
     "o4-mini-": "o200k_base",
     # chat
+    # NB: list 'gpt-5.1-' before 'gpt-5-' so that a dotted minor like
+    # 'gpt-5.1-2025-11' is matched by its own prefix rather than failing the
+    # 'gpt-5-' check ('gpt-5.1-' does not start with 'gpt-5-'). For dict
+    # iteration order this is purely cosmetic — startswith() is correct either
+    # way — but it makes the intent explicit.
+    "gpt-5.1-": "o200k_base",
     "gpt-5-": "o200k_base",
     "gpt-4.5-": "o200k_base",
     "gpt-4.1-": "o200k_base",
@@ -32,6 +38,7 @@ MODEL_TO_ENCODING: dict[str, str] = {
     "o3": "o200k_base",
     "o4-mini": "o200k_base",
     # chat
+    "gpt-5.1": "o200k_base",
     "gpt-5": "o200k_base",
     "gpt-4.1": "o200k_base",
     "gpt-4o": "o200k_base",
