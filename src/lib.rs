@@ -7,10 +7,22 @@ use fancy_regex::Regex;
 use pyo3::prelude::*;
 use rustc_hash::FxHashMap as HashMap;
 
+mod lexer;
 #[cfg(feature = "python")]
 mod py;
 
 pub type Rank = u32;
+
+/// Selects which hand-coded lexer (if any) to use for pretokenization in
+/// place of `fancy_regex::find_iter`. Set at `CoreBPE::new` time by exact
+/// string match against the canonical OpenAI BPE pretokenization patterns.
+/// Unknown patterns leave this as `None` and fall back to the regex.
+#[derive(Clone, Copy, Debug)]
+enum LexerKind {
+    O200kBase,
+    Cl100kBase,
+    Gpt2,
+}
 
 use std::collections::BinaryHeap;
 
@@ -325,6 +337,10 @@ pub struct CoreBPE {
     regex_tls: Vec<Regex>,
     special_regex_tls: Vec<Regex>,
     sorted_token_bytes: Vec<Vec<u8>>,
+    /// `Some(_)` when the pattern passed to `CoreBPE::new` matched one of the
+    /// canonical OpenAI BPE pretokenization patterns. `None` for any other
+    /// pattern (uses `fancy_regex` unchanged).
+    lexer_kind: Option<LexerKind>,
 }
 
 impl CoreBPE {
@@ -337,6 +353,30 @@ impl CoreBPE {
 
     fn _get_tl_special_regex(&self) -> &Regex {
         &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+    }
+
+    /// Pretokenize `text` into (start, end) byte ranges. Dispatches to the
+    /// hand-coded lexer when a canonical pattern was detected at construction,
+    /// else uses the thread-local `fancy_regex::find_iter`.
+    ///
+    /// The iterator yields `Result` so callers in the regex-fallback path can
+    /// propagate `fancy_regex` errors (the lexer path is infallible and always
+    /// yields `Ok`).
+    fn pretok_splits<'a>(
+        &'a self,
+        text: &'a str,
+    ) -> Box<dyn Iterator<Item = Result<(usize, usize), EncodeError>> + 'a> {
+        match self.lexer_kind {
+            Some(LexerKind::O200kBase) => Box::new(crate::lexer::split(text).map(Ok)),
+            Some(LexerKind::Cl100kBase) => Box::new(crate::lexer::split_cl100k(text).map(Ok)),
+            Some(LexerKind::Gpt2) => Box::new(crate::lexer::split_gpt2(text).map(Ok)),
+            None => Box::new(self._get_tl_regex().find_iter(text).map(|m| match m {
+                Ok(m) => Ok((m.start(), m.end())),
+                Err(e) => Err(EncodeError {
+                    message: format!("Regex error while tokenizing: {e}"),
+                }),
+            })),
+        }
     }
 
     /// Decodes tokens into a list of bytes.
@@ -360,10 +400,15 @@ impl CoreBPE {
     pub fn encode_ordinary(&self, text: &str) -> Vec<Rank> {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
-        let regex = self._get_tl_regex();
+        let bytes = text.as_bytes();
         let mut ret = vec![];
-        for mat in regex.find_iter(text) {
-            let piece = mat.unwrap().as_str().as_bytes();
+        for item in self.pretok_splits(text) {
+            // `encode_ordinary` returns Vec<Rank> (no Result), so a regex error
+            // here matches the original upstream behaviour of panicking via
+            // `mat.unwrap()`. The lexer path always yields `Ok`, so this only
+            // panics for custom (non-canonical) patterns with internal regex errors.
+            let (start, end) = item.expect("regex error in encode_ordinary");
+            let piece = &bytes[start..end];
             match self.encoder.get(piece) {
                 Some(token) => ret.push(*token),
                 None => ret.extend(&byte_pair_encode(piece, &self.encoder)),
@@ -378,7 +423,6 @@ impl CoreBPE {
         allowed_special: &HashSet<&str>,
     ) -> Result<(Vec<Rank>, usize), EncodeError> {
         let special_regex = self._get_tl_special_regex();
-        let regex = self._get_tl_regex();
         let mut ret = vec![];
 
         let mut start = 0;
@@ -402,17 +446,11 @@ impl CoreBPE {
             let end = next_special.map_or(text.len(), |m| m.start());
 
             // Okay, here we go, compare this logic to encode_ordinary
-            for mat_res in regex.find_iter(&text[start..end]) {
-                let mat = match mat_res {
-                    Ok(m) => m,
-                    Err(e) => {
-                        return Err(EncodeError {
-                            message: format!("Regex error while tokenizing: {e}"),
-                        });
-                    }
-                };
-
-                let piece = mat.as_str().as_bytes();
+            let segment = &text[start..end];
+            let bytes = segment.as_bytes();
+            for item in self.pretok_splits(segment) {
+                let (p_start, p_end) = item?;
+                let piece = &bytes[p_start..p_end];
                 if let Some(token) = self.encoder.get(piece) {
                     last_piece_token_len = 1;
                     ret.push(*token);
@@ -649,6 +687,17 @@ impl CoreBPE {
         let mut sorted_token_bytes: Vec<Vec<u8>> = encoder.keys().cloned().collect();
         sorted_token_bytes.sort();
 
+        // Detect canonical OpenAI pretokenization patterns. If `pattern` matches one of the
+        // known canonical strings, the corresponding hand-coded lexer is used instead of
+        // `fancy_regex::find_iter`. Any other pattern (including user-supplied custom regexes)
+        // leaves this as `None` and the existing `fancy_regex` code path is used unchanged.
+        let lexer_kind = match pattern {
+            crate::lexer::PAT_STR_O200K_BASE => Some(LexerKind::O200kBase),
+            crate::lexer::PAT_STR_CL100K_BASE => Some(LexerKind::Cl100kBase),
+            crate::lexer::PAT_STR_GPT2 => Some(LexerKind::Gpt2),
+            _ => None,
+        };
+
         Ok(Self {
             encoder,
             special_tokens_encoder,
@@ -659,6 +708,7 @@ impl CoreBPE {
                 .map(|_| special_regex.clone())
                 .collect(),
             sorted_token_bytes,
+            lexer_kind,
         })
     }
 
