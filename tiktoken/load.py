@@ -5,6 +5,19 @@ import hashlib
 import os
 
 
+def _default_cache_dir() -> str:
+    if os.name == "nt":
+        cache_home = os.environ.get("LOCALAPPDATA")
+        if cache_home is None:
+            cache_home = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    else:
+        cache_home = os.environ.get("XDG_CACHE_HOME")
+        if cache_home is None:
+            cache_home = os.path.join(os.path.expanduser("~"), ".cache")
+
+    return os.path.join(cache_home, "tiktoken")
+
+
 def read_file(blobpath: str) -> bytes:
     if "://" not in blobpath:
         with open(blobpath, "rb", buffering=0) as f:
@@ -39,9 +52,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     elif "DATA_GYM_CACHE_DIR" in os.environ:
         cache_dir = os.environ["DATA_GYM_CACHE_DIR"]
     else:
-        import tempfile
-
-        cache_dir = os.path.join(tempfile.gettempdir(), "data-gym-cache")
+        cache_dir = _default_cache_dir()
         user_specified_cache = False
 
     if cache_dir == "":
@@ -73,7 +84,9 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     import uuid
 
     try:
-        os.makedirs(cache_dir, exist_ok=True)
+        os.makedirs(cache_dir, mode=0o700, exist_ok=True)
+        if not user_specified_cache:
+            os.chmod(cache_dir, 0o700)
         tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"
         with open(tmp_filename, "wb") as f:
             f.write(contents)
