@@ -198,6 +198,9 @@ fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize,
 pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Rank> {
     let piece_len = piece.len();
 
+    if piece_len == 0 {
+        return vec![];
+    }
     if piece_len == 1 {
         return vec![ranks[piece]];
     }
@@ -680,10 +683,16 @@ mod tests {
     use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::{Rank, byte_pair_split};
+    use crate::{Rank, byte_pair_encode, byte_pair_split};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
         HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
+    }
+
+    #[test]
+    fn test_empty_piece() {
+        let ranks = setup_ranks();
+        assert_eq!(byte_pair_encode(b"", &ranks), Vec::<Rank>::new());
     }
 
     #[test]
