@@ -10,6 +10,13 @@ def read_file(blobpath: str) -> bytes:
         with open(blobpath, "rb", buffering=0) as f:
             return f.read()
 
+    if os.environ.get("TIKTOKEN_OFFLINE"):
+        raise ValueError(
+            f"TIKTOKEN_OFFLINE is set but {blobpath!r} is not present in the local cache. "
+            "Please ensure the file is cached before using offline mode, or unset "
+            "TIKTOKEN_OFFLINE to allow network access."
+        )
+
     if blobpath.startswith(("http://", "https://")):
         # avoiding blobfile for public files helps avoid auth issues, like MFA prompts.
         import requests
@@ -46,6 +53,12 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
 
     if cache_dir == "":
         # disable caching
+        if os.environ.get("TIKTOKEN_OFFLINE"):
+            raise ValueError(
+                f"TIKTOKEN_OFFLINE is set and caching is disabled (TIKTOKEN_CACHE_DIR is empty), "
+                f"but {blobpath!r} requires a network fetch. Either remove TIKTOKEN_OFFLINE or "
+                "provide a valid TIKTOKEN_CACHE_DIR with the file already cached."
+            )
         return read_file(blobpath)
 
     cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
