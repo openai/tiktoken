@@ -53,6 +53,7 @@ class Encoding:
 
         # Contains on set is significantly faster than on dict_values
         self._special_token_values = set(self._special_tokens.values())
+        self._special_tokens_set_frozen = frozenset(self._special_tokens)
 
         self._core_bpe = _tiktoken.CoreBPE(mergeable_ranks, special_tokens, pat_str)
 
@@ -116,14 +117,22 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            disallowed_special = (
+                self._special_tokens_set_frozen
+                if not allowed_special
+                else self._special_tokens_set_frozen - allowed_special
+            )
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            common_prefix = _special_token_common_prefix(disallowed_special)
+            if not common_prefix or common_prefix in text:
+                if match := _special_token_regex(disallowed_special).search(text):
+                    raise_disallowed_special_token(match.group())
 
         try:
+            if not allowed_special:
+                return self._core_bpe.encode_ordinary(text)
             return self._core_bpe.encode(text, allowed_special)
         except UnicodeEncodeError:
             # BPE operates on bytes, but the regex operates on unicode. If we pass a str that is
@@ -133,6 +142,8 @@ class Encoding:
             # string, but given that this is input we want to support, maybe that's okay.
             # Also we use errors="replace" to handle weird things like lone surrogates.
             text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            if not allowed_special:
+                return self._core_bpe.encode_ordinary(text)
             return self._core_bpe.encode(text, allowed_special)
 
     def encode_to_numpy(
@@ -149,12 +160,18 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            disallowed_special = (
+                self._special_tokens_set_frozen
+                if not allowed_special
+                else self._special_tokens_set_frozen - allowed_special
+            )
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            common_prefix = _special_token_common_prefix(disallowed_special)
+            if not common_prefix or common_prefix in text:
+                if match := _special_token_regex(disallowed_special).search(text):
+                    raise_disallowed_special_token(match.group())
 
         import numpy as np
 
@@ -214,7 +231,11 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            disallowed_special = (
+                self._special_tokens_set_frozen
+                if not allowed_special
+                else self._special_tokens_set_frozen - allowed_special
+            )
         if not isinstance(disallowed_special, frozenset):
             disallowed_special = frozenset(disallowed_special)
 
@@ -232,10 +253,17 @@ class Encoding:
         if _use_native_batch(text, batch_len, num_threads):
             try:
                 if disallowed_special:
-                    special_regex = _special_token_regex(disallowed_special)
+                    common_prefix = _special_token_common_prefix(disallowed_special)
+                    special_regex = None
                     for piece in text:
+                        if common_prefix and common_prefix not in piece:
+                            continue
+                        if special_regex is None:
+                            special_regex = _special_token_regex(disallowed_special)
                         if match := special_regex.search(piece):
                             raise_disallowed_special_token(match.group())
+                if not allowed_special:
+                    return self._core_bpe.encode_ordinary_batch(text)
                 return self._core_bpe.encode_batch(text, allowed_special)
             except (TypeError, UnicodeEncodeError):
                 pass
@@ -274,7 +302,11 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            disallowed_special = (
+                self._special_tokens_set_frozen
+                if not allowed_special
+                else self._special_tokens_set_frozen - allowed_special
+            )
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
@@ -521,6 +553,18 @@ def _special_token_regex(tokens: frozenset[str]) -> re.Pattern[str]:
         import re
     inner = "|".join(re.escape(token) for token in tokens)
     return re.compile(f"({inner})")
+
+
+@functools.lru_cache(maxsize=128)
+def _special_token_common_prefix(tokens: frozenset[str]) -> str:
+    if not tokens:
+        return ""
+    first = min(tokens)
+    last = max(tokens)
+    for i, char in enumerate(first):
+        if i == len(last) or last[i] != char:
+            return first[:i]
+    return first
 
 
 def _use_native_batch(text: list[str], batch_len: int | None, num_threads: int) -> bool:

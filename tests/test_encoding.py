@@ -222,6 +222,13 @@ def test_special_token():
     assert fip not in tokens
     assert fim in tokens
 
+    enc = tiktoken.get_encoding("o200k_harmony")
+    assert enc.encode("hello world") == enc.encode_ordinary("hello world")
+    assert enc.encode("<|message|>", disallowed_special=()) == enc.encode_ordinary("<|message|>")
+    assert enc.encode_batch(["hello world"]) == [enc.encode_ordinary("hello world")]
+    with pytest.raises(ValueError):
+        enc.encode("<|message|>")
+
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(text=st.text())
