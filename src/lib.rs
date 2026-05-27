@@ -323,8 +323,9 @@ pub struct CoreBPE {
     special_tokens_encoder: HashMap<String, Rank>,
     decoder: HashMap<Rank, Vec<u8>>,
     special_tokens_decoder: HashMap<Rank, Vec<u8>>,
+    special_regex_pattern: String,
     regex_tls: Vec<Regex>,
-    special_regex_tls: Vec<Regex>,
+    special_regex_tls: OnceLock<Vec<Regex>>,
     #[allow(dead_code)]
     sorted_token_bytes: OnceLock<Vec<Vec<u8>>>,
     token_bytes_by_first_byte: OnceLock<Vec<Vec<Vec<u8>>>>,
@@ -363,7 +364,14 @@ impl CoreBPE {
     }
 
     fn _get_tl_special_regex(&self) -> &Regex {
-        &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+        let special_regex_tls = self.special_regex_tls.get_or_init(|| {
+            let special_regex = Regex::new(&self.special_regex_pattern)
+                .expect("escaped special token regex should compile");
+            (0..MAX_NUM_THREADS)
+                .map(|_| special_regex.clone())
+                .collect()
+        });
+        &special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
     }
 
     /// Decodes tokens into a list of bytes.
@@ -647,13 +655,11 @@ impl CoreBPE {
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let regex = Regex::new(pattern)?;
 
-        let special_regex = {
-            let parts = special_tokens_encoder
-                .keys()
-                .map(|s| fancy_regex::escape(s))
-                .collect::<Vec<_>>();
-            Regex::new(&parts.join("|"))?
-        };
+        let special_regex_pattern = special_tokens_encoder
+            .keys()
+            .map(|s| fancy_regex::escape(s))
+            .collect::<Vec<_>>()
+            .join("|");
 
         let decoder: HashMap<Rank, Vec<u8>> =
             encoder.iter().map(|(k, v)| (*v, k.clone())).collect();
@@ -676,10 +682,9 @@ impl CoreBPE {
             special_tokens_encoder,
             decoder,
             special_tokens_decoder,
+            special_regex_pattern,
             regex_tls: (0..MAX_NUM_THREADS).map(|_| regex.clone()).collect(),
-            special_regex_tls: (0..MAX_NUM_THREADS)
-                .map(|_| special_regex.clone())
-                .collect(),
+            special_regex_tls: OnceLock::new(),
             sorted_token_bytes: OnceLock::new(),
             token_bytes_by_first_byte: OnceLock::new(),
         })
@@ -700,7 +705,6 @@ impl CoreBPE {
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
     use crate::{Rank, byte_pair_split};
