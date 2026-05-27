@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import functools
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, AbstractSet, Collection, Literal, NoReturn, Sequence
+from typing import TYPE_CHECKING, AbstractSet, Collection, Iterator, Literal, NoReturn, Sequence
 
 from tiktoken import _tiktoken
 
@@ -13,16 +14,62 @@ if TYPE_CHECKING:
     import numpy.typing as npt
 
 
+class _LazyMergeableRanks(Mapping[bytes, int]):
+    def __init__(
+        self,
+        core_bpe: _tiktoken.CoreBPE,
+        n_mergeable_ranks: int,
+        max_token_value: int,
+    ):
+        self._core_bpe = core_bpe
+        self._n_mergeable_ranks = n_mergeable_ranks
+        self._max_token_value = max_token_value
+        self._mergeable_ranks: dict[bytes, int] | None = None
+
+    @property
+    def n_mergeable_ranks(self) -> int:
+        return self._n_mergeable_ranks
+
+    @property
+    def max_token_value(self) -> int:
+        return self._max_token_value
+
+    @property
+    def core_bpe(self) -> _tiktoken.CoreBPE:
+        return self._core_bpe
+
+    def _materialized(self) -> dict[bytes, int]:
+        mergeable_ranks = self._mergeable_ranks
+        if mergeable_ranks is None:
+            mergeable_ranks = self._core_bpe.mergeable_ranks()
+            self._mergeable_ranks = mergeable_ranks
+        return mergeable_ranks
+
+    def __getitem__(self, key: bytes) -> int:
+        return self._materialized()[key]
+
+    def __iter__(self) -> Iterator[bytes]:
+        return iter(self._materialized())
+
+    def __len__(self) -> int:
+        return self._n_mergeable_ranks
+
+    def copy(self) -> dict[bytes, int]:
+        return self._materialized().copy()
+
+
 class Encoding:
     def __init__(
         self,
         name: str,
         *,
         pat_str: str,
-        mergeable_ranks: dict[bytes, int],
+        mergeable_ranks: dict[bytes, int] | _LazyMergeableRanks | None,
         special_tokens: dict[str, int],
         explicit_n_vocab: int | None = None,
         _core_bpe: _tiktoken.CoreBPE | None = None,
+        _mergeable_ranks_len: int | None = None,
+        _mergeable_ranks_max_token_value: int | None = None,
     ):
         """Creates an Encoding object.
 
@@ -42,28 +89,60 @@ class Encoding:
         self.name = name
 
         self._pat_str = pat_str
+        if isinstance(mergeable_ranks, _LazyMergeableRanks):
+            if _core_bpe is None:
+                _core_bpe = mergeable_ranks.core_bpe
+            if _mergeable_ranks_len is None:
+                _mergeable_ranks_len = mergeable_ranks.n_mergeable_ranks
+            if _mergeable_ranks_max_token_value is None:
+                _mergeable_ranks_max_token_value = mergeable_ranks.max_token_value
+            mergeable_ranks = None
+
         self._mergeable_ranks = mergeable_ranks
         self._special_tokens = special_tokens
 
+        mergeable_ranks_len = (
+            len(mergeable_ranks) if mergeable_ranks is not None else _mergeable_ranks_len
+        )
+        mergeable_ranks_max_token_value = (
+            max(mergeable_ranks.values())
+            if mergeable_ranks is not None
+            else _mergeable_ranks_max_token_value
+        )
+        assert mergeable_ranks_len is not None
+        assert mergeable_ranks_max_token_value is not None
+
         self.max_token_value = max(
-            max(mergeable_ranks.values()), max(special_tokens.values(), default=0)
+            mergeable_ranks_max_token_value, max(special_tokens.values(), default=0)
         )
         if explicit_n_vocab:
-            assert len(mergeable_ranks) + len(special_tokens) == explicit_n_vocab
+            assert mergeable_ranks_len + len(special_tokens) == explicit_n_vocab
             assert self.max_token_value == explicit_n_vocab - 1
 
         # Contains on set is significantly faster than on dict_values
         self._special_token_values = set(self._special_tokens.values())
         self._special_tokens_set_frozen = frozenset(self._special_tokens)
 
-        self._core_bpe = (
-            _core_bpe
-            if _core_bpe is not None
-            else _tiktoken.CoreBPE(mergeable_ranks, special_tokens, pat_str)
-        )
+        if _core_bpe is not None:
+            self._core_bpe = _core_bpe
+        else:
+            assert mergeable_ranks is not None
+            self._core_bpe = _tiktoken.CoreBPE(mergeable_ranks, special_tokens, pat_str)
 
     def __repr__(self) -> str:
         return f"<Encoding {self.name!r}>"
+
+    @property
+    def _mergeable_ranks(self) -> dict[bytes, int]:
+        mergeable_ranks = self.__dict__.get("_mergeable_ranks")
+        if mergeable_ranks is None:
+            mergeable_ranks = self._core_bpe.mergeable_ranks()
+            self.__dict__["_mergeable_ranks"] = mergeable_ranks
+        return mergeable_ranks
+
+    @_mergeable_ranks.setter
+    def _mergeable_ranks(self, mergeable_ranks: dict[bytes, int] | None) -> None:
+        self.__dict__["_mergeable_ranks"] = mergeable_ranks
 
     # ====================
     # Encoding

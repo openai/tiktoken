@@ -1,4 +1,5 @@
-from tiktoken.load import data_gym_to_mergeable_bpe_ranks, load_tiktoken_bpe, load_tiktoken_bpe_with_core
+from tiktoken.core import _LazyMergeableRanks
+from tiktoken.load import data_gym_to_mergeable_bpe_ranks, load_tiktoken_bpe, _load_tiktoken_bpe_core
 
 ENDOFTEXT = "<|endoftext|>"
 FIM_PREFIX = "<|fim_prefix|>"
@@ -45,9 +46,26 @@ def gpt2():
     }
 
 
+def _load_tiktoken_bpe_args(tiktoken_bpe_file, *, special_tokens, pat_str, expected_hash):
+    core_bpe, mergeable_ranks_len, mergeable_ranks_max_token_value = _load_tiktoken_bpe_core(
+        tiktoken_bpe_file,
+        special_tokens=special_tokens,
+        pat_str=pat_str,
+        expected_hash=expected_hash,
+    )
+    return {
+        "mergeable_ranks": _LazyMergeableRanks(
+            core_bpe, mergeable_ranks_len, mergeable_ranks_max_token_value
+        ),
+        "_core_bpe": core_bpe,
+        "_mergeable_ranks_len": mergeable_ranks_len,
+        "_mergeable_ranks_max_token_value": mergeable_ranks_max_token_value,
+    }
+
+
 def r50k_base():
     special_tokens = {ENDOFTEXT: 50256}
-    mergeable_ranks, core_bpe = load_tiktoken_bpe_with_core(
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken",
         special_tokens=special_tokens,
         pat_str=r50k_pat_str,
@@ -57,15 +75,14 @@ def r50k_base():
         "name": "r50k_base",
         "explicit_n_vocab": 50257,
         "pat_str": r50k_pat_str,
-        "mergeable_ranks": mergeable_ranks,
         "special_tokens": special_tokens,
-        "_core_bpe": core_bpe,
+        **bpe_args,
     }
 
 
 def p50k_base():
     special_tokens = {ENDOFTEXT: 50256}
-    mergeable_ranks, core_bpe = load_tiktoken_bpe_with_core(
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
         special_tokens=special_tokens,
         pat_str=r50k_pat_str,
@@ -75,15 +92,14 @@ def p50k_base():
         "name": "p50k_base",
         "explicit_n_vocab": 50281,
         "pat_str": r50k_pat_str,
-        "mergeable_ranks": mergeable_ranks,
         "special_tokens": special_tokens,
-        "_core_bpe": core_bpe,
+        **bpe_args,
     }
 
 
 def p50k_edit():
     special_tokens = {ENDOFTEXT: 50256, FIM_PREFIX: 50281, FIM_MIDDLE: 50282, FIM_SUFFIX: 50283}
-    mergeable_ranks, core_bpe = load_tiktoken_bpe_with_core(
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
         special_tokens=special_tokens,
         pat_str=r50k_pat_str,
@@ -92,9 +108,8 @@ def p50k_edit():
     return {
         "name": "p50k_edit",
         "pat_str": r50k_pat_str,
-        "mergeable_ranks": mergeable_ranks,
         "special_tokens": special_tokens,
-        "_core_bpe": core_bpe,
+        **bpe_args,
     }
 
 
@@ -107,7 +122,7 @@ def cl100k_base():
         ENDOFPROMPT: 100276,
     }
     pat_str = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s"""
-    mergeable_ranks, core_bpe = load_tiktoken_bpe_with_core(
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken",
         special_tokens=special_tokens,
         pat_str=pat_str,
@@ -116,15 +131,14 @@ def cl100k_base():
     return {
         "name": "cl100k_base",
         "pat_str": pat_str,
-        "mergeable_ranks": mergeable_ranks,
         "special_tokens": special_tokens,
-        "_core_bpe": core_bpe,
+        **bpe_args,
     }
 
 
 def o200k_base():
     special_tokens = {ENDOFTEXT: 199999, ENDOFPROMPT: 200018}
-    mergeable_ranks, core_bpe = load_tiktoken_bpe_with_core(
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken",
         special_tokens=special_tokens,
         pat_str=o200k_pat_str,
@@ -133,9 +147,8 @@ def o200k_base():
     return {
         "name": "o200k_base",
         "pat_str": o200k_pat_str,
-        "mergeable_ranks": mergeable_ranks,
         "special_tokens": special_tokens,
-        "_core_bpe": core_bpe,
+        **bpe_args,
     }
 
 
@@ -159,7 +172,7 @@ def o200k_harmony():
         "<|reserved_200011|>": 200011,
         "<|call|>": 200012,
     } | {f"<|reserved_{i}|>": i for i in range(200013, 201088)}
-    mergeable_ranks, core_bpe = load_tiktoken_bpe_with_core(
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken",
         special_tokens=special_tokens,
         pat_str=o200k_pat_str,
@@ -168,9 +181,8 @@ def o200k_harmony():
     return {
         "name": name,
         "pat_str": o200k_pat_str,
-        "mergeable_ranks": mergeable_ranks,
         "special_tokens": special_tokens,
-        "_core_bpe": core_bpe,
+        **bpe_args,
     }
 
 

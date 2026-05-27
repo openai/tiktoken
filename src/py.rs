@@ -156,25 +156,25 @@ fn load_tiktoken_bpe(py: Python, contents: &[u8], source: &str) -> PyResult<Py<P
 }
 
 #[pyfunction]
-fn load_tiktoken_bpe_with_core(
-    py: Python,
+fn load_tiktoken_bpe_core(
     contents: &[u8],
     source: &str,
     special_tokens_encoder: HashMap<String, Rank>,
     pattern: &str,
-) -> PyResult<(Py<PyDict>, CoreBPE)> {
-    let ret = PyDict::new(py);
+) -> PyResult<(CoreBPE, usize, Rank)> {
     let mut encoder = HashMap::default();
+    let mut max_rank = 0;
 
     for_each_bpe_entry(contents, source, |token, rank| {
-        ret.set_item(PyBytes::new(py, &token), rank)?;
+        max_rank = max_rank.max(rank);
         encoder.insert(token, rank);
         Ok(())
     })?;
 
+    let n_mergeable_ranks = encoder.len();
     let core_bpe = CoreBPE::new_internal(encoder, special_tokens_encoder, pattern)
         .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
-    Ok((ret.into(), core_bpe))
+    Ok((core_bpe, n_mergeable_ranks, max_rank))
 }
 
 fn decode_token_bytes(core_bpe: &CoreBPE, token: Rank) -> Result<&[u8], Rank> {
@@ -451,6 +451,14 @@ impl CoreBPE {
             .map(|x| PyBytes::new(py, x).into())
             .collect()
     }
+
+    fn mergeable_ranks(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let ret = PyDict::new(py);
+        for (token, rank) in &self.encoder {
+            ret.set_item(PyBytes::new(py, token), *rank)?;
+        }
+        Ok(ret.into())
+    }
 }
 
 #[pyclass(frozen)]
@@ -522,6 +530,6 @@ impl TiktokenBuffer {
 fn _tiktoken(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CoreBPE>()?;
     m.add_function(wrap_pyfunction!(load_tiktoken_bpe, m)?)?;
-    m.add_function(wrap_pyfunction!(load_tiktoken_bpe_with_core, m)?)?;
+    m.add_function(wrap_pyfunction!(load_tiktoken_bpe_core, m)?)?;
     Ok(())
 }
