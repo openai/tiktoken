@@ -279,7 +279,7 @@ impl CoreBPE {
     // ====================
 
     fn token_byte_values(&self, py: Python) -> Vec<Py<PyBytes>> {
-        self.sorted_token_bytes
+        self.sorted_token_bytes()
             .iter()
             .map(|x| PyBytes::new(py, x).into())
             .collect()

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::num::NonZeroU64;
+use std::sync::OnceLock;
 use std::thread;
 
 use fancy_regex::Regex;
@@ -324,10 +325,18 @@ pub struct CoreBPE {
     special_tokens_decoder: HashMap<Rank, Vec<u8>>,
     regex_tls: Vec<Regex>,
     special_regex_tls: Vec<Regex>,
-    sorted_token_bytes: Vec<Vec<u8>>,
+    sorted_token_bytes: OnceLock<Vec<Vec<u8>>>,
 }
 
 impl CoreBPE {
+    fn sorted_token_bytes(&self) -> &[Vec<u8>] {
+        self.sorted_token_bytes.get_or_init(|| {
+            let mut sorted_token_bytes: Vec<Vec<u8>> = self.encoder.keys().cloned().collect();
+            sorted_token_bytes.sort();
+            sorted_token_bytes
+        })
+    }
+
     fn _get_tl_regex(&self) -> &Regex {
         // See performance notes above for what this is about
         // It's also a little janky, please make a better version of it!
@@ -511,15 +520,13 @@ impl CoreBPE {
         // This is the easy bit. Just find all single tokens that start with unstable_bytes
         // (including tokens that exactly match unstable_bytes)
         // Separating this from the loop below helps with performance in a common case.
-        let mut point = self
-            .sorted_token_bytes
-            .partition_point(|x| x.as_slice() < unstable_bytes.as_slice());
-        while point < self.sorted_token_bytes.len()
-            && self.sorted_token_bytes[point].starts_with(&unstable_bytes)
+        let sorted_token_bytes = self.sorted_token_bytes();
+        let mut point =
+            sorted_token_bytes.partition_point(|x| x.as_slice() < unstable_bytes.as_slice());
+        while point < sorted_token_bytes.len()
+            && sorted_token_bytes[point].starts_with(&unstable_bytes)
         {
-            completions.insert(vec![
-                self.encoder[self.sorted_token_bytes[point].as_slice()],
-            ]);
+            completions.insert(vec![self.encoder[sorted_token_bytes[point].as_slice()]]);
             point += 1;
         }
 
@@ -529,14 +536,11 @@ impl CoreBPE {
         for i in 1..unstable_bytes.len() {
             let prefix = &unstable_bytes[..i];
             let suffix = &unstable_bytes[i..];
-            let mut point = self
-                .sorted_token_bytes
-                .partition_point(|x| x.as_slice() < suffix);
+            let mut point = sorted_token_bytes.partition_point(|x| x.as_slice() < suffix);
             // TODO: Perf optimisation if suffix starts with " "?
-            while point < self.sorted_token_bytes.len()
-                && self.sorted_token_bytes[point].starts_with(suffix)
+            while point < sorted_token_bytes.len() && sorted_token_bytes[point].starts_with(suffix)
             {
-                let possibility = [prefix, self.sorted_token_bytes[point].as_slice()].concat();
+                let possibility = [prefix, sorted_token_bytes[point].as_slice()].concat();
                 let encoded = match std::str::from_utf8(&possibility) {
                     // Morally, this is byte_pair_encode(&possibility, &self.encoder)
                     // But we might have introduced a regex split which would prevent merges.
@@ -646,9 +650,6 @@ impl CoreBPE {
             .collect();
 
         // Clone because I don't know how to tell Rust I'm not going to change the map
-        let mut sorted_token_bytes: Vec<Vec<u8>> = encoder.keys().cloned().collect();
-        sorted_token_bytes.sort();
-
         Ok(Self {
             encoder,
             special_tokens_encoder,
@@ -658,7 +659,7 @@ impl CoreBPE {
             special_regex_tls: (0..MAX_NUM_THREADS)
                 .map(|_| special_regex.clone())
                 .collect(),
-            sorted_token_bytes,
+            sorted_token_bytes: OnceLock::new(),
         })
     }
 
