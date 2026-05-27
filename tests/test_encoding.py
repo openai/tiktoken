@@ -333,6 +333,23 @@ def test_decode_batch_errors(make_enc: Callable[[], tiktoken.Encoding]):
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_decode_tokens_bytes_edge_cases(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    tokens = enc.encode("hello world", allowed_special="all")
+
+    assert enc.decode_tokens_bytes(tokens) == [
+        enc.decode_single_token_bytes(token) for token in tokens
+    ]
+    assert enc.decode_tokens_bytes(token for token in tokens) == [
+        enc.decode_single_token_bytes(token) for token in tokens
+    ]
+    assert enc.decode_tokens_bytes([]) == []
+
+    with pytest.raises(KeyError):
+        enc.decode_tokens_bytes([enc.max_token_value + 1])
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(batch=st.lists(st.text()))
 @hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
 def test_hyp_batch_roundtrip(make_enc: Callable[[], tiktoken.Encoding], batch):

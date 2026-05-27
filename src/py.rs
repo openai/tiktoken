@@ -10,6 +10,37 @@ use rustc_hash::FxHashMap as HashMap;
 
 use crate::{CoreBPE, Rank, byte_pair_encode};
 
+fn decode_token_bytes(core_bpe: &CoreBPE, token: Rank) -> Result<&[u8], Rank> {
+    if let Some(bytes) = core_bpe.decoder.get(&token) {
+        return Ok(bytes);
+    }
+    if let Some(bytes) = core_bpe.special_tokens_decoder.get(&token) {
+        return Ok(bytes);
+    }
+    Err(token)
+}
+
+fn decode_with_offsets(core_bpe: &CoreBPE, tokens: &[Rank]) -> Result<(Vec<u8>, Vec<usize>), Rank> {
+    let mut text = Vec::with_capacity(tokens.len() * 4);
+    let mut offsets = Vec::with_capacity(tokens.len());
+    let mut text_len = 0usize;
+
+    for &token in tokens {
+        let token_bytes = decode_token_bytes(core_bpe, token)?;
+        let starts_with_continuation = token_bytes
+            .first()
+            .is_some_and(|&byte| (0x80..0xC0).contains(&byte));
+        offsets.push(text_len.saturating_sub(starts_with_continuation as usize));
+        text_len += token_bytes
+            .iter()
+            .filter(|&&byte| !(0x80..0xC0).contains(&byte))
+            .count();
+        text.extend_from_slice(token_bytes);
+    }
+
+    Ok((text, offsets))
+}
+
 #[pymethods]
 impl CoreBPE {
     #[new]
@@ -209,14 +240,38 @@ impl CoreBPE {
         }
     }
 
+    #[pyo3(name = "decode_tokens_bytes")]
+    fn py_decode_tokens_bytes(
+        &self,
+        py: Python,
+        tokens: Vec<Rank>,
+    ) -> Result<Vec<Py<PyBytes>>, PyErr> {
+        tokens
+            .iter()
+            .map(|&token| match decode_token_bytes(self, token) {
+                Ok(bytes) => Ok(PyBytes::new(py, bytes).into()),
+                Err(token) => Err(pyo3::exceptions::PyKeyError::new_err(token.to_string())),
+            })
+            .collect()
+    }
+
+    #[pyo3(name = "decode_with_offsets")]
+    fn py_decode_with_offsets(
+        &self,
+        py: Python,
+        tokens: Vec<Rank>,
+    ) -> Result<(Py<PyBytes>, Vec<usize>), PyErr> {
+        match py.detach(|| decode_with_offsets(self, &tokens)) {
+            Ok((text, offsets)) => Ok((PyBytes::new(py, &text).into(), offsets)),
+            Err(token) => Err(pyo3::exceptions::PyKeyError::new_err(token.to_string())),
+        }
+    }
+
     fn decode_single_token_bytes(&self, py: Python, token: Rank) -> PyResult<Py<PyBytes>> {
-        if let Some(bytes) = self.decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
+        match decode_token_bytes(self, token) {
+            Ok(bytes) => Ok(PyBytes::new(py, bytes).into()),
+            Err(token) => Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string())),
         }
-        if let Some(bytes) = self.special_tokens_decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
-        }
-        Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string()))
     }
 
     // ====================
