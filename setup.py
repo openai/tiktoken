@@ -15,5 +15,10 @@ setup(
     ],
     package_data={"tiktoken": ["py.typed"]},
     packages=["tiktoken", "tiktoken_ext"],
+    entry_points={
+        "console_scripts": [
+            "tiktoken=tiktoken.cli:main",
+        ],
+    },
     zip_safe=False,
 )
