@@ -1,0 +1,22 @@
+namespace tiktoken {
+    [Throws=TiktokenError]
+    CoreBpe new_core_bpe(
+        record<sequence<u8>, u32> encoder,
+        record<string, u32> special_tokens_encoder,
+        string pattern
+    );
+};
+
+[Error]
+interface TiktokenError {
+    RegexError(string message);
+    DecodeError(string message);
+};
+
+interface CoreBpe {
+    sequence<u32> encode(string text, sequence<string> allowed_special);
+    sequence<u32> encode_ordinary(string text);
+    sequence<u32> encode_with_special_tokens(string text);
+    [Throws=TiktokenError]
+    sequence<u8> decode_bytes(sequence<u32> tokens);
+};
