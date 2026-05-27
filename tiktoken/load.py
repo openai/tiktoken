@@ -160,6 +160,31 @@ def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> No
 def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: str | None = None) -> dict[bytes, int]:
     # NB: do not add caching to this function
     contents = read_file_cached(tiktoken_bpe_file, expected_hash)
+    from tiktoken import _tiktoken
+
+    return _tiktoken.load_tiktoken_bpe(contents, tiktoken_bpe_file)
+
+
+def load_tiktoken_bpe_with_core(
+    tiktoken_bpe_file: str,
+    *,
+    special_tokens: dict[str, int],
+    pat_str: str,
+    expected_hash: str | None = None,
+) -> tuple[dict[bytes, int], object]:
+    # NB: do not add caching to this function
+    contents = read_file_cached(tiktoken_bpe_file, expected_hash)
+    from tiktoken import _tiktoken
+
+    return _tiktoken.load_tiktoken_bpe_with_core(
+        contents, tiktoken_bpe_file, special_tokens, pat_str
+    )
+
+
+def _load_tiktoken_bpe_python(
+    tiktoken_bpe_file: str, expected_hash: str | None = None
+) -> dict[bytes, int]:
+    contents = read_file_cached(tiktoken_bpe_file, expected_hash)
     ret = {}
     for line in contents.splitlines():
         if not line:

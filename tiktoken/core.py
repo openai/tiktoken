@@ -22,6 +22,7 @@ class Encoding:
         mergeable_ranks: dict[bytes, int],
         special_tokens: dict[str, int],
         explicit_n_vocab: int | None = None,
+        _core_bpe: _tiktoken.CoreBPE | None = None,
     ):
         """Creates an Encoding object.
 
@@ -55,7 +56,11 @@ class Encoding:
         self._special_token_values = set(self._special_tokens.values())
         self._special_tokens_set_frozen = frozenset(self._special_tokens)
 
-        self._core_bpe = _tiktoken.CoreBPE(mergeable_ranks, special_tokens, pat_str)
+        self._core_bpe = (
+            _core_bpe
+            if _core_bpe is not None
+            else _tiktoken.CoreBPE(mergeable_ranks, special_tokens, pat_str)
+        )
 
     def __repr__(self) -> str:
         return f"<Encoding {self.name!r}>"

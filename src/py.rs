@@ -4,11 +4,178 @@ use pyo3::{
     IntoPyObjectExt, PyResult, exceptions,
     prelude::*,
     pybacked::PyBackedStr,
-    types::{PyBytes, PyList},
+    types::{PyBytes, PyDict, PyList},
 };
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::{CoreBPE, Rank, byte_pair_encode};
+
+fn is_ascii_whitespace(byte: u8) -> bool {
+    matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | 0x0b | 0x0c)
+}
+
+fn bytes_repr(bytes: &[u8]) -> String {
+    let mut out = String::from("b'");
+    for &byte in bytes {
+        match byte {
+            b'\'' => out.push_str("\\'"),
+            b'\\' => out.push_str("\\\\"),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\t' => out.push_str("\\t"),
+            0x20..=0x7e => out.push(byte as char),
+            _ => out.push_str(&format!("\\x{byte:02x}")),
+        }
+    }
+    out.push('\'');
+    out
+}
+
+fn parse_bpe_error(line: &[u8], source: &str) -> PyErr {
+    exceptions::PyValueError::new_err(format!(
+        "Error parsing line {} in {source}",
+        bytes_repr(line)
+    ))
+}
+
+fn base64_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'A'..=b'Z' => Some(byte - b'A'),
+        b'a'..=b'z' => Some(byte - b'a' + 26),
+        b'0'..=b'9' => Some(byte - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    }
+}
+
+fn decode_base64(input: &[u8]) -> Option<Vec<u8>> {
+    if input.is_empty() || input.len() % 4 != 0 {
+        return None;
+    }
+
+    let padding = input.iter().rev().take_while(|&&byte| byte == b'=').count();
+    if padding > 2 {
+        return None;
+    }
+
+    let output_len = input.len() / 4 * 3 - padding;
+    let mut output = Vec::with_capacity(output_len);
+
+    for (chunk_index, chunk) in input.chunks_exact(4).enumerate() {
+        let is_last = chunk_index == input.len() / 4 - 1;
+        if !is_last && chunk.contains(&b'=') {
+            return None;
+        }
+
+        let a = base64_value(chunk[0])?;
+        let b = base64_value(chunk[1])?;
+        output.push((a << 2) | (b >> 4));
+
+        match (chunk[2], chunk[3]) {
+            (b'=', b'=') if is_last => {}
+            (b'=', _) => return None,
+            (c, b'=') if is_last => {
+                let c = base64_value(c)?;
+                output.push((b << 4) | (c >> 2));
+            }
+            (c, d) => {
+                let c = base64_value(c)?;
+                let d = base64_value(d)?;
+                output.push((b << 4) | (c >> 2));
+                output.push((c << 6) | d);
+            }
+        }
+    }
+
+    Some(output)
+}
+
+fn split_bpe_line(line: &[u8]) -> Option<(&[u8], &[u8])> {
+    let mut fields = line
+        .split(|&byte| is_ascii_whitespace(byte))
+        .filter(|field| !field.is_empty());
+    let token = fields.next()?;
+    let rank = fields.next()?;
+    if fields.next().is_some() {
+        return None;
+    }
+    Some((token, rank))
+}
+
+fn parse_rank(bytes: &[u8]) -> Option<Rank> {
+    if bytes.is_empty() {
+        return None;
+    }
+
+    let mut rank: u64 = 0;
+    for &byte in bytes {
+        if !byte.is_ascii_digit() {
+            return None;
+        }
+        rank = rank.checked_mul(10)?.checked_add(u64::from(byte - b'0'))?;
+        if rank > u64::from(Rank::MAX) {
+            return None;
+        }
+    }
+    Some(rank as Rank)
+}
+
+fn for_each_bpe_entry(
+    contents: &[u8],
+    source: &str,
+    mut f: impl FnMut(Vec<u8>, Rank) -> PyResult<()>,
+) -> PyResult<()> {
+    for mut line in contents.split(|&byte| byte == b'\n') {
+        if line.ends_with(b"\r") {
+            line = &line[..line.len() - 1];
+        }
+        if line.is_empty() {
+            continue;
+        }
+
+        let (token, rank) = split_bpe_line(line).ok_or_else(|| parse_bpe_error(line, source))?;
+        let token = decode_base64(token).ok_or_else(|| parse_bpe_error(line, source))?;
+        let rank = parse_rank(rank).ok_or_else(|| parse_bpe_error(line, source))?;
+        f(token, rank)?;
+    }
+
+    Ok(())
+}
+
+#[pyfunction]
+fn load_tiktoken_bpe(py: Python, contents: &[u8], source: &str) -> PyResult<Py<PyDict>> {
+    let ret = PyDict::new(py);
+
+    for_each_bpe_entry(contents, source, |token, rank| {
+        ret.set_item(PyBytes::new(py, &token), rank)?;
+        Ok(())
+    })?;
+
+    Ok(ret.into())
+}
+
+#[pyfunction]
+fn load_tiktoken_bpe_with_core(
+    py: Python,
+    contents: &[u8],
+    source: &str,
+    special_tokens_encoder: HashMap<String, Rank>,
+    pattern: &str,
+) -> PyResult<(Py<PyDict>, CoreBPE)> {
+    let ret = PyDict::new(py);
+    let mut encoder = HashMap::default();
+
+    for_each_bpe_entry(contents, source, |token, rank| {
+        ret.set_item(PyBytes::new(py, &token), rank)?;
+        encoder.insert(token, rank);
+        Ok(())
+    })?;
+
+    let core_bpe = CoreBPE::new_internal(encoder, special_tokens_encoder, pattern)
+        .map_err(|e| exceptions::PyValueError::new_err(e.to_string()))?;
+    Ok((ret.into(), core_bpe))
+}
 
 fn decode_token_bytes(core_bpe: &CoreBPE, token: Rank) -> Result<&[u8], Rank> {
     if let Some(bytes) = core_bpe.decoder.get(&token) {
@@ -354,5 +521,7 @@ impl TiktokenBuffer {
 #[pymodule(gil_used = false)]
 fn _tiktoken(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CoreBPE>()?;
+    m.add_function(wrap_pyfunction!(load_tiktoken_bpe, m)?)?;
+    m.add_function(wrap_pyfunction!(load_tiktoken_bpe_with_core, m)?)?;
     Ok(())
 }
