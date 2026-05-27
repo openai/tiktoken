@@ -6,14 +6,16 @@ import pkgutil
 import threading
 from typing import Any, Callable, Sequence
 
-import tiktoken_ext
+import requests
 
 import tiktoken
+import tiktoken_ext
 from tiktoken.core import Encoding
+from tiktoken.load import HttpClient
 
 _lock = threading.RLock()
 ENCODINGS: dict[str, Encoding] = {}
-ENCODING_CONSTRUCTORS: dict[str, Callable[[], dict[str, Any]]] | None = None
+ENCODING_CONSTRUCTORS: dict[str, Callable[[HttpClient | None], dict[str, Any]]] | None = None
 
 
 @functools.lru_cache
@@ -24,7 +26,9 @@ def _available_plugin_modules() -> Sequence[str]:
     # - it's a separate top-level package because namespace subpackages of non-namespace
     #   packages don't quite do what you want with editable installs
     mods = []
-    plugin_mods = pkgutil.iter_modules(tiktoken_ext.__path__, tiktoken_ext.__name__ + ".")
+    plugin_mods = pkgutil.iter_modules(
+        tiktoken_ext.__path__, tiktoken_ext.__name__ + "."
+    )
     for _, mod_name, _ in plugin_mods:
         mods.append(mod_name)
     return mods
@@ -58,9 +62,7 @@ def _find_constructors() -> None:
             raise
 
 
-
-
-def get_encoding(encoding_name: str) -> Encoding:
+def get_encoding(encoding_name: str, http_client: HttpClient | None = None) -> Encoding:
     if not isinstance(encoding_name, str):
         raise ValueError(f"Expected a string in get_encoding, got {type(encoding_name)}")
 
@@ -83,7 +85,7 @@ def get_encoding(encoding_name: str) -> Encoding:
             )
 
         constructor = ENCODING_CONSTRUCTORS[encoding_name]
-        enc = Encoding(**constructor())
+        enc = Encoding(**constructor(http_client=http_client))
         ENCODINGS[encoding_name] = enc
         return enc
 
