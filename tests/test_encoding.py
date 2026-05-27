@@ -156,6 +156,28 @@ def test_hyp_roundtrip(make_enc: Callable[[], tiktoken.Encoding], text):
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_encode_with_unstable_invariants(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    text = "hello fanta"
+
+    stable_tokens, completions = enc.encode_with_unstable(text)
+
+    assert text.encode().startswith(enc.decode_bytes(stable_tokens))
+    assert completions
+    assert all(
+        enc.decode_bytes(stable_tokens + completion).startswith(text.encode())
+        for completion in completions
+    )
+
+
+def test_encode_with_unstable_disallowed_special():
+    enc = tiktoken.get_encoding("o200k_harmony")
+
+    with pytest.raises(ValueError, match="<\\|endoftext\\|>"):
+        enc.encode_with_unstable("hello <|endoftext|>")
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 def test_single_token_roundtrip(make_enc: Callable[[], tiktoken.Encoding]):
     enc = make_enc()
 

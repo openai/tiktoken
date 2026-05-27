@@ -394,8 +394,10 @@ class Encoding:
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            common_prefix = _special_token_common_prefix(disallowed_special)
+            if not common_prefix or common_prefix in text:
+                if match := _special_token_regex(disallowed_special).search(text):
+                    raise_disallowed_special_token(match.group())
 
         return self._core_bpe.encode_with_unstable(text, allowed_special)
 

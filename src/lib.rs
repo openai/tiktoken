@@ -325,15 +325,33 @@ pub struct CoreBPE {
     special_tokens_decoder: HashMap<Rank, Vec<u8>>,
     regex_tls: Vec<Regex>,
     special_regex_tls: Vec<Regex>,
+    #[allow(dead_code)]
     sorted_token_bytes: OnceLock<Vec<Vec<u8>>>,
+    token_bytes_by_first_byte: OnceLock<Vec<Vec<Vec<u8>>>>,
 }
 
 impl CoreBPE {
+    #[allow(dead_code)]
     fn sorted_token_bytes(&self) -> &[Vec<u8>] {
         self.sorted_token_bytes.get_or_init(|| {
             let mut sorted_token_bytes: Vec<Vec<u8>> = self.encoder.keys().cloned().collect();
             sorted_token_bytes.sort();
             sorted_token_bytes
+        })
+    }
+
+    fn token_bytes_by_first_byte(&self) -> &[Vec<Vec<u8>>] {
+        self.token_bytes_by_first_byte.get_or_init(|| {
+            let mut groups = vec![Vec::new(); 256];
+            for token_bytes in self.encoder.keys() {
+                if let Some(&first_byte) = token_bytes.first() {
+                    groups[first_byte as usize].push(token_bytes.clone());
+                }
+            }
+            for group in &mut groups {
+                group.sort();
+            }
+            groups
         })
     }
 
@@ -520,14 +538,15 @@ impl CoreBPE {
         // This is the easy bit. Just find all single tokens that start with unstable_bytes
         // (including tokens that exactly match unstable_bytes)
         // Separating this from the loop below helps with performance in a common case.
-        let sorted_token_bytes = self.sorted_token_bytes();
-        let mut point =
-            sorted_token_bytes.partition_point(|x| x.as_slice() < unstable_bytes.as_slice());
-        while point < sorted_token_bytes.len()
-            && sorted_token_bytes[point].starts_with(&unstable_bytes)
-        {
-            completions.insert(vec![self.encoder[sorted_token_bytes[point].as_slice()]]);
-            point += 1;
+        let token_bytes_by_first_byte = self.token_bytes_by_first_byte();
+        if let Some(&first_byte) = unstable_bytes.first() {
+            let token_bytes = &token_bytes_by_first_byte[first_byte as usize];
+            let mut point =
+                token_bytes.partition_point(|x| x.as_slice() < unstable_bytes.as_slice());
+            while point < token_bytes.len() && token_bytes[point].starts_with(&unstable_bytes) {
+                completions.insert(vec![self.encoder[token_bytes[point].as_slice()]]);
+                point += 1;
+            }
         }
 
         // Now apply even more brute force. At every (other) possible position for the straddling
@@ -536,41 +555,43 @@ impl CoreBPE {
         for i in 1..unstable_bytes.len() {
             let prefix = &unstable_bytes[..i];
             let suffix = &unstable_bytes[i..];
-            let mut point = sorted_token_bytes.partition_point(|x| x.as_slice() < suffix);
             // TODO: Perf optimisation if suffix starts with " "?
-            while point < sorted_token_bytes.len() && sorted_token_bytes[point].starts_with(suffix)
-            {
-                let possibility = [prefix, sorted_token_bytes[point].as_slice()].concat();
-                let encoded = match std::str::from_utf8(&possibility) {
-                    // Morally, this is byte_pair_encode(&possibility, &self.encoder)
-                    // But we might have introduced a regex split which would prevent merges.
-                    // (particularly possible in the presence of unstable regex splits)
-                    // So convert to UTF-8 and do regex splitting.
-                    // E.g. with cl100k_base "  !" gets split to " " + " !",
-                    // but byte_pair_encode("  !") != byte_pair_encode(" ")
-                    Ok(s) => self.encode_ordinary(s),
+            if let Some(&first_byte) = suffix.first() {
+                let token_bytes = &token_bytes_by_first_byte[first_byte as usize];
+                let mut point = token_bytes.partition_point(|x| x.as_slice() < suffix);
+                while point < token_bytes.len() && token_bytes[point].starts_with(suffix) {
+                    let possibility = [prefix, token_bytes[point].as_slice()].concat();
+                    let encoded = match std::str::from_utf8(&possibility) {
+                        // Morally, this is byte_pair_encode(&possibility, &self.encoder)
+                        // But we might have introduced a regex split which would prevent merges.
+                        // (particularly possible in the presence of unstable regex splits)
+                        // So convert to UTF-8 and do regex splitting.
+                        // E.g. with cl100k_base "  !" gets split to " " + " !",
+                        // but byte_pair_encode("  !") != byte_pair_encode(" ")
+                        Ok(s) => self.encode_ordinary(s),
 
-                    // Technically, whether or not this arm is correct depends on whether there
-                    // would be a regex split before the UTF-8 truncation point.
-                    // Probably niche enough that no one will ever notice (after all, people didn't
-                    // notice all the big holes in the previous unstable token implementation)
-                    Err(_) => byte_pair_encode(&possibility, &self.encoder),
-                    // Something like the following is intriguing but incorrect:
-                    // Err(e) => self.encode_ordinary(unsafe {
-                    //     std::str::from_utf8_unchecked(&possibility[..e.valid_up_to()])
-                    // }),
-                };
-                let mut seq = Vec::new();
-                let mut seq_len = 0;
-                for token in encoded {
-                    seq.push(token);
-                    seq_len += self.decoder[&token].len();
-                    if seq_len >= unstable_bytes.len() {
-                        break;
+                        // Technically, whether or not this arm is correct depends on whether there
+                        // would be a regex split before the UTF-8 truncation point.
+                        // Probably niche enough that no one will ever notice (after all, people didn't
+                        // notice all the big holes in the previous unstable token implementation)
+                        Err(_) => byte_pair_encode(&possibility, &self.encoder),
+                        // Something like the following is intriguing but incorrect:
+                        // Err(e) => self.encode_ordinary(unsafe {
+                        //     std::str::from_utf8_unchecked(&possibility[..e.valid_up_to()])
+                        // }),
+                    };
+                    let mut seq = Vec::new();
+                    let mut seq_len = 0;
+                    for token in encoded {
+                        seq.push(token);
+                        seq_len += self.decoder[&token].len();
+                        if seq_len >= unstable_bytes.len() {
+                            break;
+                        }
                     }
+                    completions.insert(seq);
+                    point += 1;
                 }
-                completions.insert(seq);
-                point += 1;
             }
         }
 
@@ -660,6 +681,7 @@ impl CoreBPE {
                 .map(|_| special_regex.clone())
                 .collect(),
             sorted_token_bytes: OnceLock::new(),
+            token_bytes_by_first_byte: OnceLock::new(),
         })
     }
 
