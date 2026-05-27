@@ -110,6 +110,24 @@ def test_encode_surrogate_pairs():
     assert enc.encode("\ud83d") == enc.encode("�")
 
 
+def test_encode_surrogate_pairs_unstable():
+    enc = tiktoken.get_encoding("cl100k_base")
+
+    surrogate_pair_stable, surrogate_pair_completions = enc.encode_with_unstable("\ud83d\udc4d")
+    codepoint_stable, codepoint_completions = enc.encode_with_unstable("👍")
+    assert surrogate_pair_stable == codepoint_stable
+    assert {tuple(seq) for seq in surrogate_pair_completions} == {
+        tuple(seq) for seq in codepoint_completions
+    }
+
+    lone_surrogate_stable, lone_surrogate_completions = enc.encode_with_unstable("\ud83d")
+    replacement_stable, replacement_completions = enc.encode_with_unstable("�")
+    assert lone_surrogate_stable == replacement_stable
+    assert {tuple(seq) for seq in lone_surrogate_completions} == {
+        tuple(seq) for seq in replacement_completions
+    }
+
+
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 def test_catastrophically_repetitive(make_enc: Callable[[], tiktoken.Encoding]):
     enc = make_enc()
