@@ -379,6 +379,26 @@ class Encoding:
         self, batch: Sequence[Sequence[int]], *, errors: str = "replace", num_threads: int = 8
     ) -> list[str]:
         """Decodes a batch (list of lists of tokens) into a list of strings."""
+        if num_threads <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
+        try:
+            batch_len = len(batch)
+        except TypeError:
+            batch_len = None
+
+        if batch_len == 0:
+            return []
+
+        if _use_native_decode_batch(batch, batch_len, num_threads):
+            try:
+                return [
+                    text.decode("utf-8", errors=errors)
+                    for text in self._core_bpe.decode_bytes_batch(batch)
+                ]
+            except TypeError:
+                pass
+
         decoder = functools.partial(self.decode, errors=errors)
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(decoder, batch))
@@ -387,6 +407,23 @@ class Encoding:
         self, batch: Sequence[Sequence[int]], *, num_threads: int = 8
     ) -> list[bytes]:
         """Decodes a batch (list of lists of tokens) into a list of bytes."""
+        if num_threads <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
+        try:
+            batch_len = len(batch)
+        except TypeError:
+            batch_len = None
+
+        if batch_len == 0:
+            return []
+
+        if _use_native_decode_batch(batch, batch_len, num_threads):
+            try:
+                return self._core_bpe.decode_bytes_batch(batch)
+            except TypeError:
+                pass
+
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(self.decode_bytes, batch))
 
@@ -499,6 +536,33 @@ def _use_native_batch(text: list[str], batch_len: int | None, num_threads: int) 
         return False
 
     return sample_chars <= sample_count * 256
+
+
+def _use_native_decode_batch(
+    batch: Sequence[Sequence[int]], batch_len: int | None, num_threads: int
+) -> bool:
+    if batch_len is None:
+        return False
+    if num_threads == 1:
+        return True
+
+    try:
+        head = min(batch_len, 32)
+        sample_tokens = 0
+        sample_count = 0
+        for i in range(head):
+            sample_tokens += len(batch[i])
+            sample_count += 1
+        for i in range(max(head, batch_len - 32), batch_len):
+            sample_tokens += len(batch[i])
+            sample_count += 1
+    except (IndexError, TypeError):
+        return False
+
+    if sample_tokens <= sample_count * 256:
+        return True
+
+    return batch_len >= 1000 and sample_tokens <= sample_count * 2048
 
 
 def raise_disallowed_special_token(token: str) -> NoReturn:

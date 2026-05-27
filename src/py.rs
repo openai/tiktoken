@@ -189,6 +189,26 @@ impl CoreBPE {
         }
     }
 
+    #[pyo3(name = "decode_bytes_batch")]
+    fn py_decode_bytes_batch(
+        &self,
+        py: Python,
+        batch: Vec<Vec<Rank>>,
+    ) -> Result<Vec<Py<PyBytes>>, PyErr> {
+        match py.detach(|| {
+            batch
+                .iter()
+                .map(|tokens| self.decode_bytes(tokens))
+                .collect::<Result<Vec<_>, _>>()
+        }) {
+            Ok(bytes_batch) => Ok(bytes_batch
+                .iter()
+                .map(|bytes| PyBytes::new(py, bytes).into())
+                .collect()),
+            Err(e) => Err(pyo3::exceptions::PyKeyError::new_err(format!("{}", e))),
+        }
+    }
+
     fn decode_single_token_bytes(&self, py: Python, token: Rank) -> PyResult<Py<PyBytes>> {
         if let Some(bytes) = self.decoder.get(&token) {
             return Ok(PyBytes::new(py, bytes).into());
