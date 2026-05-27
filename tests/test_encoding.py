@@ -244,12 +244,54 @@ def test_batch_encode(make_enc: Callable[[], tiktoken.Encoding]):
 
     assert enc.encode_batch([text1]) == [enc.encode(text1)]
     assert enc.encode_batch([text1, text2]) == [enc.encode(text1), enc.encode(text2)]
+    assert enc.encode_batch([text1, text2], num_threads=1) == [
+        enc.encode(text1),
+        enc.encode(text2),
+    ]
 
     assert enc.encode_ordinary_batch([text1]) == [enc.encode_ordinary(text1)]
     assert enc.encode_ordinary_batch([text1, text2]) == [
         enc.encode_ordinary(text1),
         enc.encode_ordinary(text2),
     ]
+    assert enc.encode_ordinary_batch([text1, text2], num_threads=1) == [
+        enc.encode_ordinary(text1),
+        enc.encode_ordinary(text2),
+    ]
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_encode_ordinary_batch_edge_cases(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+
+    assert enc.encode_ordinary_batch([]) == []
+    assert enc.encode_ordinary_batch(["hello", "\ud800"]) == [
+        enc.encode_ordinary("hello"),
+        enc.encode_ordinary("\ud800"),
+    ]
+    assert enc.encode_batch(["hello", "\ud800"], disallowed_special=()) == [
+        enc.encode("hello", disallowed_special=()),
+        enc.encode("\ud800", disallowed_special=()),
+    ]
+
+    with pytest.raises(ValueError, match="max_workers must be greater than 0"):
+        enc.encode_ordinary_batch(["hello"], num_threads=0)
+
+    with pytest.raises(ValueError, match="max_workers must be greater than 0"):
+        enc.encode_batch(["hello"], num_threads=0)
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_encode_batch_special_tokens(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    special = next(iter(enc.special_tokens_set))
+
+    assert enc.encode_batch([special], allowed_special={special}) == [
+        enc.encode(special, allowed_special={special})
+    ]
+
+    with pytest.raises(ValueError, match="disallowed special token"):
+        enc.encode_batch([special])
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)

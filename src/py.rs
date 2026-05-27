@@ -31,6 +31,15 @@ impl CoreBPE {
         py.detach(|| self.encode_ordinary(text))
     }
 
+    #[pyo3(name = "encode_ordinary_batch")]
+    fn py_encode_ordinary_batch(&self, py: Python, text: Vec<PyBackedStr>) -> Vec<Vec<Rank>> {
+        py.detach(|| {
+            text.iter()
+                .map(|text| self.encode_ordinary(text.as_ref()))
+                .collect()
+        })
+    }
+
     #[pyo3(name = "encode")]
     fn py_encode(
         &self,
@@ -45,6 +54,25 @@ impl CoreBPE {
                 Ok((tokens, _)) => Ok(tokens),
                 Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.message)),
             }
+        })
+    }
+
+    #[pyo3(name = "encode_batch")]
+    fn py_encode_batch(
+        &self,
+        py: Python,
+        text: Vec<PyBackedStr>,
+        allowed_special: HashSet<PyBackedStr>,
+    ) -> PyResult<Vec<Vec<Rank>>> {
+        py.detach(|| {
+            let allowed_special: HashSet<&str> =
+                allowed_special.iter().map(|s| s.as_ref()).collect();
+            text.iter()
+                .map(|text| match self.encode(text.as_ref(), &allowed_special) {
+                    Ok((tokens, _)) => Ok(tokens),
+                    Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.message)),
+                })
+                .collect()
         })
     }
 

@@ -171,6 +171,25 @@ class Encoding:
         [[31373, 995], [11274, 16390, 995]]
         ```
         """
+        if num_threads <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
+        try:
+            batch_len = len(text)
+        except TypeError:
+            batch_len = None
+
+        if batch_len == 0:
+            return []
+
+        if _use_native_batch(text, batch_len, num_threads):
+            try:
+                return self._core_bpe.encode_ordinary_batch(text)
+            except (TypeError, UnicodeEncodeError):
+                # Match encode_ordinary's surrogate fixup behavior by falling back to the
+                # per-string path when any string cannot be passed to Rust as UTF-8.
+                pass
+
         encoder = functools.partial(self.encode_ordinary)
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(encoder, text))
@@ -198,6 +217,28 @@ class Encoding:
             disallowed_special = self.special_tokens_set - allowed_special
         if not isinstance(disallowed_special, frozenset):
             disallowed_special = frozenset(disallowed_special)
+
+        if num_threads <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
+        try:
+            batch_len = len(text)
+        except TypeError:
+            batch_len = None
+
+        if batch_len == 0:
+            return []
+
+        if _use_native_batch(text, batch_len, num_threads):
+            try:
+                if disallowed_special:
+                    special_regex = _special_token_regex(disallowed_special)
+                    for piece in text:
+                        if match := special_regex.search(piece):
+                            raise_disallowed_special_token(match.group())
+                return self._core_bpe.encode_batch(text, allowed_special)
+            except (TypeError, UnicodeEncodeError):
+                pass
 
         encoder = functools.partial(
             self.encode, allowed_special=allowed_special, disallowed_special=disallowed_special
@@ -436,6 +477,28 @@ def _special_token_regex(tokens: frozenset[str]) -> re.Pattern[str]:
         import re
     inner = "|".join(re.escape(token) for token in tokens)
     return re.compile(f"({inner})")
+
+
+def _use_native_batch(text: list[str], batch_len: int | None, num_threads: int) -> bool:
+    if batch_len is None:
+        return False
+    if num_threads == 1:
+        return True
+
+    try:
+        head = min(batch_len, 32)
+        sample_chars = 0
+        sample_count = 0
+        for i in range(head):
+            sample_chars += len(text[i])
+            sample_count += 1
+        for i in range(max(head, batch_len - 32), batch_len):
+            sample_chars += len(text[i])
+            sample_count += 1
+    except (IndexError, TypeError):
+        return False
+
+    return sample_chars <= sample_count * 256
 
 
 def raise_disallowed_special_token(token: str) -> NoReturn:
