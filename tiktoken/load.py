@@ -2,7 +2,24 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import os
+import sys
+
+logger = logging.getLogger("tiktoken")
+
+
+def _default_cache_dir() -> str:
+    if sys.platform == "win32":
+        appdata = os.environ.get("LOCALAPPDATA")
+        if appdata:
+            return os.path.join(appdata, "tiktoken", "cache")
+
+    xdg = os.environ.get("XDG_CACHE_HOME")
+    if xdg:
+        return os.path.join(xdg, "tiktoken")
+
+    return os.path.join(os.path.expanduser("~"), ".cache", "tiktoken")
 
 
 def read_file(blobpath: str) -> bytes:
@@ -39,9 +56,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     elif "DATA_GYM_CACHE_DIR" in os.environ:
         cache_dir = os.environ["DATA_GYM_CACHE_DIR"]
     else:
-        import tempfile
-
-        cache_dir = os.path.join(tempfile.gettempdir(), "data-gym-cache")
+        cache_dir = _default_cache_dir()
         user_specified_cache = False
 
     if cache_dir == "":
@@ -54,7 +69,15 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     if os.path.exists(cache_path):
         with open(cache_path, "rb", buffering=0) as f:
             data = f.read()
-        if expected_hash is None or check_hash(data, expected_hash):
+        if expected_hash is not None:
+            if check_hash(data, expected_hash):
+                return data
+        else:
+            logger.warning(
+                "Loading cached file %s without hash verification. "
+                "Consider providing an expected_hash for integrity checking.",
+                cache_path,
+            )
             return data
 
         # the cached file does not match the hash, remove it and re-fetch
@@ -73,7 +96,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     import uuid
 
     try:
-        os.makedirs(cache_dir, exist_ok=True)
+        os.makedirs(cache_dir, mode=0o700, exist_ok=True)
         tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"
         with open(tmp_filename, "wb") as f:
             f.write(contents)
