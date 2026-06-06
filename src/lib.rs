@@ -677,7 +677,6 @@ impl CoreBPE {
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
     use crate::{Rank, byte_pair_split};
