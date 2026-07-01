@@ -80,7 +80,7 @@ jobs:
           python -m build --sdist
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          name: cibw-wheels-sdist
           path: ./dist/*.tar.gz
 
   join_artifacts:
