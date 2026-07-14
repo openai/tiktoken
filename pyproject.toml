@@ -38,5 +38,5 @@ macos.archs = ["x86_64", "arm64"]
 test-skip = "*-macosx_arm64"
 
 # Hypothesis >=6.156 does not publish cp313t wheels yet. It will break the CI.
-before-test = "pip install pytest 'hypothesis<6.156'"
+before-test = "pip install pytest \"hypothesis<6.156\""
 test-command = "pytest {project}/tests --import-mode=append"
