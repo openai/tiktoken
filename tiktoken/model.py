@@ -9,6 +9,9 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "o3-": "o200k_base",
     "o4-mini-": "o200k_base",
     # chat
+    # gpt-5.1 / gpt-5.2 style names use a dot, not a hyphen, so they do not
+    # match the "gpt-5-" prefix used for dated gpt-5-* snapshots.
+    "gpt-5.": "o200k_base",
     "gpt-5-": "o200k_base",
     "gpt-4.5-": "o200k_base",
     "gpt-4.1-": "o200k_base",
@@ -33,6 +36,7 @@ MODEL_TO_ENCODING: dict[str, str] = {
     "o4-mini": "o200k_base",
     # chat
     "gpt-5": "o200k_base",
+    "gpt-5.1": "o200k_base",
     "gpt-4.1": "o200k_base",
     "gpt-4o": "o200k_base",
     "gpt-4": "cl100k_base",
