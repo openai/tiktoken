@@ -620,6 +620,10 @@ impl CoreBPE {
         special_tokens_encoder: HashMap<String, Rank>,
         pattern: &str,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        if special_tokens_encoder.contains_key("") {
+            return Err("special token strings must not be empty".into());
+        }
+
         let regex = Regex::new(pattern)?;
 
         let special_regex = {
@@ -677,10 +681,9 @@ impl CoreBPE {
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::{Rank, byte_pair_split};
+    use crate::{CoreBPE, Rank, byte_pair_split};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
         HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
@@ -698,5 +701,20 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
+    }
+
+    #[test]
+    fn test_empty_special_token_is_rejected() {
+        let result = CoreBPE::new_internal(
+            HashMap::from_iter([(b"a".to_vec(), 0)]),
+            HashMap::from_iter([("".to_string(), 1)]),
+            ".",
+        );
+
+        let error = match result {
+            Ok(_) => panic!("empty special token should be rejected"),
+            Err(error) => error,
+        };
+        assert_eq!(error.to_string(), "special token strings must not be empty");
     }
 }
