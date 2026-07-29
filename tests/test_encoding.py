@@ -223,6 +223,16 @@ def test_special_token():
     assert fim in tokens
 
 
+def test_empty_special_token_is_rejected():
+    with pytest.raises(ValueError, match="special token strings must not be empty"):
+        tiktoken.Encoding(
+            name="empty_special",
+            pat_str=r"(?s).",
+            mergeable_ranks={bytes([i]): i for i in range(256)},
+            special_tokens={"": 256},
+        )
+
+
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(text=st.text())
 @hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
