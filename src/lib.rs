@@ -358,18 +358,32 @@ impl CoreBPE {
     }
 
     pub fn encode_ordinary(&self, text: &str) -> Vec<Rank> {
+        self.encode_ordinary_native(text)
+            .expect("Regex error while tokenizing")
+    }
+
+    /// Fallible core of [`encode_ordinary`](Self::encode_ordinary).
+    ///
+    /// The regex engine (`fancy_regex`) can return a recoverable `Err`
+    /// (e.g. `RuntimeError::StackOverflow`) on pathological input instead of
+    /// blowing the native stack. This method surfaces that as an
+    /// [`EncodeError`] rather than panicking.
+    fn encode_ordinary_native(&self, text: &str) -> Result<Vec<Rank>, EncodeError> {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
         let regex = self._get_tl_regex();
         let mut ret = vec![];
         for mat in regex.find_iter(text) {
-            let piece = mat.unwrap().as_str().as_bytes();
+            let mat = mat.map_err(|e| EncodeError {
+                message: format!("Regex error while tokenizing: {e}"),
+            })?;
+            let piece = mat.as_str().as_bytes();
             match self.encoder.get(piece) {
                 Some(token) => ret.push(*token),
                 None => ret.extend(&byte_pair_encode(piece, &self.encoder)),
             }
         }
-        ret
+        Ok(ret)
     }
 
     pub fn encode(
@@ -388,7 +402,12 @@ impl CoreBPE {
             let mut start_find = start;
             loop {
                 // Find the next allowed special token, if any
-                next_special = special_regex.find_from_pos(text, start_find).unwrap();
+                next_special =
+                    special_regex
+                        .find_from_pos(text, start_find)
+                        .map_err(|e| EncodeError {
+                            message: format!("Regex error while tokenizing: {e}"),
+                        })?;
                 match next_special {
                     Some(m) => {
                         if allowed_special.contains(&text[m.start()..m.end()]) {
@@ -485,11 +504,24 @@ impl CoreBPE {
         text: &str,
         allowed_special: &HashSet<&str>,
     ) -> (Vec<Rank>, HashSet<Vec<Rank>>) {
-        let (tokens, last_piece_token_len) = self.encode(text, allowed_special).unwrap();
+        self._encode_unstable_native_impl(text, allowed_special)
+            .expect("Regex error while tokenizing")
+    }
+
+    /// Fallible core of [`_encode_unstable_native`](Self::_encode_unstable_native).
+    ///
+    /// Delegates to [`encode`](Self::encode), which surfaces recoverable
+    /// `fancy_regex` runtime errors as [`EncodeError`] instead of panicking.
+    fn _encode_unstable_native_impl(
+        &self,
+        text: &str,
+        allowed_special: &HashSet<&str>,
+    ) -> Result<(Vec<Rank>, HashSet<Vec<Rank>>), EncodeError> {
+        let (tokens, last_piece_token_len) = self.encode(text, allowed_special)?;
         if last_piece_token_len == 0 {
             // If last_piece_token_len is zero, the last token was a special token and we have
             // no unstable bytes
-            return (tokens, HashSet::new());
+            return Ok((tokens, HashSet::new()));
         }
         let (mut tokens, last_piece_token_len) =
             self._increase_last_piece_token_len(tokens, last_piece_token_len);
@@ -505,7 +537,7 @@ impl CoreBPE {
 
         let mut completions = HashSet::new();
         if unstable_bytes.is_empty() {
-            return (tokens, completions);
+            return Ok((tokens, completions));
         }
 
         // This is the easy bit. Just find all single tokens that start with unstable_bytes
@@ -544,7 +576,7 @@ impl CoreBPE {
                     // So convert to UTF-8 and do regex splitting.
                     // E.g. with cl100k_base "  !" gets split to " " + " !",
                     // but byte_pair_encode("  !") != byte_pair_encode(" ")
-                    Ok(s) => self.encode_ordinary(s),
+                    Ok(s) => self.encode_ordinary_native(s)?,
 
                     // Technically, whether or not this arm is correct depends on whether there
                     // would be a regex split before the UTF-8 truncation point.
@@ -595,7 +627,7 @@ impl CoreBPE {
             }
         }
 
-        (tokens, completions)
+        Ok((tokens, completions))
     }
 
     pub fn new<E, SE, NSE>(
@@ -671,16 +703,19 @@ impl CoreBPE {
 
     pub fn encode_with_special_tokens(&self, text: &str) -> Vec<Rank> {
         let allowed_special = self.special_tokens();
-        self.encode(text, &allowed_special).unwrap().0
+        self.encode(text, &allowed_special)
+            .expect("Regex error while tokenizing")
+            .0
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
+    use std::collections::HashSet;
+
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::{Rank, byte_pair_split};
+    use crate::{CoreBPE, Rank, byte_pair_split};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
         HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
@@ -698,5 +733,89 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
+    }
+
+    // The cl100k_base regex (as used by e.g. gpt-4), whose `\s+(?!\S)` alternative
+    // can drive fancy_regex's backtracking engine to return a recoverable
+    // `RuntimeError::StackOverflow` on large whitespace-heavy input. See
+    // https://github.com/openai/tiktoken/issues/400.
+    const CL100K_PAT: &str = r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s";
+
+    // Build a byte-level CoreBPE (one token per possible byte) with the given
+    // pattern. This is enough to exercise the encoding paths without downloading
+    // a real vocabulary.
+    fn byte_level_bpe(pattern: &str) -> CoreBPE {
+        let encoder: HashMap<Vec<u8>, Rank> =
+            (0u16..256).map(|b| (vec![b as u8], b as Rank)).collect();
+        CoreBPE::new_internal(encoder, HashMap::default(), pattern)
+            .expect("failed to build test CoreBPE")
+    }
+
+    // Input that deterministically triggers fancy_regex's
+    // `RuntimeError::StackOverflow` with the cl100k_base pattern: a long run of
+    // spaces followed by a non-space so the engine must attempt (and backtrack
+    // out of) the `\s+(?!\S)` alternative. The threshold is not empirical: it is
+    // fancy_regex 0.17.0's hard-coded `MAX_STACK = 1_000_000` backtracking-step
+    // counter (see `vm.rs`), so 2M chars is a safe, deterministic margin over it.
+    // This runs in a few tens of milliseconds in a release build; under a plain
+    // debug `cargo test` it is closer to a second.
+    fn pathological_input() -> String {
+        let mut s = " ".repeat(2_000_000);
+        s.push('x');
+        s
+    }
+
+    // Characterization test (not a regression for this change): `encode` already
+    // returns `Err(EncodeError)` on unmodified `main` — its inner `find_iter`
+    // error handling was added upstream in eedc856. This just pins that behavior
+    // and the shared error message the sibling paths now reuse.
+    #[test]
+    fn test_encode_returns_err_on_pathological_input() {
+        let bpe = byte_level_bpe(CL100K_PAT);
+        let text = pathological_input();
+        let res = bpe.encode(&text, &HashSet::new());
+        assert!(
+            res.is_err(),
+            "expected encode to surface a recoverable regex error, got Ok"
+        );
+        let msg = res.unwrap_err().message;
+        assert!(
+            msg.contains("Regex error while tokenizing"),
+            "unexpected error message: {msg}"
+        );
+    }
+
+    // The actual regression this change fixes: `encode_ordinary` (and the other
+    // sibling paths) panicked on `main` because they never got eedc856's
+    // treatment. Its fallible core must now surface the error instead. The public
+    // `encode_ordinary` delegates here and only then `.expect()`s, preserving its
+    // infallible signature for Rust callers.
+    #[test]
+    fn test_encode_ordinary_native_returns_err_on_pathological_input() {
+        let bpe = byte_level_bpe(CL100K_PAT);
+        let text = pathological_input();
+        let res = bpe.encode_ordinary_native(&text);
+        assert!(
+            res.is_err(),
+            "expected encode_ordinary_native to surface a recoverable regex error, got Ok"
+        );
+    }
+
+    // Sanity: on ordinary input the fixed paths still succeed and agree with each
+    // other, so the error handling didn't change normal behavior.
+    #[test]
+    fn test_encode_paths_agree_on_normal_input() {
+        let bpe = byte_level_bpe(CL100K_PAT);
+        let text = "hello world, this is a test 123";
+        let ordinary = bpe.encode_ordinary(text);
+        let ordinary_native = bpe
+            .encode_ordinary_native(text)
+            .expect("normal input should encode without error");
+        let (via_encode, _) = bpe
+            .encode(text, &HashSet::new())
+            .expect("normal input should encode without error");
+        assert_eq!(ordinary, ordinary_native);
+        assert_eq!(ordinary, via_encode);
+        assert!(!ordinary.is_empty());
     }
 }
