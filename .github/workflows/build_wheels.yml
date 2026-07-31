@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: pypa/cibuildwheel@65b8265957fd86372d9689a0acdfd55813970d5d # v3.1.4
+      - uses: pypa/cibuildwheel@c923d83ad9c1bc00211c5041d0c3f73294ff88f6 # v3.1.4
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ENABLE: cpython-freethreading
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@65b8265957fd86372d9689a0acdfd55813970d5d # v3.1.4
+        uses: pypa/cibuildwheel@c923d83ad9c1bc00211c5041d0c3f73294ff88f6 # v3.1.4
         env:
           CIBW_BUILD: "cp${{ matrix.python-version}}-*"
           CIBW_ARCHS: aarch64
