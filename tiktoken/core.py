@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     import numpy.typing as npt
 
 
+class DisallowedSpecialTokenError(ValueError):
+    """Raised when text contains a special token that was not allowed."""
+
+
 class Encoding:
     def __init__(
         self,
@@ -439,7 +443,7 @@ def _special_token_regex(tokens: frozenset[str]) -> re.Pattern[str]:
 
 
 def raise_disallowed_special_token(token: str) -> NoReturn:
-    raise ValueError(
+    raise DisallowedSpecialTokenError(
         f"Encountered text corresponding to disallowed special token {token!r}.\n"
         "If you want this text to be encoded as a special token, "
         f"pass it to `allowed_special`, e.g. `allowed_special={{{token!r}, ...}}`.\n"

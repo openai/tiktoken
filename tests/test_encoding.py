@@ -182,7 +182,7 @@ def test_special_token():
 
     text = "<|endoftext|> hello <|fim_prefix|>"
     assert eot not in enc.encode(text, disallowed_special=())
-    with pytest.raises(ValueError):
+    with pytest.raises(tiktoken.DisallowedSpecialTokenError):
         enc.encode(text)
     with pytest.raises(ValueError):
         enc.encode(text, disallowed_special="all")
