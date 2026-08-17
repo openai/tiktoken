@@ -53,8 +53,11 @@ def test_large_repeated():
     enc = tiktoken.get_encoding("o200k_base")
 
     # Large inputs should be handled without raising.
-    tokens = enc.encode("x" * 1_000_000)
+    text = "x" * 1_000_000
+    tokens = enc.encode(text)
     assert tokens
+    assert enc.get_token_length(text) == len(tokens)
+    assert enc.get_token_length_ordinary(text) == len(enc.encode_ordinary(text))
 
 
 def test_simple_regex():
@@ -105,9 +108,13 @@ def test_encode_surrogate_pairs():
     assert enc.encode("👍") == [9468, 239, 235]
     # surrogate pair gets converted to codepoint
     assert enc.encode("\ud83d\udc4d") == [9468, 239, 235]
+    assert enc.get_token_length("\ud83d\udc4d") == 3
+    assert enc.get_token_length_ordinary("\ud83d\udc4d") == 3
 
     # lone surrogate just gets replaced
     assert enc.encode("\ud83d") == enc.encode("�")
+    assert enc.get_token_length("\ud83d") == len(enc.encode("�"))
+    assert enc.get_token_length_ordinary("\ud83d") == len(enc.encode_ordinary("�"))
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
@@ -153,6 +160,18 @@ def test_hyp_roundtrip(make_enc: Callable[[], tiktoken.Encoding], text):
     enc = make_enc()
 
     assert text == enc.decode(enc.encode(text))
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+@hypothesis.given(text=st.text())
+@hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
+def test_hyp_token_length(make_enc: Callable[[], tiktoken.Encoding], text: str):
+    enc = make_enc()
+
+    assert enc.get_token_length(text, disallowed_special=()) == len(
+        enc.encode(text, disallowed_special=())
+    )
+    assert enc.get_token_length_ordinary(text) == len(enc.encode_ordinary(text))
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
@@ -221,6 +240,36 @@ def test_special_token():
     assert eot not in tokens
     assert fip not in tokens
     assert fim in tokens
+
+
+@pytest.mark.parametrize(
+    ("allowed_special", "disallowed_special"),
+    [
+        ("all", "all"),
+        (set(), ()),
+        ({"<|endoftext|>"}, ()),
+        ({"<|fim_prefix|>"}, ()),
+        ({"<|fim_middle|>"}, ()),
+    ],
+)
+def test_get_token_length_special(allowed_special, disallowed_special):
+    enc = tiktoken.get_encoding("cl100k_base")
+    text = "<|endoftext|> hello <|fim_prefix|> there <|fim_middle|>"
+
+    assert enc.get_token_length(
+        text,
+        allowed_special=allowed_special,
+        disallowed_special=disallowed_special,
+    ) == len(
+        enc.encode(
+            text,
+            allowed_special=allowed_special,
+            disallowed_special=disallowed_special,
+        )
+    )
+
+    with pytest.raises(ValueError):
+        enc.get_token_length(text)
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)

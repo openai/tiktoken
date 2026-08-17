@@ -44,7 +44,10 @@ struct State {
     cur_rank: Rank,
 }
 
-fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<Rank> {
+fn _byte_pair_merge_large_state(
+    ranks: &HashMap<Vec<u8>, Rank>,
+    piece: &[u8],
+) -> (Vec<State>, usize) {
     let mut state = Vec::with_capacity(piece.len());
     state.push(State {
         prev: usize::MAX,
@@ -94,6 +97,7 @@ fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<R
         }
     };
 
+    let mut token_count = piece.len();
     while let Some(left) = heap.pop() {
         if left.rank == Rank::MAX {
             break;
@@ -109,6 +113,7 @@ fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<R
         let right_next_end = state[right_start].next_end;
 
         // Merge left and right into a single token
+        token_count -= 1;
         state[left_start].cur_rank = state[left_start].next_rank;
         state[left_start].end = right_end;
         potential_merge(&mut state, &mut heap, left_start, right_next_end);
@@ -124,7 +129,12 @@ fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<R
         state[right_start].next_rank = Rank::MAX;
     }
 
-    let mut result = Vec::new();
+    (state, token_count)
+}
+
+fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<Rank> {
+    let (state, token_count) = _byte_pair_merge_large_state(ranks, piece);
+    let mut result = Vec::with_capacity(token_count);
     let mut i = 0;
     while i < state.len() {
         if state[i].cur_rank != Rank::MAX {
@@ -134,6 +144,7 @@ fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<R
         }
         i = state[i].end;
     }
+    debug_assert_eq!(result.len(), token_count);
     result
 }
 
@@ -208,6 +219,18 @@ pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Ran
             .collect();
     }
     _byte_pair_merge_large(ranks, piece)
+}
+
+pub fn byte_pair_encode_count(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> usize {
+    let piece_len = piece.len();
+
+    if piece_len == 1 {
+        return 1;
+    }
+    if piece_len < 100 {
+        return _byte_pair_merge(ranks, piece).len() - 1;
+    }
+    _byte_pair_merge_large_state(ranks, piece).1
 }
 
 pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<&'a [u8]> {
@@ -372,6 +395,19 @@ impl CoreBPE {
         ret
     }
 
+    pub fn get_token_length_ordinary(&self, text: &str) -> usize {
+        let regex = self._get_tl_regex();
+        let mut token_count = 0;
+        for mat in regex.find_iter(text) {
+            let piece = mat.unwrap().as_str().as_bytes();
+            token_count += match self.encoder.get(piece) {
+                Some(_) => 1,
+                None => byte_pair_encode_count(piece, &self.encoder),
+            };
+        }
+        token_count
+    }
+
     pub fn encode(
         &self,
         text: &str,
@@ -439,6 +475,62 @@ impl CoreBPE {
         // last_piece_token_len is how many tokens came from the last regex split. This is used
         // for determining unstable tokens, since you can't merge across (stable) regex splits
         Ok((ret, last_piece_token_len))
+    }
+
+    pub fn get_token_length(
+        &self,
+        text: &str,
+        allowed_special: &HashSet<&str>,
+    ) -> Result<usize, EncodeError> {
+        let special_regex = self._get_tl_special_regex();
+        let regex = self._get_tl_regex();
+        let mut token_count = 0;
+
+        let mut start = 0;
+        loop {
+            let mut next_special;
+            let mut start_find = start;
+            loop {
+                next_special = special_regex.find_from_pos(text, start_find).unwrap();
+                match next_special {
+                    Some(m) => {
+                        if allowed_special.contains(&text[m.start()..m.end()]) {
+                            break;
+                        }
+                        start_find = m.start() + 1;
+                    }
+                    None => break,
+                }
+            }
+            let end = next_special.map_or(text.len(), |m| m.start());
+
+            for mat_res in regex.find_iter(&text[start..end]) {
+                let mat = match mat_res {
+                    Ok(m) => m,
+                    Err(e) => {
+                        return Err(EncodeError {
+                            message: format!("Regex error while tokenizing: {e}"),
+                        });
+                    }
+                };
+
+                let piece = mat.as_str().as_bytes();
+                token_count += match self.encoder.get(piece) {
+                    Some(_) => 1,
+                    None => byte_pair_encode_count(piece, &self.encoder),
+                };
+            }
+
+            match next_special {
+                Some(m) => {
+                    token_count += 1;
+                    start = m.end();
+                }
+                None => break,
+            }
+        }
+
+        Ok(token_count)
     }
 
     fn _increase_last_piece_token_len(
@@ -677,10 +769,9 @@ impl CoreBPE {
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::{Rank, byte_pair_split};
+    use crate::{Rank, byte_pair_encode, byte_pair_encode_count, byte_pair_split};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
         HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
@@ -691,6 +782,7 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abcd", &ranks);
         assert_eq!(res, vec![b"ab", b"cd"]);
+        assert_eq!(byte_pair_encode_count(b"abcd", &ranks), res.len());
     }
 
     #[test]
@@ -698,5 +790,21 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
+        assert_eq!(byte_pair_encode_count(b"abab", &ranks), res.len());
+    }
+
+    #[test]
+    fn test_large_piece_token_count() {
+        let ranks = HashMap::from_iter([
+            (b"aa".to_vec(), 0),
+            (b"aaa".to_vec(), 1),
+            (b"a".to_vec(), 2),
+        ]);
+        let piece = b"a".repeat(101);
+
+        assert_eq!(
+            byte_pair_encode_count(&piece, &ranks),
+            byte_pair_encode(&piece, &ranks).len()
+        );
     }
 }
