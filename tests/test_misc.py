@@ -17,6 +17,9 @@ def test_encoding_for_model():
     assert enc.name == "cl100k_base"
     enc = tiktoken.encoding_for_model("gpt-4o")
     assert enc.name == "o200k_base"
+    for model_name in ("gpt-5.1", "gpt-5.2", "gpt-5.4"):
+        enc = tiktoken.encoding_for_model(model_name)
+        assert enc.name == "o200k_base"
     enc = tiktoken.encoding_for_model("gpt-oss-120b")
     assert enc.name == "o200k_harmony"
 
