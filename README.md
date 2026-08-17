@@ -129,3 +129,18 @@ setup(
 Then simply `pip install ./my_tiktoken_extension` and you should be able to use your
 custom encodings! Make sure **not** to use an editable install.
 
+## Development and Contributing
+
+To install `tiktoken` from source or build locally, you will need to install the Rust toolchain.
+Instructions for installing Rust can be found [here](https://rust-lang.org/tools/install/). For
+most Linux and Mac OS X installations, this can be done with:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Once you have installed Rust, you may build the package using `pip`:
+
+```python
+pip install -e .
+```
