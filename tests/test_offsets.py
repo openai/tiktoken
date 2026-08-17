@@ -49,8 +49,13 @@ def test_hyp_offsets(make_enc: Callable[[], tiktoken.Encoding], data):
 def test_basic_offsets():
     enc = tiktoken.get_encoding("cl100k_base")
 
+    assert enc.decode_with_offsets([]) == ("", [])
+
     prompt = "hello world"
     p, o = enc.decode_with_offsets(enc.encode(prompt))
+    assert p == prompt
+    assert o == [0, 5]
+    p, o = enc.decode_with_offsets(token for token in enc.encode(prompt))
     assert p == prompt
     assert o == [0, 5]
 
@@ -77,3 +82,13 @@ def test_basic_offsets():
     p, o = enc.decode_with_offsets(enc.encode(prompt))
     assert p == prompt
     assert o == [0, 1]
+
+
+def test_offsets_errors():
+    enc = tiktoken.get_encoding("cl100k_base")
+
+    with pytest.raises(KeyError):
+        enc.decode_with_offsets([enc.max_token_value + 1])
+
+    with pytest.raises(UnicodeDecodeError):
+        enc.decode_with_offsets(enc._encode_bytes(b"\x80"))
