@@ -19,6 +19,13 @@ def test_encoding_for_model():
     assert enc.name == "o200k_base"
     enc = tiktoken.encoding_for_model("gpt-oss-120b")
     assert enc.name == "o200k_harmony"
+    # Regression: "gpt-4.5" (exact name without a version suffix) must resolve
+    # via MODEL_TO_ENCODING, not the "gpt-4.5-" prefix which requires a trailing
+    # hyphen and therefore doesn't match the bare model name.
+    enc = tiktoken.encoding_for_model("gpt-4.5")
+    assert enc.name == "o200k_base"
+    enc = tiktoken.encoding_for_model("gpt-4.5-preview")
+    assert enc.name == "o200k_base"
 
 
 def test_optional_blobfile_dependency():
