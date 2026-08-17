@@ -16,12 +16,20 @@ The open source version of `tiktoken` can be installed from [PyPI](https://pypi.
 ```
 pip install tiktoken
 ```
+Note (Windows contributors):
+If you are developing tiktoken, running tests, or installing it in editable mode on Windows, see Windows (MSVC) – Build & Test Setup below. End users installing from PyPI do not need these steps.
+The tokeniser API is documented in tiktoken/core.py.
+Example code using tiktoken can be found in the OpenAI Cookbook.
 
 The tokeniser API is documented in `tiktoken/core.py`.
 
 Example code using `tiktoken` can be found in the
 [OpenAI Cookbook](https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb).
 
+## Windows build
+
+For detailed instructions on building `tiktoken` from source on Windows (MSVC),
+see [docs/windows-build.md](docs/windows-build.md).
 
 ## Performance
 
