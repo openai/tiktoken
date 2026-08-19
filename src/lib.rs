@@ -633,12 +633,14 @@ impl CoreBPE {
         let decoder: HashMap<Rank, Vec<u8>> =
             encoder.iter().map(|(k, v)| (*v, k.clone())).collect();
 
-        assert!(
-            encoder.len() == decoder.len(),
-            "Encoder and decoder must be of equal length. Encoder length: {}, decoder length: {}.\nMaybe you had duplicate token indices in your encoder?",
-            encoder.len(),
-            decoder.len()
-        );
+        if encoder.len() != decoder.len() {
+            return Err(format!(
+                "Encoder and decoder must be of equal length. Encoder length: {}, decoder length: {}.\nMaybe you had duplicate token indices in your encoder?",
+                encoder.len(),
+                decoder.len()
+            )
+            .into());
+        }
 
         let special_tokens_decoder: HashMap<Rank, Vec<u8>> = special_tokens_encoder
             .iter()
