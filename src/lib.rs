@@ -332,18 +332,18 @@ impl CoreBPE {
         // See performance notes above for what this is about
         // It's also a little janky, please make a better version of it!
         // However, it's nice that this doesn't leak memory to short-lived threads
-        &self.regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+        &self.regex_tls[hash_current_thread() & (MAX_NUM_THREADS - 1)]
     }
 
     fn _get_tl_special_regex(&self) -> &Regex {
-        &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+        &self.special_regex_tls[hash_current_thread() & (MAX_NUM_THREADS - 1)]
     }
 
     /// Decodes tokens into a list of bytes.
     ///
     /// The bytes are not gauranteed to be a valid utf-8 string.
     fn decode_bytes(&self, tokens: &[Rank]) -> Result<Vec<u8>, DecodeKeyError> {
-        let mut ret = Vec::with_capacity(tokens.len() * 2);
+        let mut ret = Vec::with_capacity(tokens.len() << 1);
         for &token in tokens {
             let token_bytes = match self.decoder.get(&token) {
                 Some(bytes) => bytes,
