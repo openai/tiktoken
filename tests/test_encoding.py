@@ -264,15 +264,23 @@ def test_hyp_batch_roundtrip(make_enc: Callable[[], tiktoken.Encoding], batch):
     assert decoded == batch
 
 
-@pytest.mark.parametrize("encoding", ["gpt2", "cl100k_base"])
-@pytest.mark.parametrize("threads", [1, 2, 8])
-def test_ordinary_batch_chunk_boundaries(encoding: str, threads: int):
+@pytest.mark.parametrize("encoding", ["gpt2", "p50k_base", "cl100k_base", "o200k_base"])
+def test_ascii_scanner_matches_regex(encoding: str):
     enc = tiktoken.get_encoding(encoding)
-    texts = [f"Document {i}: hello café 世界" for i in range(1031)]
-    texts[127] = ""
-    texts[128] = "long document " * 10000
-    texts[129] = "unpaired surrogate: \ud800"
-    texts[511] = "<|endoftext|>"
-    expected = [enc.encode_ordinary(text) for text in texts]
-    assert enc.encode_ordinary_batch(texts, num_threads=threads) == expected
-    assert enc.encode_ordinary_batch([], num_threads=threads) == []
+    regex_enc = tiktoken.Encoding(
+        name=f"{encoding}-regex",
+        pat_str=f"(?:{enc._pat_str})",
+        mergeable_ranks=enc._mergeable_ranks,
+        special_tokens=enc._special_tokens,
+    )
+    for text in [
+        "HTTPServer camelCase 1234567!\r\n /  ",
+        "it'S it'ſ 'rÉ café e\u0301 世界 🦀",
+        "\n \n \t\r\n",
+        "a" * 101 + "é" + "!" * 101,
+        "<|endoftext|> hello",
+    ]:
+        assert enc.encode_ordinary(text) == regex_enc.encode_ordinary(text)
+        assert enc.encode(text, disallowed_special=()) == regex_enc.encode(
+            text, disallowed_special=()
+        )

@@ -142,30 +142,16 @@ fn _byte_pair_merge_large(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<R
 }
 
 fn _byte_pair_merge(ranks: &HashMap<Vec<u8>, Rank>, piece: &[u8]) -> Vec<(usize, Rank)> {
-    let mut parts = Vec::with_capacity(piece.len() + 1);
-    _byte_pair_merge_into(ranks, piece, &mut parts, |i| {
-        *ranks.get(&piece[i..i + 2]).unwrap_or(&Rank::MAX)
-    });
-    parts
-}
-
-fn _byte_pair_merge_into(
-    ranks: &HashMap<Vec<u8>, Rank>,
-    piece: &[u8],
-    parts: &mut Vec<(usize, Rank)>,
-    initial_pair_rank: impl Fn(usize) -> Rank,
-) {
     // This is a vector of (start, rank).
     // The rank is of the pair starting at position start.
-    parts.clear();
-    parts.reserve(piece.len() + 1);
+    let mut parts = Vec::with_capacity(piece.len() + 1);
 
     // Note that we hash bytes when indexing into `ranks`, not token pairs. As long as we train BPE
     // the way we currently do, this is equivalent. An easy way to break this would be to decouple
     // merge priority from token index or to prevent specific token merges.
     let mut min_rank: (Rank, usize) = (Rank::MAX, usize::MAX);
     for i in 0..piece.len() - 1 {
-        let rank = initial_pair_rank(i);
+        let rank = *ranks.get(&piece[i..i + 2]).unwrap_or(&Rank::MAX);
         if rank < min_rank.0 {
             min_rank = (rank, i);
         }
@@ -198,9 +184,9 @@ fn _byte_pair_merge_into(
         // Update parts[i] and parts[i - 1] before removing parts[i + 1], since
         // `parts.remove(i + 1)` will thrash the cache.
         if i > 0 {
-            parts[i - 1].1 = get_rank(parts, i - 1);
+            parts[i - 1].1 = get_rank(&parts, i - 1);
         }
-        parts[i].1 = get_rank(parts, i);
+        parts[i].1 = get_rank(&parts, i);
         parts.remove(i + 1);
 
         min_rank = (Rank::MAX, usize::MAX);
@@ -210,39 +196,7 @@ fn _byte_pair_merge_into(
             }
         }
     }
-}
-
-fn byte_pair_encode_into(
-    piece: &[u8],
-    ranks: &HashMap<Vec<u8>, Rank>,
-    pair_ranks: &[Rank],
-    parts: &mut Vec<(usize, Rank)>,
-    output: &mut Vec<Rank>,
-) {
-    if piece.len() == 1 {
-        output.push(ranks[piece]);
-    } else if piece.len() < 100 {
-        _byte_pair_merge_into(ranks, piece, parts, |i| {
-            pair_ranks[u16::from_le_bytes([piece[i], piece[i + 1]]) as usize]
-        });
-        output.extend(
-            parts
-                .windows(2)
-                .map(|part| ranks[&piece[part[0].0..part[1].0]]),
-        );
-    } else {
-        output.extend(_byte_pair_merge_large(ranks, piece));
-    }
-}
-
-fn build_pair_ranks(encoder: &HashMap<Vec<u8>, Rank>) -> Box<[Rank]> {
-    let mut pair_ranks = vec![Rank::MAX; 1 << 16].into_boxed_slice();
-    for (piece, &rank) in encoder {
-        if let [first, second] = piece.as_slice() {
-            pair_ranks[u16::from_le_bytes([*first, *second]) as usize] = rank;
-        }
-    }
-    pair_ranks
+    parts
 }
 
 pub fn byte_pair_encode(piece: &[u8], ranks: &HashMap<Vec<u8>, Rank>) -> Vec<Rank> {
@@ -369,7 +323,6 @@ const MAX_NUM_THREADS: usize = 128;
 #[derive(Clone)]
 pub struct CoreBPE {
     encoder: HashMap<Vec<u8>, Rank>,
-    pair_ranks: Box<[Rank]>,
     special_tokens_encoder: HashMap<String, Rank>,
     decoder: HashMap<Rank, Vec<u8>>,
     special_tokens_decoder: HashMap<Rank, Vec<u8>>,
@@ -412,14 +365,10 @@ impl CoreBPE {
     pub fn encode_ordinary(&self, text: &str) -> Vec<Rank> {
         // This is the core of the encoding logic; the other functions in here
         // just make things complicated :-)
-        // Reserve for roughly two input bytes per token to reduce allocator contention.
-        let mut ret = Vec::with_capacity(text.len() / 2);
-        let mut parts = Vec::new();
+        let mut ret = vec![];
         self.for_each_piece(text, |piece| match self.encoder.get(piece) {
             Some(token) => ret.push(*token),
-            None => {
-                byte_pair_encode_into(piece, &self.encoder, &self.pair_ranks, &mut parts, &mut ret)
-            }
+            None => ret.extend(&byte_pair_encode(piece, &self.encoder)),
         })
         .unwrap();
         ret
@@ -448,9 +397,7 @@ impl CoreBPE {
         allowed_special: &HashSet<&str>,
     ) -> Result<(Vec<Rank>, usize), EncodeError> {
         let special_regex = self._get_tl_special_regex();
-        // Reserve for roughly two input bytes per token to reduce allocator contention.
-        let mut ret = Vec::with_capacity(text.len() / 2);
-        let mut parts = Vec::new();
+        let mut ret = vec![];
 
         let mut start = 0;
         let mut last_piece_token_len = 0;
@@ -477,15 +424,9 @@ impl CoreBPE {
                     last_piece_token_len = 1;
                     ret.push(*token);
                 } else {
-                    let previous_len = ret.len();
-                    byte_pair_encode_into(
-                        piece,
-                        &self.encoder,
-                        &self.pair_ranks,
-                        &mut parts,
-                        &mut ret,
-                    );
-                    last_piece_token_len = ret.len() - previous_len;
+                    let tokens = byte_pair_encode(piece, &self.encoder);
+                    last_piece_token_len = tokens.len();
+                    ret.extend(&tokens);
                 }
             })?;
 
@@ -715,10 +656,8 @@ impl CoreBPE {
         let mut sorted_token_bytes: Vec<Vec<u8>> = encoder.keys().cloned().collect();
         sorted_token_bytes.sort();
 
-        let pair_ranks = build_pair_ranks(&encoder);
         Ok(Self {
             encoder,
-            pair_ranks,
             special_tokens_encoder,
             decoder,
             special_tokens_decoder,
@@ -746,9 +685,10 @@ impl CoreBPE {
 
 #[cfg(test)]
 mod tests {
+    use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::{Rank, build_pair_ranks, byte_pair_encode_into, byte_pair_split};
+    use crate::{Rank, byte_pair_split};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
         HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
@@ -766,85 +706,5 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
-    }
-
-    #[test]
-    fn test_reused_bpe_scratch() {
-        // Arbitrary ranks exercise merge ordering without assuming a trained vocabulary.
-        let mut ranks = HashMap::default();
-        for (rank, byte) in b"abcd".iter().enumerate() {
-            ranks.insert(vec![*byte], rank as Rank);
-        }
-        let mut keys = vec![];
-        for len in 2..=4 {
-            for mut value in 0..4usize.pow(len) {
-                let key: Vec<_> = (0..len)
-                    .map(|_| {
-                        let byte = b"abcd"[value % 4];
-                        value /= 4;
-                        byte
-                    })
-                    .collect();
-                keys.push(key);
-            }
-        }
-        let mut state = 42u64;
-        for i in (1..keys.len()).rev() {
-            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
-            keys.swap(i, (state >> 32) as usize % (i + 1));
-        }
-        for (rank, key) in keys.into_iter().enumerate() {
-            ranks.insert(key, rank as Rank + 4);
-        }
-
-        let pair_ranks = build_pair_ranks(&ranks);
-        let mut scratch = Vec::new();
-        let mut output = vec![Rank::MAX];
-        let mut expected = output.clone();
-        for len in (1..=200).chain((1..=200).rev()) {
-            let piece: Vec<_> = (0..len)
-                .map(|_| {
-                    state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
-                    b"abcd"[(state >> 32) as usize % 4]
-                })
-                .collect();
-            // A deliberately simple reference: repeatedly merge the leftmost lowest-ranked pair.
-            let mut reference: Vec<Vec<u8>> = piece.iter().map(|byte| vec![*byte]).collect();
-            loop {
-                let best = reference
-                    .windows(2)
-                    .enumerate()
-                    .filter_map(|(i, pair)| {
-                        let merged = [pair[0].as_slice(), pair[1].as_slice()].concat();
-                        ranks.get(&merged).map(|rank| (*rank, i))
-                    })
-                    .min();
-                let Some((_, index)) = best else { break };
-                let right = reference.remove(index + 1);
-                reference[index].extend(right);
-            }
-            expected.extend(reference.iter().map(|token| ranks[token]));
-            byte_pair_encode_into(&piece, &ranks, &pair_ranks, &mut scratch, &mut output);
-            assert_eq!(output, expected, "piece length {len}");
-        }
-    }
-
-    #[test]
-    fn test_pair_rank_table_matches_vocabulary() {
-        let mut ranks = HashMap::default();
-        for index in (0..=u16::MAX).step_by(17) {
-            ranks.insert(index.to_le_bytes().to_vec(), Rank::from(index));
-        }
-        ranks.insert(b"ab".to_vec(), Rank::MAX);
-        ranks.insert(b"a".to_vec(), 1);
-        ranks.insert(b"abc".to_vec(), 2);
-        let pairs = build_pair_ranks(&ranks);
-        for index in 0..=u16::MAX {
-            let bytes = index.to_le_bytes();
-            assert_eq!(
-                pairs[index as usize],
-                *ranks.get(bytes.as_slice()).unwrap_or(&Rank::MAX),
-            );
-        }
     }
 }
