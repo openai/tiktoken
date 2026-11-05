@@ -171,9 +171,19 @@ class Encoding:
         [[31373, 995], [11274, 16390, 995]]
         ```
         """
-        encoder = functools.partial(self.encode_ordinary)
+        def encode_chunk(chunk: list[str]) -> list[list[int]]:
+            try:
+                return self._core_bpe.encode_ordinary_batch(chunk)
+            except UnicodeEncodeError:
+                # Preserve encode_ordinary's handling of unpaired surrogates.
+                return [self.encode_ordinary(item) for item in chunk]
+
         with ThreadPoolExecutor(num_threads) as e:
-            return list(e.map(encoder, text))
+            # Amortize scheduling and GIL transitions while keeping multiple tasks per worker.
+            chunk_size = max(1, min(128, (len(text) + num_threads * 8 - 1) // (num_threads * 8)))
+            chunks = (text[i : i + chunk_size] for i in range(0, len(text), chunk_size))
+            batches = map(encode_chunk, chunks) if num_threads == 1 else e.map(encode_chunk, chunks)
+            return [tokens for batch in batches for tokens in batch]
 
     def encode_batch(
         self,

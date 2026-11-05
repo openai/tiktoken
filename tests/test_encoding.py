@@ -262,3 +262,17 @@ def test_hyp_batch_roundtrip(make_enc: Callable[[], tiktoken.Encoding], batch):
     assert encoded == [enc.encode(t, allowed_special="all") for t in batch]
     decoded = enc.decode_batch(encoded)
     assert decoded == batch
+
+
+@pytest.mark.parametrize("encoding", ["gpt2", "cl100k_base"])
+@pytest.mark.parametrize("threads", [1, 2, 8])
+def test_ordinary_batch_chunk_boundaries(encoding: str, threads: int):
+    enc = tiktoken.get_encoding(encoding)
+    texts = [f"Document {i}: hello café 世界" for i in range(1031)]
+    texts[127] = ""
+    texts[128] = "long document " * 10000
+    texts[129] = "unpaired surrogate: \ud800"
+    texts[511] = "<|endoftext|>"
+    expected = [enc.encode_ordinary(text) for text in texts]
+    assert enc.encode_ordinary_batch(texts, num_threads=threads) == expected
+    assert enc.encode_ordinary_batch([], num_threads=threads) == []
