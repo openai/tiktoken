@@ -110,6 +110,21 @@ def test_encode_surrogate_pairs():
     assert enc.encode("\ud83d") == enc.encode("�")
 
 
+def test_encode_with_unstable_surrogate_pairs():
+    enc = tiktoken.get_encoding("cl100k_base")
+
+    # encode_with_unstable must not raise UnicodeEncodeError for surrogate pairs
+    stable, completions = enc.encode_with_unstable("👍")
+    stable_via_surrogate, completions_via_surrogate = enc.encode_with_unstable("\ud83d\udc4d")
+    assert stable == stable_via_surrogate
+    assert completions == completions_via_surrogate
+
+    # lone surrogate treated the same as the replacement character
+    stable_lone, _ = enc.encode_with_unstable("\ud83d")
+    stable_replacement, _ = enc.encode_with_unstable("�")
+    assert stable_lone == stable_replacement
+
+
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 def test_catastrophically_repetitive(make_enc: Callable[[], tiktoken.Encoding]):
     enc = make_enc()
