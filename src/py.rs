@@ -31,6 +31,11 @@ impl CoreBPE {
         py.detach(|| self.encode_ordinary(text))
     }
 
+    #[pyo3(name = "get_token_length_ordinary")]
+    fn py_get_token_length_ordinary(&self, py: Python, text: &str) -> usize {
+        py.detach(|| self.get_token_length_ordinary(text))
+    }
+
     #[pyo3(name = "encode")]
     fn py_encode(
         &self,
@@ -45,6 +50,21 @@ impl CoreBPE {
                 Ok((tokens, _)) => Ok(tokens),
                 Err(e) => Err(PyErr::new::<exceptions::PyValueError, _>(e.message)),
             }
+        })
+    }
+
+    #[pyo3(name = "get_token_length")]
+    fn py_get_token_length(
+        &self,
+        py: Python,
+        text: &str,
+        allowed_special: HashSet<PyBackedStr>,
+    ) -> PyResult<usize> {
+        py.detach(|| {
+            let allowed_special: HashSet<&str> =
+                allowed_special.iter().map(|s| s.as_ref()).collect();
+            self.get_token_length(text, &allowed_special)
+                .map_err(|e| PyErr::new::<exceptions::PyValueError, _>(e.message))
         })
     }
 

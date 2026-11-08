@@ -79,6 +79,22 @@ class Encoding:
             text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
             return self._core_bpe.encode_ordinary(text)
 
+    def get_token_length_ordinary(self, text: str) -> int:
+        """Counts tokens in a string, ignoring special tokens.
+
+        This is equivalent to `len(encode_ordinary(text))`, without materialising the token list.
+
+        ```
+        >>> enc.get_token_length_ordinary("hello world")
+        2
+        ```
+        """
+        try:
+            return self._core_bpe.get_token_length_ordinary(text)
+        except UnicodeEncodeError:
+            text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            return self._core_bpe.get_token_length_ordinary(text)
+
     def encode(
         self,
         text: str,
@@ -134,6 +150,41 @@ class Encoding:
             # Also we use errors="replace" to handle weird things like lone surrogates.
             text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
             return self._core_bpe.encode(text, allowed_special)
+
+    def get_token_length(
+        self,
+        text: str,
+        *,
+        allowed_special: Literal["all"] | AbstractSet[str] = set(),  # noqa: B006
+        disallowed_special: Literal["all"] | Collection[str] = "all",
+    ) -> int:
+        """Counts tokens in a string.
+
+        This is equivalent to `len(encode(text, ...))`, without materialising the token list.
+        See `encode` for details on controlling special tokens.
+
+        ```
+        >>> enc.get_token_length("hello world")
+        2
+        >>> enc.get_token_length("<|endoftext|>", allowed_special="all")
+        1
+        ```
+        """
+        if allowed_special == "all":
+            allowed_special = self.special_tokens_set
+        if disallowed_special == "all":
+            disallowed_special = self.special_tokens_set - allowed_special
+        if disallowed_special:
+            if not isinstance(disallowed_special, frozenset):
+                disallowed_special = frozenset(disallowed_special)
+            if match := _special_token_regex(disallowed_special).search(text):
+                raise_disallowed_special_token(match.group())
+
+        try:
+            return self._core_bpe.get_token_length(text, allowed_special)
+        except UnicodeEncodeError:
+            text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            return self._core_bpe.get_token_length(text, allowed_special)
 
     def encode_to_numpy(
         self,
