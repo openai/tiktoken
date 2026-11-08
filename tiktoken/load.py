@@ -51,6 +51,11 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
 
     cache_path = os.path.join(cache_dir, cache_key)
+    if not os.path.exists(cache_path):
+        basename_path = os.path.join(cache_dir, os.path.basename(blobpath))
+        if os.path.exists(basename_path):
+            cache_path = basename_path
+
     if os.path.exists(cache_path):
         with open(cache_path, "rb", buffering=0) as f:
             data = f.read()
@@ -62,6 +67,11 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
             os.remove(cache_path)
         except OSError:
             pass
+
+    if os.environ.get("TIKTOKEN_OFFLINE") in ("1", "true", "True"):
+        raise FileNotFoundError(
+            f"TIKTOKEN_OFFLINE is enabled, but no cached file was found for {blobpath} in {cache_dir}"
+        )
 
     contents = read_file(blobpath)
     if expected_hash and not check_hash(contents, expected_hash):
