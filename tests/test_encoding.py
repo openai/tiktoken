@@ -124,6 +124,32 @@ def test_catastrophically_repetitive(make_enc: Callable[[], tiktoken.Encoding]):
         assert big_value == enc.decode(enc.encode(big_value))
 
 
+def test_pathological_regex_input_raises():
+    # A long run of spaces followed by a non-space drives fancy_regex's
+    # backtracking engine (via cl100k_base's `\s+(?!\S)` alternative) past its
+    # hard-coded MAX_STACK = 1_000_000 counter, which it reports as a recoverable
+    # runtime error. tiktoken must surface that as a catchable ValueError rather
+    # than letting the panic escape as a PanicException (which is not catchable
+    # as a normal `except Exception`). See
+    # https://github.com/openai/tiktoken/issues/400.
+    #
+    # `encode()` itself already handles this upstream; the regression here is for
+    # the sibling paths that previously called `.unwrap()`. 2M chars is a
+    # comfortable margin over the 1M threshold and still returns in tens of
+    # milliseconds in the (always-release) extension build.
+    enc = tiktoken.get_encoding("cl100k_base")
+    pathological = " " * 2_000_000 + "x"
+
+    with pytest.raises(ValueError):
+        enc.encode_ordinary(pathological)
+
+    with pytest.raises(ValueError):
+        enc._encode_bytes(pathological.encode())
+
+    with pytest.raises(ValueError):
+        enc.encode_with_unstable(pathological)
+
+
 # ====================
 # Roundtrip
 # ====================
