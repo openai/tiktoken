@@ -46,7 +46,7 @@ def redact(dry_run: bool) -> None:
 
     try:
         output = subprocess.check_output(["git", "ls-files"], cwd=tiktoken_root, text=True)
-        paths = [Path(p) for p in output.splitlines()]
+        paths = [tiktoken_root / p for p in output.splitlines()]
     except subprocess.CalledProcessError:
         paths = list(tiktoken_root.glob("**/*"))
 
