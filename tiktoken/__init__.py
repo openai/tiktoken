@@ -1,4 +1,5 @@
 # This is the public API of tiktoken
+from .core import DisallowedSpecialTokenError as DisallowedSpecialTokenError
 from .core import Encoding as Encoding
 from .model import encoding_for_model as encoding_for_model
 from .model import encoding_name_for_model as encoding_name_for_model
