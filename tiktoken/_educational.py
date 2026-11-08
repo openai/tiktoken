@@ -144,6 +144,12 @@ def bpe_train(
             for pair in zip(piece[:-1], piece[1:]):
                 stats[pair] += 1
 
+        if not stats:
+            # Every word has been merged down to a single token: the training
+            # data has no more adjacent pairs to merge, so we cannot reach
+            # vocab_size. Stop with the ranks learned so far.
+            break
+
         most_common_pair = max(stats, key=lambda x: stats[x])
         token_bytes = most_common_pair[0] + most_common_pair[1]
         token = len(ranks)
