@@ -262,3 +262,25 @@ def test_hyp_batch_roundtrip(make_enc: Callable[[], tiktoken.Encoding], batch):
     assert encoded == [enc.encode(t, allowed_special="all") for t in batch]
     decoded = enc.decode_batch(encoded)
     assert decoded == batch
+
+
+@pytest.mark.parametrize("encoding", ["gpt2", "p50k_base", "cl100k_base", "o200k_base"])
+def test_ascii_scanner_matches_regex(encoding: str):
+    enc = tiktoken.get_encoding(encoding)
+    regex_enc = tiktoken.Encoding(
+        name=f"{encoding}-regex",
+        pat_str=f"(?:{enc._pat_str})",
+        mergeable_ranks=enc._mergeable_ranks,
+        special_tokens=enc._special_tokens,
+    )
+    for text in [
+        "HTTPServer camelCase 1234567!\r\n /  ",
+        "it'S it'ſ 'rÉ café e\u0301 世界 🦀",
+        "\n \n \t\r\n",
+        "a" * 101 + "é" + "!" * 101,
+        "<|endoftext|> hello",
+    ]:
+        assert enc.encode_ordinary(text) == regex_enc.encode_ordinary(text)
+        assert enc.encode(text, disallowed_special=()) == regex_enc.encode(
+            text, disallowed_special=()
+        )
