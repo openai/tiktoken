@@ -19,6 +19,10 @@ def test_encoding_for_model():
     assert enc.name == "o200k_base"
     enc = tiktoken.encoding_for_model("gpt-oss-120b")
     assert enc.name == "o200k_harmony"
+    enc = tiktoken.encoding_for_model("ft:gpt-4.1-mini-2025-04-14:org::abc123")
+    assert enc.name == "o200k_base"
+    enc = tiktoken.encoding_for_model("ft:gpt-4-0613:org::abc123")
+    assert enc.name == "cl100k_base"
 
 
 def test_optional_blobfile_dependency():

@@ -20,6 +20,7 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "gpt-oss-": "o200k_harmony",
     # fine-tuned
     "ft:gpt-4o": "o200k_base",
+    "ft:gpt-4.1": "o200k_base",
     "ft:gpt-4": "cl100k_base",
     "ft:gpt-3.5-turbo": "cl100k_base",
     "ft:davinci-002": "cl100k_base",
