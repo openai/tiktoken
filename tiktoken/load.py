@@ -77,7 +77,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
         tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"
         with open(tmp_filename, "wb") as f:
             f.write(contents)
-        os.rename(tmp_filename, cache_path)
+        os.replace(tmp_filename, cache_path)
     except OSError:
         # don't raise if we can't write to the default cache, e.g. issue #75
         if user_specified_cache:
