@@ -1,7 +1,11 @@
+import hashlib
 import subprocess
 import sys
 
+import pytest
+
 import tiktoken
+import tiktoken.load
 
 
 def test_encoding_for_model():
@@ -28,3 +32,15 @@ import sys
 assert "blobfile" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", prog])
+
+
+def test_read_file_cached_checks_hash_when_caching_is_disabled(tmp_path, monkeypatch):
+    blobpath = tmp_path / "blob.bin"
+    blobpath.write_bytes(b"hello world")
+    monkeypatch.setenv("TIKTOKEN_CACHE_DIR", "")
+
+    expected_hash = hashlib.sha256(b"hello world").hexdigest()
+    assert tiktoken.load.read_file_cached(str(blobpath), expected_hash) == b"hello world"
+
+    with pytest.raises(ValueError, match="Hash mismatch"):
+        tiktoken.load.read_file_cached(str(blobpath), "0" * 64)

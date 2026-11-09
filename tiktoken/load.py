@@ -32,6 +32,16 @@ def check_hash(data: bytes, expected_hash: str) -> bool:
     return actual_hash == expected_hash
 
 
+def _read_file_and_check_hash(blobpath: str, expected_hash: str | None) -> bytes:
+    contents = read_file(blobpath)
+    if expected_hash and not check_hash(contents, expected_hash):
+        raise ValueError(
+            f"Hash mismatch for data downloaded from {blobpath} (expected {expected_hash}). "
+            f"This may indicate a corrupted download. Please try again."
+        )
+    return contents
+
+
 def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
     user_specified_cache = True
     if "TIKTOKEN_CACHE_DIR" in os.environ:
@@ -46,7 +56,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
 
     if cache_dir == "":
         # disable caching
-        return read_file(blobpath)
+        return _read_file_and_check_hash(blobpath, expected_hash)
 
     cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
 
@@ -63,12 +73,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
         except OSError:
             pass
 
-    contents = read_file(blobpath)
-    if expected_hash and not check_hash(contents, expected_hash):
-        raise ValueError(
-            f"Hash mismatch for data downloaded from {blobpath} (expected {expected_hash}). "
-            f"This may indicate a corrupted download. Please try again."
-        )
+    contents = _read_file_and_check_hash(blobpath, expected_hash)
 
     import uuid
 
