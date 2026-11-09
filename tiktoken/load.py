@@ -72,6 +72,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
 
     import uuid
 
+    tmp_filename = None
     try:
         os.makedirs(cache_dir, exist_ok=True)
         tmp_filename = cache_path + "." + str(uuid.uuid4()) + ".tmp"
@@ -79,6 +80,13 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
             f.write(contents)
         os.rename(tmp_filename, cache_path)
     except OSError:
+        # don't leave a partially written file behind, e.g. if we ran out of
+        # disk space mid-write or lost a rename race with another process
+        if tmp_filename is not None:
+            try:
+                os.remove(tmp_filename)
+            except OSError:
+                pass
         # don't raise if we can't write to the default cache, e.g. issue #75
         if user_specified_cache:
             raise
