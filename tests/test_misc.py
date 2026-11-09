@@ -28,3 +28,19 @@ import sys
 assert "blobfile" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", prog])
+
+
+def test_tiktoken_buffer_shape_is_element_count():
+    # Regression test for the buffer protocol's `shape` reporting bytes
+    # instead of element count, which caused `memoryview(...).tolist()`
+    # to expand each token into 4 byte-sized integers. See issue #405.
+    import math
+
+    enc = tiktoken.get_encoding("gpt2")
+    expected = enc.encode("hello world")
+    buf = enc._core_bpe.encode_to_tiktoken_buffer("hello world", frozenset())
+
+    mv = memoryview(buf)
+    # Per PEP 3118: prod(shape) * itemsize == nbytes
+    assert math.prod(mv.shape) * mv.itemsize == mv.nbytes
+    assert mv.tolist() == expected
