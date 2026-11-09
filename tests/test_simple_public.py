@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+import pytest
+
 import tiktoken
 
 
@@ -40,3 +42,41 @@ import sys
 assert "blobfile" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", prog])
+
+
+def test_decode_invalid_tokens():
+    enc = tiktoken.get_encoding("cl100k_base")
+    for bad in [-1, 2**32, 2**64, 99_999_999]:
+        msg = f"Invalid token for decoding: {bad}"
+        for fn in [
+            lambda t: enc.decode([t]),
+            lambda t: enc.decode_bytes([t]),
+            lambda t: enc.decode_single_token_bytes(t),
+            lambda t: enc.decode_tokens_bytes([t]),
+            lambda t: enc.decode_with_offsets([t]),
+        ]:
+            with pytest.raises(KeyError) as exc_info:
+                fn(bad)
+            assert exc_info.value.args == (msg,)
+
+    with pytest.raises(KeyError) as exc_info:
+        enc.decode([15339, -1])
+    assert exc_info.value.args == ("Invalid token for decoding: -1",)
+
+    huge = 10**5000
+    try:
+        huge_repr = str(huge)
+    except ValueError:
+        huge_repr = "<integer too large to display>"
+    huge_msg = f"Invalid token for decoding: {huge_repr}"
+
+    for fn in [
+        lambda t: enc.decode([t]),
+        lambda t: enc.decode_bytes([t]),
+        lambda t: enc.decode_single_token_bytes(t),
+        lambda t: enc.decode_tokens_bytes([t]),
+        lambda t: enc.decode_with_offsets([t]),
+    ]:
+        with pytest.raises(KeyError) as exc_info:
+            fn(huge)
+        assert exc_info.value.args == (huge_msg,)

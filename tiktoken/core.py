@@ -270,7 +270,12 @@ class Encoding:
         b'hello world'
         ```
         """
-        return self._core_bpe.decode_bytes(tokens)
+        try:
+            return self._core_bpe.decode_bytes(tokens)
+        except OverflowError:
+            for token in tokens:
+                self.decode_single_token_bytes(token)
+            raise
 
     def decode(self, tokens: Sequence[int], errors: str = "replace") -> str:
         """Decodes a list of tokens into a string.
@@ -284,7 +289,7 @@ class Encoding:
         'hello world'
         ```
         """
-        return self._core_bpe.decode_bytes(tokens).decode("utf-8", errors=errors)
+        return self.decode_bytes(tokens).decode("utf-8", errors=errors)
 
     def decode_single_token_bytes(self, token: int) -> bytes:
         """Decodes a token into bytes.
@@ -298,7 +303,14 @@ class Encoding:
         b'hello'
         ```
         """
-        return self._core_bpe.decode_single_token_bytes(token)
+        try:
+            return self._core_bpe.decode_single_token_bytes(token)
+        except (OverflowError, KeyError):
+            try:
+                token_repr = str(token)
+            except ValueError:
+                token_repr = "<integer too large to display>"
+            raise KeyError(f"Invalid token for decoding: {token_repr}") from None
 
     def decode_tokens_bytes(self, tokens: Sequence[int]) -> list[bytes]:
         """Decodes a list of tokens into a list of bytes.
