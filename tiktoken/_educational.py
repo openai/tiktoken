@@ -27,11 +27,11 @@ class SimpleBytePairEncoding:
         [388, 372]
         """
         # Use the regex to split the text into (approximately) words
-        words = self._pat.findall(text)
+        words = self._pat.finditer(text)
         tokens = []
         for word in words:
             # Turn each word into tokens, using the byte pair encoding algorithm
-            word_bytes = word.encode("utf-8")
+            word_bytes = word.group().encode("utf-8")
             word_tokens = bpe_encode(self.mergeable_ranks, word_bytes, visualise=visualise)
             tokens.extend(word_tokens)
         return tokens
@@ -133,7 +133,8 @@ def bpe_train(
     #     [b' ', b'w', b'o', b'r', b'l', b'd']
     # ]
     words: list[list[bytes]] = [
-        [bytes([b]) for b in word.encode("utf-8")] for word in regex.findall(pat_str, data)
+        [bytes([b]) for b in word.group().encode("utf-8")]
+        for word in regex.finditer(pat_str, data)
     ]
 
     # Now, use our data to figure out which merges we should make

@@ -399,8 +399,8 @@ class Encoding:
 
         _unused_pat = regex.compile(self._pat_str)
         ret = []
-        for piece in regex.findall(_unused_pat, text):
-            ret.extend(self._core_bpe.encode_single_piece(piece.encode("utf-8")))
+        for piece in regex.finditer(_unused_pat, text):
+            ret.extend(self._core_bpe.encode_single_piece(piece.group().encode("utf-8")))
         return ret
 
     def _encode_bytes(self, text: bytes) -> list[int]:
