@@ -52,16 +52,22 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
 
     cache_path = os.path.join(cache_dir, cache_key)
     if os.path.exists(cache_path):
-        with open(cache_path, "rb", buffering=0) as f:
-            data = f.read()
-        if expected_hash is None or check_hash(data, expected_hash):
-            return data
-
-        # the cached file does not match the hash, remove it and re-fetch
         try:
-            os.remove(cache_path)
+            with open(cache_path, "rb", buffering=0) as f:
+                data = f.read()
         except OSError:
-            pass
+            # The default cache is optional; unreadable entries are cache misses.
+            if user_specified_cache:
+                raise
+        else:
+            if expected_hash is None or check_hash(data, expected_hash):
+                return data
+
+            # the cached file does not match the hash, remove it and re-fetch
+            try:
+                os.remove(cache_path)
+            except OSError:
+                pass
 
     contents = read_file(blobpath)
     if expected_hash and not check_hash(contents, expected_hash):
