@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import collections
+import heapq
 
 import regex
 
@@ -17,7 +17,9 @@ class SimpleBytePairEncoding:
         # A dictionary mapping token bytes to their ranks. The ranks correspond to merge priority
         self.mergeable_ranks = mergeable_ranks
 
-        self._decoder = {token: token_bytes for token_bytes, token in mergeable_ranks.items()}
+        self._decoder = {
+            token: token_bytes for token_bytes, token in mergeable_ranks.items()
+        }
         self._pat = regex.compile(pat_str)
 
     def encode(self, text: str, visualise: str | None = "colour") -> list[int]:
@@ -32,7 +34,9 @@ class SimpleBytePairEncoding:
         for word in words:
             # Turn each word into tokens, using the byte pair encoding algorithm
             word_bytes = word.encode("utf-8")
-            word_tokens = bpe_encode(self.mergeable_ranks, word_bytes, visualise=visualise)
+            word_tokens = bpe_encode(
+                self.mergeable_ranks, word_bytes, visualise=visualise
+            )
             tokens.extend(word_tokens)
         return tokens
 
@@ -68,7 +72,9 @@ class SimpleBytePairEncoding:
     @staticmethod
     def train(training_data: str, vocab_size: int, pat_str: str):
         """Train a BPE tokeniser on some data!"""
-        mergeable_ranks = bpe_train(data=training_data, vocab_size=vocab_size, pat_str=pat_str)
+        mergeable_ranks = bpe_train(
+            data=training_data, vocab_size=vocab_size, pat_str=pat_str
+        )
         return SimpleBytePairEncoding(pat_str=pat_str, mergeable_ranks=mergeable_ranks)
 
     @staticmethod
@@ -107,7 +113,11 @@ def bpe_encode(
         assert min_idx is not None
 
         # Otherwise, merge that pair and leave the rest unchanged. Then repeat.
-        parts = parts[:min_idx] + [parts[min_idx] + parts[min_idx + 1]] + parts[min_idx + 2 :]
+        parts = (
+            parts[:min_idx]
+            + [parts[min_idx] + parts[min_idx + 1]]
+            + parts[min_idx + 2 :]
+        )
 
     if visualise:
         print()
@@ -126,63 +136,155 @@ def bpe_train(
     for i in range(2**8):
         ranks[bytes([i])] = i
 
-    # Splinter up our data into lists of bytes
-    # data = "Hello world"
-    # words = [
-    #     [b'H', b'e', b'l', b'l', b'o'],
-    #     [b' ', b'w', b'o', b'r', b'l', b'd']
-    # ]
-    words: list[list[bytes]] = [
-        [bytes([b]) for b in word.encode("utf-8")] for word in regex.findall(pat_str, data)
-    ]
+    # Keep each word as a linked list. A merge only changes the two pairs touching the
+    # merged nodes, so training no longer rescans the whole corpus for every new token.
+    tokens: list[bytes] = []
+    previous: list[int] = []
+    following: list[int] = []
+    heads: list[int | None] = []
+    for word in regex.findall(pat_str, data):
+        word_bytes = word.encode("utf-8")
+        word_ids = []
+        for value in word_bytes:
+            word_ids.append(len(tokens))
+            tokens.append(bytes([value]))
+            previous.append(word_ids[-2] if len(word_ids) > 1 else -1)
+            following.append(-1)
+        for left, right in zip(word_ids, word_ids[1:]):
+            following[left] = right
+        heads.append(word_ids[0] if word_ids else None)
+
+    # Each entry stores the left node of an adjacent pair. Node ids preserve the original
+    # word order, which gives the same first-seen tie break as the reference implementation.
+    occurrences: dict[tuple[bytes, bytes], set[int]] = {}
+    first_nodes: dict[tuple[bytes, bytes], list[int]] = {}
+    candidates: list[tuple[int, int, tuple[bytes, bytes]]] = []
+
+    def add_occurrence(pair: tuple[bytes, bytes], left: int) -> None:
+        pair_occurrences = occurrences.setdefault(pair, set())
+        if left not in pair_occurrences:
+            pair_occurrences.add(left)
+            first_nodes.setdefault(pair, [])
+            heapq.heappush(first_nodes[pair], left)
+
+    def remove_occurrence(pair: tuple[bytes, bytes], left: int) -> None:
+        pair_occurrences = occurrences.get(pair)
+        if pair_occurrences is not None:
+            pair_occurrences.discard(left)
+
+    def current_first(pair: tuple[bytes, bytes]) -> int:
+        pair_occurrences = occurrences[pair]
+        first = first_nodes[pair]
+        while first and first[0] not in pair_occurrences:
+            heapq.heappop(first)
+        return first[0]
+
+    def pair_at(left: int) -> tuple[bytes, bytes] | None:
+        right = following[left]
+        if right == -1:
+            return None
+        return tokens[left], tokens[right]
+
+    for head in heads:
+        left = head
+        while left is not None and left != -1 and following[left] != -1:
+            pair = pair_at(left)
+            assert pair is not None
+            add_occurrence(pair, left)
+            left = following[left]
+
+    for pair, pair_occurrences in occurrences.items():
+        if pair_occurrences:
+            heapq.heappush(
+                candidates, (-len(pair_occurrences), current_first(pair), pair)
+            )
 
     # Now, use our data to figure out which merges we should make
     while len(ranks) < vocab_size:
-        # Find the most common pair. This will become our next token
-        stats = collections.Counter()
-        for piece in words:
-            for pair in zip(piece[:-1], piece[1:]):
-                stats[pair] += 1
+        # Discard stale heap entries left behind by earlier local updates.
+        while candidates:
+            neg_count, first, most_common_pair = heapq.heappop(candidates)
+            pair_occurrences = occurrences[most_common_pair]
+            if pair_occurrences and (-neg_count, first) == (
+                len(pair_occurrences),
+                current_first(most_common_pair),
+            ):
+                break
+        else:
+            raise ValueError("training data has no mergeable pairs")
 
-        most_common_pair = max(stats, key=lambda x: stats[x])
         token_bytes = most_common_pair[0] + most_common_pair[1]
         token = len(ranks)
         # Add the new token!
         ranks[token_bytes] = token
 
-        # Now merge that most common pair in all the words. That is, update our training data
-        # to reflect our decision to make that pair into a new token.
-        new_words = []
-        for word in words:
-            new_word = []
-            i = 0
-            while i < len(word) - 1:
-                if (word[i], word[i + 1]) == most_common_pair:
-                    # We found our pair! Merge it
-                    new_word.append(token_bytes)
-                    i += 2
-                else:
-                    new_word.append(word[i])
-                    i += 1
-            if i == len(word) - 1:
-                new_word.append(word[i])
-            new_words.append(new_word)
-        words = new_words
+        # Merge matching occurrences from left to right. This preserves the reference
+        # implementation's non-overlapping merge rule (e.g. "aaa" merges as "aa" + "a").
+        affected: set[tuple[bytes, bytes]] = {most_common_pair}
+        for left in sorted(occurrences[most_common_pair]):
+            right = following[left]
+            if right == -1 or pair_at(left) != most_common_pair:
+                continue
+
+            before = previous[left]
+            after = following[right]
+            for node in (before, left, right):
+                if node != -1:
+                    pair = pair_at(node)
+                    if pair is not None:
+                        remove_occurrence(pair, node)
+                        affected.add(pair)
+
+            tokens[left] = token_bytes
+            following[left] = after
+            following[right] = -1
+            if after != -1:
+                previous[after] = left
+            if before != -1:
+                pair = pair_at(before)
+                if pair is not None:
+                    add_occurrence(pair, before)
+                    affected.add(pair)
+            pair = pair_at(left)
+            if pair is not None:
+                add_occurrence(pair, left)
+                affected.add(pair)
+
+        for pair in affected:
+            pair_occurrences = occurrences[pair]
+            if pair_occurrences:
+                heapq.heappush(
+                    candidates, (-len(pair_occurrences), current_first(pair), pair)
+                )
 
         # See the intermediate merges play out!
         if visualise:
-            print(f"The current most common pair is {most_common_pair[0]} + {most_common_pair[1]}")
+            print(
+                f"The current most common pair is {most_common_pair[0]} + {most_common_pair[1]}"
+            )
             print(f"So we made {token_bytes} our {len(ranks)}th token")
             if visualise in ["colour", "color"]:
                 print("Now the first fifty words in our training data look like:")
-                visualise_tokens([token for word in words[:50] for token in word])
+                visualise_tokens(
+                    [
+                        tokens[node]
+                        for head in heads[:50]
+                        for node in _linked_nodes(head, following)
+                    ]
+                )
             elif visualise == "simple":
                 print("Now the first twenty words in our training data look like:")
-                for word in words[:20]:
-                    print(word)
+                for head in heads[:20]:
+                    print([tokens[node] for node in _linked_nodes(head, following)])
             print("\n")
 
     return ranks
+
+
+def _linked_nodes(head: int | None, following: list[int]):
+    while head is not None and head != -1:
+        yield head
+        head = following[head]
 
 
 def visualise_tokens(token_values: list[bytes]) -> None:
@@ -206,9 +308,7 @@ def visualise_tokens(token_values: list[bytes]) -> None:
 
 
 def train_simple_encoding():
-    gpt2_pattern = (
-        r"""'s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-    )
+    gpt2_pattern = r"""'s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     with open(__file__) as f:
         data = f.read()
 
