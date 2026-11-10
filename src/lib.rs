@@ -640,6 +640,26 @@ impl CoreBPE {
             decoder.len()
         );
 
+        // A complete byte-level BPE encoder must contain a token for every single byte.
+        // `byte_pair_encode` reduces a piece down to the tokens it is made of, and any leftover
+        // that did not merge is a single byte looked up directly in the encoder. If that byte is
+        // missing, the `ranks[...]` indexing panics. With an untrusted or malformed encoder this is
+        // a reachable panic (denial of service) during tokenization, so reject such encoders here
+        // with a clear error instead of letting them blow up later inside `encode`.
+        let missing_bytes: Vec<u8> = (0u16..=255)
+            .map(|b| b as u8)
+            .filter(|&b| !encoder.contains_key([b].as_slice()))
+            .collect();
+        if !missing_bytes.is_empty() {
+            return Err(format!(
+                "Encoder is missing tokens for {} single-byte value(s) (e.g. {:?}); a complete \
+                 byte-level BPE encoder must contain a token for every byte 0..=255.",
+                missing_bytes.len(),
+                &missing_bytes[..missing_bytes.len().min(8)],
+            )
+            .into());
+        }
+
         let special_tokens_decoder: HashMap<Rank, Vec<u8>> = special_tokens_encoder
             .iter()
             .map(|(k, v)| (*v, k.as_bytes().to_vec()))
@@ -680,10 +700,14 @@ mod tests {
     use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::{Rank, byte_pair_split};
+    use crate::{CoreBPE, Rank, byte_pair_split};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
         HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
+    }
+
+    fn complete_byte_ranks() -> HashMap<Vec<u8>, Rank> {
+        (0u16..=255).map(|b| (vec![b as u8], b as Rank)).collect()
     }
 
     #[test]
@@ -698,5 +722,28 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
+    }
+
+    #[test]
+    fn test_new_rejects_encoder_missing_single_byte_tokens() {
+        // An encoder without single-byte tokens cannot break an arbitrary piece down to bytes,
+        // which previously led to a reachable panic inside `encode`. Construction must fail
+        // up front with a clear error instead.
+        let encoder = HashMap::from_iter([(b"ab".to_vec(), 0 as Rank)]);
+        let err = match CoreBPE::new_internal(encoder, HashMap::default(), "a") {
+            Ok(_) => panic!("expected construction to fail for an incomplete encoder"),
+            Err(e) => e,
+        };
+        assert!(
+            err.to_string().contains("single-byte"),
+            "unexpected error message: {err}"
+        );
+    }
+
+    #[test]
+    fn test_new_accepts_complete_byte_encoder() {
+        let mut encoder = complete_byte_ranks();
+        encoder.insert(b"ab".to_vec(), 256);
+        assert!(CoreBPE::new_internal(encoder, HashMap::default(), "a").is_ok());
     }
 }
