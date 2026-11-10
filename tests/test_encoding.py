@@ -109,6 +109,10 @@ def test_encode_surrogate_pairs():
     # lone surrogate just gets replaced
     assert enc.encode("\ud83d") == enc.encode("�")
 
+    # encode_to_numpy applies the same fixup
+    assert enc.encode_to_numpy("\ud83d\udc4d").tolist() == [9468, 239, 235]
+    assert enc.encode_to_numpy("\ud83d").tolist() == enc.encode("�")
+
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 def test_catastrophically_repetitive(make_enc: Callable[[], tiktoken.Encoding]):
