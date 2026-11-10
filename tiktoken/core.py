@@ -158,7 +158,12 @@ class Encoding:
 
         import numpy as np
 
-        buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
+        try:
+            buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
+        except UnicodeEncodeError:
+            # See comment in encode
+            text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            buffer = self._core_bpe.encode_to_tiktoken_buffer(text, allowed_special)
         return np.frombuffer(buffer, dtype=np.uint32)
 
     def encode_ordinary_batch(self, text: list[str], *, num_threads: int = 8) -> list[list[int]]:
