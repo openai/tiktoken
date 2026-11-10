@@ -598,7 +598,7 @@ impl CoreBPE {
         (tokens, completions)
     }
 
-    pub fn new<E, SE, NSE>(
+    pub fn new<E, SE>(
         encoder: E,
         special_tokens_encoder: SE,
         pattern: &str,
@@ -606,7 +606,6 @@ impl CoreBPE {
     where
         E: IntoIterator<Item = (Vec<u8>, Rank)>,
         SE: IntoIterator<Item = (String, Rank)>,
-        NSE: IntoIterator<Item = (String, (Rank, Rank))>,
     {
         Self::new_internal(
             HashMap::from_iter(encoder),
@@ -677,10 +676,9 @@ impl CoreBPE {
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
     use rustc_hash::FxHashMap as HashMap;
 
-    use crate::{Rank, byte_pair_split};
+    use crate::{CoreBPE, Rank, byte_pair_split};
 
     fn setup_ranks() -> HashMap<Vec<u8>, Rank> {
         HashMap::from_iter([(b"ab".to_vec(), 0), (b"cd".to_vec(), 1)])
@@ -698,5 +696,17 @@ mod tests {
         let ranks = setup_ranks();
         let res = byte_pair_split(b"abab", &ranks);
         assert_eq!(res, vec![b"ab", b"ab"]);
+    }
+
+    #[test]
+    fn test_public_constructor_is_callable() {
+        let bpe = CoreBPE::new(
+            vec![(b"ab".to_vec(), 0)],
+            Vec::<(String, Rank)>::new(),
+            r".+",
+        )
+        .unwrap();
+
+        assert_eq!(bpe.encode_ordinary("ab"), vec![0]);
     }
 }
