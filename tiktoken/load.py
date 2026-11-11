@@ -48,6 +48,9 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
         # disable caching
         return read_file(blobpath)
 
+    if "://" not in blobpath and not os.path.isabs(blobpath):
+        # Relative local paths are only unique within their working directory.
+        blobpath = os.path.realpath(blobpath)
     cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
 
     cache_path = os.path.join(cache_dir, cache_key)
