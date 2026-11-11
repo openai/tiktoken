@@ -64,8 +64,9 @@ def get_encoding(encoding_name: str) -> Encoding:
     if not isinstance(encoding_name, str):
         raise ValueError(f"Expected a string in get_encoding, got {type(encoding_name)}")
 
-    if encoding_name in ENCODINGS:
-        return ENCODINGS[encoding_name]
+    # Keep a reference from one lookup; the cache may be cleared concurrently.
+    if (enc := ENCODINGS.get(encoding_name)) is not None:
+        return enc
 
     with _lock:
         if encoding_name in ENCODINGS:
@@ -86,6 +87,18 @@ def get_encoding(encoding_name: str) -> Encoding:
         enc = Encoding(**constructor())
         ENCODINGS[encoding_name] = enc
         return enc
+
+
+def clear_encoding_cache() -> None:
+    """Release the cache's references to all loaded encodings.
+
+    Existing Encoding objects remain usable. An encoding can be freed once no
+    other references to it remain; this does not guarantee that process memory
+    usage immediately decreases. Subsequent lookups construct and cache new
+    encodings. Registered constructors and downloaded vocabulary files are kept.
+    """
+    with _lock:
+        ENCODINGS.clear()
 
 
 def list_encoding_names() -> list[str]:
