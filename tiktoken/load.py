@@ -161,7 +161,7 @@ def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: str | None = None) 
     contents = read_file_cached(tiktoken_bpe_file, expected_hash)
     ret = {}
     for line in contents.splitlines():
-        if not line:
+        if not line.strip():
             continue
         try:
             token, rank = line.split()
