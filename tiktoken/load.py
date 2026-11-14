@@ -14,7 +14,14 @@ def read_file(blobpath: str) -> bytes:
         # avoiding blobfile for public files helps avoid auth issues, like MFA prompts.
         import requests
 
-        resp = requests.get(blobpath)
+        # Without an explicit timeout, requests.get blocks indefinitely on
+        # DNS/SYN/TCP-reset failures, which silently hangs `encoding_for_model`
+        # on first use. Override via the TIKTOKEN_HTTP_TIMEOUT env var (seconds).
+        try:
+            timeout: float | None = float(os.environ.get("TIKTOKEN_HTTP_TIMEOUT", "60"))
+        except ValueError:
+            timeout = 60.0
+        resp = requests.get(blobpath, timeout=timeout)
         resp.raise_for_status()
         return resp.content
 
@@ -107,7 +114,9 @@ def data_gym_to_mergeable_bpe_ranks(
 
     # vocab_bpe contains the merges along with associated ranks
     vocab_bpe_contents = read_file_cached(vocab_bpe_file, vocab_bpe_hash).decode()
-    bpe_merges = [tuple(merge_str.split()) for merge_str in vocab_bpe_contents.split("\n")[1:-1]]
+    bpe_merges = [
+        tuple(merge_str.split()) for merge_str in vocab_bpe_contents.split("\n")[1:-1]
+    ]
 
     def decode_data_gym(value: str) -> bytes:
         return bytes(data_gym_byte_to_byte[b] for b in value)
@@ -156,7 +165,9 @@ def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> No
             f.write(base64.b64encode(token) + b" " + str(rank).encode() + b"\n")
 
 
-def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: str | None = None) -> dict[bytes, int]:
+def load_tiktoken_bpe(
+    tiktoken_bpe_file: str, expected_hash: str | None = None
+) -> dict[bytes, int]:
     # NB: do not add caching to this function
     contents = read_file_cached(tiktoken_bpe_file, expected_hash)
     ret = {}
@@ -167,5 +178,7 @@ def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: str | None = None) 
             token, rank = line.split()
             ret[base64.b64decode(token)] = int(rank)
         except Exception as e:
-            raise ValueError(f"Error parsing line {line!r} in {tiktoken_bpe_file}") from e
+            raise ValueError(
+                f"Error parsing line {line!r} in {tiktoken_bpe_file}"
+            ) from e
     return ret
