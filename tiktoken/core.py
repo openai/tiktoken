@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import functools
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, AbstractSet, Collection, Literal, NoReturn, Sequence
+from typing import TYPE_CHECKING, AbstractSet, Collection, Iterator, Literal, NoReturn, Sequence
 
 from tiktoken import _tiktoken
 
@@ -13,15 +14,62 @@ if TYPE_CHECKING:
     import numpy.typing as npt
 
 
+class _LazyMergeableRanks(Mapping[bytes, int]):
+    def __init__(
+        self,
+        core_bpe: _tiktoken.CoreBPE,
+        n_mergeable_ranks: int,
+        max_token_value: int,
+    ):
+        self._core_bpe = core_bpe
+        self._n_mergeable_ranks = n_mergeable_ranks
+        self._max_token_value = max_token_value
+        self._mergeable_ranks: dict[bytes, int] | None = None
+
+    @property
+    def n_mergeable_ranks(self) -> int:
+        return self._n_mergeable_ranks
+
+    @property
+    def max_token_value(self) -> int:
+        return self._max_token_value
+
+    @property
+    def core_bpe(self) -> _tiktoken.CoreBPE:
+        return self._core_bpe
+
+    def _materialized(self) -> dict[bytes, int]:
+        mergeable_ranks = self._mergeable_ranks
+        if mergeable_ranks is None:
+            mergeable_ranks = self._core_bpe.mergeable_ranks()
+            self._mergeable_ranks = mergeable_ranks
+        return mergeable_ranks
+
+    def __getitem__(self, key: bytes) -> int:
+        return self._materialized()[key]
+
+    def __iter__(self) -> Iterator[bytes]:
+        return iter(self._materialized())
+
+    def __len__(self) -> int:
+        return self._n_mergeable_ranks
+
+    def copy(self) -> dict[bytes, int]:
+        return self._materialized().copy()
+
+
 class Encoding:
     def __init__(
         self,
         name: str,
         *,
         pat_str: str,
-        mergeable_ranks: dict[bytes, int],
+        mergeable_ranks: dict[bytes, int] | _LazyMergeableRanks | None,
         special_tokens: dict[str, int],
         explicit_n_vocab: int | None = None,
+        _core_bpe: _tiktoken.CoreBPE | None = None,
+        _mergeable_ranks_len: int | None = None,
+        _mergeable_ranks_max_token_value: int | None = None,
     ):
         """Creates an Encoding object.
 
@@ -41,23 +89,60 @@ class Encoding:
         self.name = name
 
         self._pat_str = pat_str
+        if isinstance(mergeable_ranks, _LazyMergeableRanks):
+            if _core_bpe is None:
+                _core_bpe = mergeable_ranks.core_bpe
+            if _mergeable_ranks_len is None:
+                _mergeable_ranks_len = mergeable_ranks.n_mergeable_ranks
+            if _mergeable_ranks_max_token_value is None:
+                _mergeable_ranks_max_token_value = mergeable_ranks.max_token_value
+            mergeable_ranks = None
+
         self._mergeable_ranks = mergeable_ranks
         self._special_tokens = special_tokens
 
+        mergeable_ranks_len = (
+            len(mergeable_ranks) if mergeable_ranks is not None else _mergeable_ranks_len
+        )
+        mergeable_ranks_max_token_value = (
+            max(mergeable_ranks.values())
+            if mergeable_ranks is not None
+            else _mergeable_ranks_max_token_value
+        )
+        assert mergeable_ranks_len is not None
+        assert mergeable_ranks_max_token_value is not None
+
         self.max_token_value = max(
-            max(mergeable_ranks.values()), max(special_tokens.values(), default=0)
+            mergeable_ranks_max_token_value, max(special_tokens.values(), default=0)
         )
         if explicit_n_vocab:
-            assert len(mergeable_ranks) + len(special_tokens) == explicit_n_vocab
+            assert mergeable_ranks_len + len(special_tokens) == explicit_n_vocab
             assert self.max_token_value == explicit_n_vocab - 1
 
         # Contains on set is significantly faster than on dict_values
         self._special_token_values = set(self._special_tokens.values())
+        self._special_tokens_set_frozen = frozenset(self._special_tokens)
 
-        self._core_bpe = _tiktoken.CoreBPE(mergeable_ranks, special_tokens, pat_str)
+        if _core_bpe is not None:
+            self._core_bpe = _core_bpe
+        else:
+            assert mergeable_ranks is not None
+            self._core_bpe = _tiktoken.CoreBPE(mergeable_ranks, special_tokens, pat_str)
 
     def __repr__(self) -> str:
         return f"<Encoding {self.name!r}>"
+
+    @property
+    def _mergeable_ranks(self) -> dict[bytes, int]:
+        mergeable_ranks = self.__dict__.get("_mergeable_ranks")
+        if mergeable_ranks is None:
+            mergeable_ranks = self._core_bpe.mergeable_ranks()
+            self.__dict__["_mergeable_ranks"] = mergeable_ranks
+        return mergeable_ranks
+
+    @_mergeable_ranks.setter
+    def _mergeable_ranks(self, mergeable_ranks: dict[bytes, int] | None) -> None:
+        self.__dict__["_mergeable_ranks"] = mergeable_ranks
 
     # ====================
     # Encoding
@@ -116,14 +201,22 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            disallowed_special = (
+                self._special_tokens_set_frozen
+                if not allowed_special
+                else self._special_tokens_set_frozen - allowed_special
+            )
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            common_prefix = _special_token_common_prefix(disallowed_special)
+            if not common_prefix or common_prefix in text:
+                if match := _special_token_regex(disallowed_special).search(text):
+                    raise_disallowed_special_token(match.group())
 
         try:
+            if not allowed_special:
+                return self._core_bpe.encode_ordinary(text)
             return self._core_bpe.encode(text, allowed_special)
         except UnicodeEncodeError:
             # BPE operates on bytes, but the regex operates on unicode. If we pass a str that is
@@ -133,6 +226,8 @@ class Encoding:
             # string, but given that this is input we want to support, maybe that's okay.
             # Also we use errors="replace" to handle weird things like lone surrogates.
             text = text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+            if not allowed_special:
+                return self._core_bpe.encode_ordinary(text)
             return self._core_bpe.encode(text, allowed_special)
 
     def encode_to_numpy(
@@ -149,12 +244,18 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            disallowed_special = (
+                self._special_tokens_set_frozen
+                if not allowed_special
+                else self._special_tokens_set_frozen - allowed_special
+            )
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            common_prefix = _special_token_common_prefix(disallowed_special)
+            if not common_prefix or common_prefix in text:
+                if match := _special_token_regex(disallowed_special).search(text):
+                    raise_disallowed_special_token(match.group())
 
         import numpy as np
 
@@ -171,6 +272,25 @@ class Encoding:
         [[31373, 995], [11274, 16390, 995]]
         ```
         """
+        if num_threads <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
+        try:
+            batch_len = len(text)
+        except TypeError:
+            batch_len = None
+
+        if batch_len == 0:
+            return []
+
+        if _use_native_batch(text, batch_len, num_threads):
+            try:
+                return self._core_bpe.encode_ordinary_batch(text)
+            except (TypeError, UnicodeEncodeError):
+                # Match encode_ordinary's surrogate fixup behavior by falling back to the
+                # per-string path when any string cannot be passed to Rust as UTF-8.
+                pass
+
         encoder = functools.partial(self.encode_ordinary)
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(encoder, text))
@@ -195,9 +315,42 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            disallowed_special = (
+                self._special_tokens_set_frozen
+                if not allowed_special
+                else self._special_tokens_set_frozen - allowed_special
+            )
         if not isinstance(disallowed_special, frozenset):
             disallowed_special = frozenset(disallowed_special)
+
+        if num_threads <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
+        try:
+            batch_len = len(text)
+        except TypeError:
+            batch_len = None
+
+        if batch_len == 0:
+            return []
+
+        if _use_native_batch(text, batch_len, num_threads):
+            try:
+                if disallowed_special:
+                    common_prefix = _special_token_common_prefix(disallowed_special)
+                    special_regex = None
+                    for piece in text:
+                        if common_prefix and common_prefix not in piece:
+                            continue
+                        if special_regex is None:
+                            special_regex = _special_token_regex(disallowed_special)
+                        if match := special_regex.search(piece):
+                            raise_disallowed_special_token(match.group())
+                if not allowed_special:
+                    return self._core_bpe.encode_ordinary_batch(text)
+                return self._core_bpe.encode_batch(text, allowed_special)
+            except (TypeError, UnicodeEncodeError):
+                pass
 
         encoder = functools.partial(
             self.encode, allowed_special=allowed_special, disallowed_special=disallowed_special
@@ -233,12 +386,18 @@ class Encoding:
         if allowed_special == "all":
             allowed_special = self.special_tokens_set
         if disallowed_special == "all":
-            disallowed_special = self.special_tokens_set - allowed_special
+            disallowed_special = (
+                self._special_tokens_set_frozen
+                if not allowed_special
+                else self._special_tokens_set_frozen - allowed_special
+            )
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            common_prefix = _special_token_common_prefix(disallowed_special)
+            if not common_prefix or common_prefix in text:
+                if match := _special_token_regex(disallowed_special).search(text):
+                    raise_disallowed_special_token(match.group())
 
         return self._core_bpe.encode_with_unstable(text, allowed_special)
 
@@ -307,7 +466,10 @@ class Encoding:
         >>> enc.decode_tokens_bytes([31373, 995])
         [b'hello', b' world']
         """
-        return [self.decode_single_token_bytes(token) for token in tokens]
+        try:
+            return self._core_bpe.decode_tokens_bytes(tokens)
+        except TypeError:
+            return [self.decode_single_token_bytes(token) for token in tokens]
 
     def decode_with_offsets(self, tokens: Sequence[int]) -> tuple[str, list[int]]:
         """Decodes a list of tokens into a string and a list of offsets.
@@ -322,22 +484,46 @@ class Encoding:
         >>> enc.decode_with_offsets([31373, 995])
         ('hello world', [0, 5])
         """
-        token_bytes = self.decode_tokens_bytes(tokens)
+        try:
+            text_bytes, offsets = self._core_bpe.decode_with_offsets(tokens)
+            text = text_bytes.decode("utf-8", errors="strict")
+            return text, offsets
+        except TypeError:
+            token_bytes = self.decode_tokens_bytes(tokens)
 
-        text_len = 0
-        offsets = []
-        for token in token_bytes:
-            offsets.append(max(0, text_len - (0x80 <= token[0] < 0xC0)))
-            text_len += sum(1 for c in token if not 0x80 <= c < 0xC0)
+            text_len = 0
+            offsets = []
+            for token in token_bytes:
+                offsets.append(max(0, text_len - (0x80 <= token[0] < 0xC0)))
+                text_len += sum(1 for c in token if not 0x80 <= c < 0xC0)
 
-        # TODO: assess correctness for errors="ignore" and errors="replace"
-        text = b"".join(token_bytes).decode("utf-8", errors="strict")
-        return text, offsets
+            text = b"".join(token_bytes).decode("utf-8", errors="strict")
+            return text, offsets
 
     def decode_batch(
         self, batch: Sequence[Sequence[int]], *, errors: str = "replace", num_threads: int = 8
     ) -> list[str]:
         """Decodes a batch (list of lists of tokens) into a list of strings."""
+        if num_threads <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
+        try:
+            batch_len = len(batch)
+        except TypeError:
+            batch_len = None
+
+        if batch_len == 0:
+            return []
+
+        if _use_native_decode_batch(batch, batch_len, num_threads):
+            try:
+                return [
+                    text.decode("utf-8", errors=errors)
+                    for text in self._core_bpe.decode_bytes_batch(batch)
+                ]
+            except TypeError:
+                pass
+
         decoder = functools.partial(self.decode, errors=errors)
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(decoder, batch))
@@ -346,6 +532,23 @@ class Encoding:
         self, batch: Sequence[Sequence[int]], *, num_threads: int = 8
     ) -> list[bytes]:
         """Decodes a batch (list of lists of tokens) into a list of bytes."""
+        if num_threads <= 0:
+            raise ValueError("max_workers must be greater than 0")
+
+        try:
+            batch_len = len(batch)
+        except TypeError:
+            batch_len = None
+
+        if batch_len == 0:
+            return []
+
+        if _use_native_decode_batch(batch, batch_len, num_threads):
+            try:
+                return self._core_bpe.decode_bytes_batch(batch)
+            except TypeError:
+                pass
+
         with ThreadPoolExecutor(num_threads) as e:
             return list(e.map(self.decode_bytes, batch))
 
@@ -436,6 +639,67 @@ def _special_token_regex(tokens: frozenset[str]) -> re.Pattern[str]:
         import re
     inner = "|".join(re.escape(token) for token in tokens)
     return re.compile(f"({inner})")
+
+
+@functools.lru_cache(maxsize=128)
+def _special_token_common_prefix(tokens: frozenset[str]) -> str:
+    if not tokens:
+        return ""
+    first = min(tokens)
+    last = max(tokens)
+    for i, char in enumerate(first):
+        if i == len(last) or last[i] != char:
+            return first[:i]
+    return first
+
+
+def _use_native_batch(text: list[str], batch_len: int | None, num_threads: int) -> bool:
+    if batch_len is None:
+        return False
+    if num_threads == 1:
+        return True
+
+    try:
+        head = min(batch_len, 32)
+        sample_chars = 0
+        sample_count = 0
+        for i in range(head):
+            sample_chars += len(text[i])
+            sample_count += 1
+        for i in range(max(head, batch_len - 32), batch_len):
+            sample_chars += len(text[i])
+            sample_count += 1
+    except (IndexError, TypeError):
+        return False
+
+    return sample_chars <= sample_count * 256
+
+
+def _use_native_decode_batch(
+    batch: Sequence[Sequence[int]], batch_len: int | None, num_threads: int
+) -> bool:
+    if batch_len is None:
+        return False
+    if num_threads == 1:
+        return True
+
+    try:
+        head = min(batch_len, 32)
+        sample_tokens = 0
+        sample_count = 0
+        for i in range(head):
+            sample_tokens += len(batch[i])
+            sample_count += 1
+        for i in range(max(head, batch_len - 32), batch_len):
+            sample_tokens += len(batch[i])
+            sample_count += 1
+    except (IndexError, TypeError):
+        return False
+
+    if sample_tokens <= sample_count * 256:
+        return True
+
+    return batch_len >= 1000 and sample_tokens <= sample_count * 2048
 
 
 def raise_disallowed_special_token(token: str) -> NoReturn:

@@ -1,4 +1,5 @@
-from tiktoken.load import data_gym_to_mergeable_bpe_ranks, load_tiktoken_bpe
+from tiktoken.core import _LazyMergeableRanks
+from tiktoken.load import data_gym_to_mergeable_bpe_ranks, load_tiktoken_bpe, _load_tiktoken_bpe_core
 
 ENDOFTEXT = "<|endoftext|>"
 FIM_PREFIX = "<|fim_prefix|>"
@@ -11,6 +12,21 @@ ENDOFPROMPT = "<|endofprompt|>"
 # This is equivalent, but executes faster:
 r50k_pat_str = (
     r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}++| ?\p{N}++| ?[^\s\p{L}\p{N}]++|\s++$|\s+(?!\S)|\s"""
+)
+
+# This regex could be made more efficient. If I was the one working on this encoding, I would
+# have done a few other things differently too, e.g. I think you can allocate tokens more
+# efficiently across languages.
+o200k_pat_str = "|".join(
+    [
+        r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?""",
+        r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?""",
+        r"""\p{N}{1,3}""",
+        r""" ?[^\s\p{L}\p{N}]+[\r\n/]*""",
+        r"""\s*[\r\n]+""",
+        r"""\s+(?!\S)""",
+        r"""\s+""",
+    ]
 )
 
 
@@ -30,53 +46,74 @@ def gpt2():
     }
 
 
+def _load_tiktoken_bpe_args(tiktoken_bpe_file, *, special_tokens, pat_str, expected_hash):
+    core_bpe, mergeable_ranks_len, mergeable_ranks_max_token_value = _load_tiktoken_bpe_core(
+        tiktoken_bpe_file,
+        special_tokens=special_tokens,
+        pat_str=pat_str,
+        expected_hash=expected_hash,
+    )
+    return {
+        "mergeable_ranks": _LazyMergeableRanks(
+            core_bpe, mergeable_ranks_len, mergeable_ranks_max_token_value
+        ),
+        "_core_bpe": core_bpe,
+        "_mergeable_ranks_len": mergeable_ranks_len,
+        "_mergeable_ranks_max_token_value": mergeable_ranks_max_token_value,
+    }
+
+
 def r50k_base():
-    mergeable_ranks = load_tiktoken_bpe(
+    special_tokens = {ENDOFTEXT: 50256}
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken",
+        special_tokens=special_tokens,
+        pat_str=r50k_pat_str,
         expected_hash="306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930",
     )
     return {
         "name": "r50k_base",
         "explicit_n_vocab": 50257,
         "pat_str": r50k_pat_str,
-        "mergeable_ranks": mergeable_ranks,
-        "special_tokens": {ENDOFTEXT: 50256},
+        "special_tokens": special_tokens,
+        **bpe_args,
     }
 
 
 def p50k_base():
-    mergeable_ranks = load_tiktoken_bpe(
+    special_tokens = {ENDOFTEXT: 50256}
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
+        special_tokens=special_tokens,
+        pat_str=r50k_pat_str,
         expected_hash="94b5ca7dff4d00767bc256fdd1b27e5b17361d7b8a5f968547f9f23eb70d2069",
     )
     return {
         "name": "p50k_base",
         "explicit_n_vocab": 50281,
         "pat_str": r50k_pat_str,
-        "mergeable_ranks": mergeable_ranks,
-        "special_tokens": {ENDOFTEXT: 50256},
+        "special_tokens": special_tokens,
+        **bpe_args,
     }
 
 
 def p50k_edit():
-    mergeable_ranks = load_tiktoken_bpe(
+    special_tokens = {ENDOFTEXT: 50256, FIM_PREFIX: 50281, FIM_MIDDLE: 50282, FIM_SUFFIX: 50283}
+    bpe_args = _load_tiktoken_bpe_args(
         "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",
+        special_tokens=special_tokens,
+        pat_str=r50k_pat_str,
         expected_hash="94b5ca7dff4d00767bc256fdd1b27e5b17361d7b8a5f968547f9f23eb70d2069",
     )
-    special_tokens = {ENDOFTEXT: 50256, FIM_PREFIX: 50281, FIM_MIDDLE: 50282, FIM_SUFFIX: 50283}
     return {
         "name": "p50k_edit",
         "pat_str": r50k_pat_str,
-        "mergeable_ranks": mergeable_ranks,
         "special_tokens": special_tokens,
+        **bpe_args,
     }
 
 
 def cl100k_base():
-    mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken",
-        expected_hash="223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
-    )
     special_tokens = {
         ENDOFTEXT: 100257,
         FIM_PREFIX: 100258,
@@ -84,51 +121,43 @@ def cl100k_base():
         FIM_SUFFIX: 100260,
         ENDOFPROMPT: 100276,
     }
+    pat_str = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s"""
+    bpe_args = _load_tiktoken_bpe_args(
+        "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken",
+        special_tokens=special_tokens,
+        pat_str=pat_str,
+        expected_hash="223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
+    )
     return {
         "name": "cl100k_base",
-        "pat_str": r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s""",
-        "mergeable_ranks": mergeable_ranks,
+        "pat_str": pat_str,
         "special_tokens": special_tokens,
+        **bpe_args,
     }
 
 
 def o200k_base():
-    mergeable_ranks = load_tiktoken_bpe(
-        "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken",
-        expected_hash="446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
-    )
     special_tokens = {ENDOFTEXT: 199999, ENDOFPROMPT: 200018}
-    # This regex could be made more efficient. If I was the one working on this encoding, I would
-    # have done a few other things differently too, e.g. I think you can allocate tokens more
-    # efficiently across languages.
-    pat_str = "|".join(
-        [
-            r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?""",
-            r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?""",
-            r"""\p{N}{1,3}""",
-            r""" ?[^\s\p{L}\p{N}]+[\r\n/]*""",
-            r"""\s*[\r\n]+""",
-            r"""\s+(?!\S)""",
-            r"""\s+""",
-        ]
+    bpe_args = _load_tiktoken_bpe_args(
+        "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken",
+        special_tokens=special_tokens,
+        pat_str=o200k_pat_str,
+        expected_hash="446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
     )
     return {
         "name": "o200k_base",
-        "pat_str": pat_str,
-        "mergeable_ranks": mergeable_ranks,
+        "pat_str": o200k_pat_str,
         "special_tokens": special_tokens,
+        **bpe_args,
     }
 
 
 def o200k_harmony():
-    base_enc = o200k_base()
     name = "o200k_harmony"
-    pat_str = base_enc["pat_str"]
-    mergeable_ranks = base_enc["mergeable_ranks"]
     special_tokens = {
-        **base_enc["special_tokens"],
+        ENDOFTEXT: 199999,
+        ENDOFPROMPT: 200018,
         "<|startoftext|>": 199998,
-        "<|endoftext|>": 199999,
         "<|reserved_200000|>": 200000,
         "<|reserved_200001|>": 200001,
         "<|return|>": 200002,
@@ -143,11 +172,17 @@ def o200k_harmony():
         "<|reserved_200011|>": 200011,
         "<|call|>": 200012,
     } | {f"<|reserved_{i}|>": i for i in range(200013, 201088)}
+    bpe_args = _load_tiktoken_bpe_args(
+        "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken",
+        special_tokens=special_tokens,
+        pat_str=o200k_pat_str,
+        expected_hash="446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
+    )
     return {
         "name": name,
-        "pat_str": pat_str,
-        "mergeable_ranks": mergeable_ranks,
+        "pat_str": o200k_pat_str,
         "special_tokens": special_tokens,
+        **bpe_args,
     }
 
 

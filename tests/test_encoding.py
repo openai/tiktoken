@@ -152,7 +152,29 @@ def test_basic_roundtrip(make_enc):
 def test_hyp_roundtrip(make_enc: Callable[[], tiktoken.Encoding], text):
     enc = make_enc()
 
-    assert text == enc.decode(enc.encode(text))
+    assert text == enc.decode(enc.encode(text, disallowed_special=()))
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_encode_with_unstable_invariants(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    text = "hello fanta"
+
+    stable_tokens, completions = enc.encode_with_unstable(text)
+
+    assert text.encode().startswith(enc.decode_bytes(stable_tokens))
+    assert completions
+    assert all(
+        enc.decode_bytes(stable_tokens + completion).startswith(text.encode())
+        for completion in completions
+    )
+
+
+def test_encode_with_unstable_disallowed_special():
+    enc = tiktoken.get_encoding("o200k_harmony")
+
+    with pytest.raises(ValueError, match="<\\|endoftext\\|>"):
+        enc.encode_with_unstable("hello <|endoftext|>")
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
@@ -222,6 +244,13 @@ def test_special_token():
     assert fip not in tokens
     assert fim in tokens
 
+    enc = tiktoken.get_encoding("o200k_harmony")
+    assert enc.encode("hello world") == enc.encode_ordinary("hello world")
+    assert enc.encode("<|message|>", disallowed_special=()) == enc.encode_ordinary("<|message|>")
+    assert enc.encode_batch(["hello world"]) == [enc.encode_ordinary("hello world")]
+    with pytest.raises(ValueError):
+        enc.encode("<|message|>")
+
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(text=st.text())
@@ -244,12 +273,109 @@ def test_batch_encode(make_enc: Callable[[], tiktoken.Encoding]):
 
     assert enc.encode_batch([text1]) == [enc.encode(text1)]
     assert enc.encode_batch([text1, text2]) == [enc.encode(text1), enc.encode(text2)]
+    assert enc.encode_batch([text1, text2], num_threads=1) == [
+        enc.encode(text1),
+        enc.encode(text2),
+    ]
 
     assert enc.encode_ordinary_batch([text1]) == [enc.encode_ordinary(text1)]
     assert enc.encode_ordinary_batch([text1, text2]) == [
         enc.encode_ordinary(text1),
         enc.encode_ordinary(text2),
     ]
+    assert enc.encode_ordinary_batch([text1, text2], num_threads=1) == [
+        enc.encode_ordinary(text1),
+        enc.encode_ordinary(text2),
+    ]
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_encode_ordinary_batch_edge_cases(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+
+    assert enc.encode_ordinary_batch([]) == []
+    assert enc.encode_ordinary_batch(["hello", "\ud800"]) == [
+        enc.encode_ordinary("hello"),
+        enc.encode_ordinary("\ud800"),
+    ]
+    assert enc.encode_batch(["hello", "\ud800"], disallowed_special=()) == [
+        enc.encode("hello", disallowed_special=()),
+        enc.encode("\ud800", disallowed_special=()),
+    ]
+
+    with pytest.raises(ValueError, match="max_workers must be greater than 0"):
+        enc.encode_ordinary_batch(["hello"], num_threads=0)
+
+    with pytest.raises(ValueError, match="max_workers must be greater than 0"):
+        enc.encode_batch(["hello"], num_threads=0)
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_encode_batch_special_tokens(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    special = next(iter(enc.special_tokens_set))
+
+    assert enc.encode_batch([special], allowed_special={special}) == [
+        enc.encode(special, allowed_special={special})
+    ]
+
+    with pytest.raises(ValueError, match="disallowed special token"):
+        enc.encode_batch([special])
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_decode_batch_edge_cases(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    tokens = [enc.encode_ordinary("hello"), enc.encode_ordinary("world")]
+
+    assert enc.decode_batch(tokens) == [enc.decode(t) for t in tokens]
+    assert enc.decode_batch(tokens, num_threads=1) == [enc.decode(t) for t in tokens]
+    assert enc.decode_bytes_batch(tokens) == [enc.decode_bytes(t) for t in tokens]
+    assert enc.decode_bytes_batch(tokens, num_threads=1) == [enc.decode_bytes(t) for t in tokens]
+
+    assert enc.decode_batch([]) == []
+    assert enc.decode_bytes_batch([]) == []
+
+    with pytest.raises(ValueError, match="max_workers must be greater than 0"):
+        enc.decode_batch(tokens, num_threads=0)
+
+    with pytest.raises(ValueError, match="max_workers must be greater than 0"):
+        enc.decode_bytes_batch(tokens, num_threads=0)
+
+    with pytest.raises(KeyError):
+        enc.decode_batch([[enc.max_token_value + 1]])
+
+    with pytest.raises(KeyError):
+        enc.decode_bytes_batch([[enc.max_token_value + 1]])
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_decode_batch_errors(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    tokens = enc._encode_bytes(b"\xff")
+
+    assert enc.decode_batch([tokens], errors="replace") == [enc.decode(tokens, errors="replace")]
+    assert enc.decode_batch([tokens], errors="ignore") == [enc.decode(tokens, errors="ignore")]
+
+    with pytest.raises(UnicodeDecodeError):
+        enc.decode_batch([tokens], errors="strict")
+
+
+@pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
+def test_decode_tokens_bytes_edge_cases(make_enc: Callable[[], tiktoken.Encoding]):
+    enc = make_enc()
+    tokens = enc.encode("hello world", allowed_special="all")
+
+    assert enc.decode_tokens_bytes(tokens) == [
+        enc.decode_single_token_bytes(token) for token in tokens
+    ]
+    assert enc.decode_tokens_bytes(token for token in tokens) == [
+        enc.decode_single_token_bytes(token) for token in tokens
+    ]
+    assert enc.decode_tokens_bytes([]) == []
+
+    with pytest.raises(KeyError):
+        enc.decode_tokens_bytes([enc.max_token_value + 1])
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
