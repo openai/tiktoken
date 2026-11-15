@@ -52,8 +52,8 @@ def _find_constructors() -> None:
                             f"Duplicate encoding name {enc_name} in tiktoken plugin {mod_name}"
                         )
                     ENCODING_CONSTRUCTORS[enc_name] = constructor
-        except Exception:
-            # Ensure we idempotently raise errors
+        except BaseException:
+            # Do not leave a partially initialized registry after an interrupted import.
             ENCODING_CONSTRUCTORS = None
             raise
 
