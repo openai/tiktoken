@@ -2,6 +2,7 @@ include *.svg
 include *.toml
 include *.md
 include Makefile
+include build.rs
 global-include py.typed
 recursive-include scripts *.py
 recursive-include tests *.py
