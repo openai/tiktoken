@@ -622,12 +622,21 @@ impl CoreBPE {
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let regex = Regex::new(pattern)?;
 
+        if special_tokens_encoder.keys().any(|s| s.is_empty()) {
+            return Err("special tokens must be non-empty strings".into());
+        }
+
         let special_regex = {
             let parts = special_tokens_encoder
                 .keys()
                 .map(|s| fancy_regex::escape(s))
                 .collect::<Vec<_>>();
-            Regex::new(&parts.join("|"))?
+            if parts.is_empty() {
+                // A pattern that never matches
+                Regex::new(r"\b\B")?
+            } else {
+                Regex::new(&parts.join("|"))?
+            }
         };
 
         let decoder: HashMap<Rank, Vec<u8>> =

@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+import pytest
+
 import tiktoken
 
 
@@ -28,3 +30,22 @@ import sys
 assert "blobfile" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", prog])
+
+
+def test_empty_special_token_rejected():
+    ranks = {bytes([i]): i for i in range(256)}
+    with pytest.raises(ValueError, match="non-empty"):
+        tiktoken.Encoding(
+            name="empty_special_token",
+            pat_str=r"\S+|\s+",
+            mergeable_ranks=ranks,
+            special_tokens={"": 256},
+        )
+
+
+def test_encode_with_unknown_allowed_special_token():
+    ranks = {bytes([i]): i for i in range(256)}
+    enc = tiktoken.Encoding(
+        name="no_special_tokens", pat_str=r"\S+|\s+", mergeable_ranks=ranks, special_tokens={}
+    )
+    assert enc.encode("hi", allowed_special={""}) == enc.encode_ordinary("hi")
