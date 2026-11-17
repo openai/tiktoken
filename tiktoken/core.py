@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import numbers
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, AbstractSet, Collection, Literal, NoReturn, Sequence
 
@@ -366,7 +367,7 @@ class Encoding:
         return set(self._special_tokens.keys())
 
     def is_special_token(self, token: int) -> bool:
-        assert isinstance(token, int)
+        assert isinstance(token, numbers.Integral)
         return token in self._special_token_values
 
     @property

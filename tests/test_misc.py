@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+import pytest
+
 import tiktoken
 
 
@@ -28,3 +30,11 @@ import sys
 assert "blobfile" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", prog])
+
+
+def test_is_special_token_accepts_integer_like():
+    np = pytest.importorskip("numpy")
+    enc = tiktoken.get_encoding("cl100k_base")
+    tokens = enc.encode_to_numpy("hello <|endoftext|>", allowed_special="all")
+    assert [enc.is_special_token(t) for t in tokens] == [False, False, True]
+    assert enc.is_special_token(np.uint32(enc.eot_token))
