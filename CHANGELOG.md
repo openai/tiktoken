@@ -2,6 +2,11 @@
 
 This is the changelog for the open source version of tiktoken.
 
+## [v0.14.0]
+- Build wheels for Python 3.15
+- Support looking up more GPT-5 series models
+- Upgrade dependencies
+
 ## [v0.13.0]
 - Update fancy-regex for significantly increased performance
 - Branch byte pair encoding to fix performance on unusual input
