@@ -16,7 +16,7 @@ jobs:
       matrix:
         # cibuildwheel builds linux wheels inside a manylinux container
         # it also takes care of procuring the correct python version for us
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, windows-11-arm, macos-latest]
         python-version: [39, 310, 311, 312, 313, 314, 314t, 315, 315t]
 
     steps:
