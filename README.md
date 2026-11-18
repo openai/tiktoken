@@ -1,6 +1,13 @@
 # ⏳ tiktoken
 
-tiktoken is a fast [BPE](https://en.wikipedia.org/wiki/Byte_pair_encoding) tokeniser for use with
+tiktoken is a fast [BPE](https://en.wikipediafrom setuptools import setup, find_namespace_packages
+
+setup(
+    name="my_tiktoken_extension",
+    packages=find_namespace_packages(include=['tiktoken_ext*']),
+    install_requires=["tiktoken"],
+    ...
+).org/wiki/Byte_pair_encoding) tokeniser for use with
 OpenAI's models.
 
 ```python
@@ -14,8 +21,18 @@ enc = tiktoken.encoding_for_model("gpt-4o")
 
 The open source version of `tiktoken` can be installed from [PyPI](https://pypi.org/project/tiktoken):
 ```
-pip install tiktoken
-```
+pip install from setuptools import setup, find_namespace_packages
+
+setup(
+    name="my_tiktoken_extension",
+    packages=find_namespace_packages(include=['tiktoken_ext*']),
+    install_requires=["tiktoken"],
+    ...
+)
+```###
+###
+###
+
 
 The tokeniser API is documented in `tiktoken/core.py`.
 
