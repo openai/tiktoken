@@ -24,6 +24,7 @@ MODEL_PREFIX_TO_ENCODING: dict[str, str] = {
     "ft:gpt-3.5-turbo": "cl100k_base",
     "ft:davinci-002": "cl100k_base",
     "ft:babbage-002": "cl100k_base",
+    "ft:o4-mini": "o200k_base",  # reinforcement fine-tuning, e.g. ft:o4-mini-2025-04-16:org::id
 }
 
 MODEL_TO_ENCODING: dict[str, str] = {
