@@ -1,6 +1,4 @@
 use std::collections::HashSet;
-use std::num::NonZeroU64;
-use std::thread;
 
 use fancy_regex::Regex;
 #[cfg(feature = "python")]
@@ -259,19 +257,26 @@ pub fn byte_pair_split<'a>(piece: &'a [u8], ranks: &HashMap<Vec<u8>, Rank>) -> V
 // The current implementation ends up doing a lot of hashing of bytes. In theory, this could be made
 // to be hashing of two-tuples of ints, which looks like it may also be a couple percent faster.
 
-struct FakeThreadId(NonZeroU64);
-
 fn hash_current_thread() -> usize {
-    // It's easier to use unsafe than to use nightly. Rust has this nice u64 thread id counter
-    // that works great for our use case of avoiding collisions in our array. Unfortunately,
-    // it's private. However, there are only so many ways you can layout a u64, so just transmute
-    // https://github.com/rust-lang/rust/issues/67939
-    const _: [u8; 8] = [0; std::mem::size_of::<std::thread::ThreadId>()];
-    const _: [u8; 8] = [0; std::mem::size_of::<FakeThreadId>()];
-    let x = unsafe {
-        std::mem::transmute::<std::thread::ThreadId, FakeThreadId>(thread::current().id()).0
-    };
-    u64::from(x) as usize
+    // Assigns each thread a small, stable index into our per-thread regex arrays
+    // (see MAX_NUM_THREADS below), without relying on the private/nightly-only
+    // internals of `std::thread::ThreadId`.
+    //
+    // Previously this transmuted `ThreadId` into a `NonZeroU64`-shaped struct based
+    // on a size check alone. Equal size does not imply equal layout (`ThreadId`'s
+    // internal representation is not documented or guaranteed), so that was UB.
+    // Instead we mint our own index the first time each thread calls this function,
+    // via a thread-local populated from a global atomic counter, and cache it in TLS
+    // for subsequent calls. The modulo is applied here (once, at cache time) rather
+    // than at every call site, and also bounds the monotonically-increasing counter's
+    // practical growth.
+    thread_local! {
+        static THREAD_INDEX: usize = {
+            static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+            COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % MAX_NUM_THREADS
+        };
+    }
+    THREAD_INDEX.with(|&idx| idx)
 }
 
 #[derive(Debug, Clone)]
@@ -332,11 +337,11 @@ impl CoreBPE {
         // See performance notes above for what this is about
         // It's also a little janky, please make a better version of it!
         // However, it's nice that this doesn't leak memory to short-lived threads
-        &self.regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+        &self.regex_tls[hash_current_thread()]
     }
 
     fn _get_tl_special_regex(&self) -> &Regex {
-        &self.special_regex_tls[hash_current_thread() % MAX_NUM_THREADS]
+        &self.special_regex_tls[hash_current_thread()]
     }
 
     /// Decodes tokens into a list of bytes.
