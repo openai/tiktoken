@@ -354,7 +354,11 @@ class Encoding:
     # ====================
 
     def token_byte_values(self) -> list[bytes]:
-        """Returns the list of all token byte values."""
+        """Returns the list of mergeable (regular) token byte values, excluding special tokens.
+
+        Special tokens are listed in `special_tokens_set`. To get their byte values, use
+        `decode_single_token_bytes` with their token IDs.
+        """
         return self._core_bpe.token_byte_values()
 
     @property
