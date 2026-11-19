@@ -110,6 +110,32 @@ def test_encode_surrogate_pairs():
     assert enc.encode("\ud83d") == enc.encode("�")
 
 
+def test_encode_with_unstable_surrogate_pairs():
+    # Regression for #541: `encode_with_unstable` historically surfaced a raw
+    # UnicodeEncodeError from the Rust boundary on unmatched surrogate pairs
+    # or lone surrogates, while `encode` / `encode_ordinary` already repaired
+    # such input via UTF-16 surrogatepass. The three methods should accept
+    # the same inputs.
+    enc = tiktoken.get_encoding("cl100k_base")
+
+    # Split surrogate pair → must not raise. We compare against the repaired
+    # form (same path `encode` takes) rather than asserting an exact token
+    # layout, since `encode_with_unstable` is documented as itself unstable.
+    # The completions list comes back from a Rust HashSet, so ordering is
+    # not guaranteed; compare as a set of tuples.
+    pair_stable, pair_completions = enc.encode_with_unstable("👍")
+    emoji_stable, emoji_completions = enc.encode_with_unstable("👍")
+    assert pair_stable == emoji_stable
+    assert {tuple(c) for c in pair_completions} == {tuple(c) for c in emoji_completions}
+
+    # Lone surrogate → matches the replacement-character encoding, mirroring
+    # the contract `test_encode_surrogate_pairs` asserts above for `encode`.
+    lone_stable, lone_completions = enc.encode_with_unstable("\ud83d")
+    repl_stable, repl_completions = enc.encode_with_unstable("�")
+    assert lone_stable == repl_stable
+    assert {tuple(c) for c in lone_completions} == {tuple(c) for c in repl_completions}
+
+
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 def test_catastrophically_repetitive(make_enc: Callable[[], tiktoken.Encoding]):
     enc = make_enc()
