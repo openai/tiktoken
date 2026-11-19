@@ -110,6 +110,29 @@ def test_encode_surrogate_pairs():
     assert enc.encode("\ud83d") == enc.encode("�")
 
 
+def test_encode_with_unstable_surrogate_pairs():
+    # Regression for openai/tiktoken#541: encode_with_unstable previously
+    # raised UnicodeEncodeError for surrogate pairs / lone surrogates, even
+    # though encode and encode_ordinary already handled them by retrying
+    # after a UTF-16 "surrogatepass" / "replace" round-trip. Mirror the
+    # same behavior so the three encode paths agree on what inputs they
+    # accept.
+    enc = tiktoken.get_encoding("cl100k_base")
+
+    # Surrogate pair must not raise. The stable prefix returned by
+    # encode_with_unstable matches the prefix of encode() on the repaired
+    # text.
+    stable_pair, _ = enc.encode_with_unstable("👍")
+    expected_pair = enc.encode("👍")
+    assert expected_pair[: len(stable_pair)] == stable_pair
+
+    # Lone surrogate must also not raise. encode() already maps it through
+    # "replace" to U+FFFD, so encode_with_unstable should agree.
+    stable_lone, _ = enc.encode_with_unstable("\ud83d")
+    expected_lone = enc.encode("\ud83d")
+    assert expected_lone[: len(stable_lone)] == stable_lone
+
+
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 def test_catastrophically_repetitive(make_enc: Callable[[], tiktoken.Encoding]):
     enc = make_enc()
