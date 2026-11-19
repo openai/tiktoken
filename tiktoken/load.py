@@ -3,18 +3,26 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+from typing import Any, Protocol
+
+import requests
 
 
-def read_file(blobpath: str) -> bytes:
+class HttpClient(Protocol):
+    def get(self, url: str, **kwargs: Any) -> Any: ...
+
+
+def read_file(blobpath: str, http_client: HttpClient | None = None) -> bytes:
     if "://" not in blobpath:
         with open(blobpath, "rb", buffering=0) as f:
             return f.read()
 
     if blobpath.startswith(("http://", "https://")):
         # avoiding blobfile for public files helps avoid auth issues, like MFA prompts.
-        import requests
+        if http_client is None:
+            http_client = requests.Session()
 
-        resp = requests.get(blobpath)
+        resp = http_client.get(blobpath)
         resp.raise_for_status()
         return resp.content
 
@@ -32,7 +40,11 @@ def check_hash(data: bytes, expected_hash: str) -> bool:
     return actual_hash == expected_hash
 
 
-def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
+def read_file_cached(
+    blobpath: str,
+    expected_hash: str | None = None,
+    http_client: HttpClient | None = None,
+) -> bytes:
     user_specified_cache = True
     if "TIKTOKEN_CACHE_DIR" in os.environ:
         cache_dir = os.environ["TIKTOKEN_CACHE_DIR"]
@@ -46,7 +58,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
 
     if cache_dir == "":
         # disable caching
-        return read_file(blobpath)
+        return read_file(blobpath, http_client=http_client)
 
     cache_key = hashlib.sha1(blobpath.encode()).hexdigest()
 
@@ -63,7 +75,7 @@ def read_file_cached(blobpath: str, expected_hash: str | None = None) -> bytes:
         except OSError:
             pass
 
-    contents = read_file(blobpath)
+    contents = read_file(blobpath, http_client=http_client)
     if expected_hash and not check_hash(contents, expected_hash):
         raise ValueError(
             f"Hash mismatch for data downloaded from {blobpath} (expected {expected_hash}). "
@@ -92,7 +104,10 @@ def data_gym_to_mergeable_bpe_ranks(
     vocab_bpe_hash: str | None = None,
     encoder_json_hash: str | None = None,
     clobber_one_byte_tokens: bool = False,
+    http_client: HttpClient | None = None,
 ) -> dict[bytes, int]:
+    if http_client is None:
+        http_client = requests.Session()
     # NB: do not add caching to this function
     rank_to_intbyte = [b for b in range(2**8) if chr(b).isprintable() and chr(b) != " "]
 
@@ -106,7 +121,7 @@ def data_gym_to_mergeable_bpe_ranks(
     assert len(rank_to_intbyte) == 2**8
 
     # vocab_bpe contains the merges along with associated ranks
-    vocab_bpe_contents = read_file_cached(vocab_bpe_file, vocab_bpe_hash).decode()
+    vocab_bpe_contents = read_file_cached(vocab_bpe_file, vocab_bpe_hash, http_client=http_client).decode()
     bpe_merges = [tuple(merge_str.split()) for merge_str in vocab_bpe_contents.split("\n")[1:-1]]
 
     def decode_data_gym(value: str) -> bytes:
@@ -128,7 +143,11 @@ def data_gym_to_mergeable_bpe_ranks(
     # check that the encoder file matches the merges file
     # this sanity check is important since tiktoken assumes that ranks are ordered the same
     # as merge priority
-    encoder_json = json.loads(read_file_cached(encoder_json_file, encoder_json_hash))
+    encoder_json = json.loads(
+        read_file_cached(
+            encoder_json_file, encoder_json_hash, http_client=http_client
+        ).decode()
+    )
     encoder_json_loaded = {decode_data_gym(k): v for k, v in encoder_json.items()}
     # drop these two special tokens if present, since they're not mergeable bpe tokens
     encoder_json_loaded.pop(b"<|endoftext|>", None)
@@ -156,9 +175,15 @@ def dump_tiktoken_bpe(bpe_ranks: dict[bytes, int], tiktoken_bpe_file: str) -> No
             f.write(base64.b64encode(token) + b" " + str(rank).encode() + b"\n")
 
 
-def load_tiktoken_bpe(tiktoken_bpe_file: str, expected_hash: str | None = None) -> dict[bytes, int]:
+def load_tiktoken_bpe(
+    tiktoken_bpe_file: str,
+    expected_hash: str | None = None,
+    http_client: HttpClient | None = None,
+) -> dict[bytes, int]:
+    if http_client is None:
+        http_client = requests.Session()
     # NB: do not add caching to this function
-    contents = read_file_cached(tiktoken_bpe_file, expected_hash)
+    contents = read_file_cached(tiktoken_bpe_file, expected_hash, http_client=http_client)
     ret = {}
     for line in contents.splitlines():
         if not line:

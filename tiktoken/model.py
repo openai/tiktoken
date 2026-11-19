@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import requests
+
 from .core import Encoding
+from .load import HttpClient
 from .registry import get_encoding
 
 # TODO: these will likely be replaced by an API endpoint
@@ -106,9 +109,11 @@ def encoding_name_for_model(model_name: str) -> str:
     ) from None
 
 
-def encoding_for_model(model_name: str) -> Encoding:
+def encoding_for_model(
+    model_name: str, http_client: HttpClient | None = None
+) -> Encoding:
     """Returns the encoding used by a model.
 
     Raises a KeyError if the model name is not recognised.
     """
-    return get_encoding(encoding_name_for_model(model_name))
+    return get_encoding(encoding_name_for_model(model_name), http_client=http_client)

@@ -1,5 +1,8 @@
 import subprocess
 import sys
+import requests
+import ssl
+from pathlib import Path
 
 import tiktoken
 
@@ -40,3 +43,21 @@ import sys
 assert "blobfile" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", prog])
+    
+    
+def test_custom_http_client():
+    custom_session = requests.Session()
+
+    ca_bundle = ssl.get_default_verify_paths().cafile
+    if ca_bundle and Path(ca_bundle).exists():
+        custom_session.verify = ca_bundle
+    custom_session.headers.update({"User-Agent": "custom-tiktoken-client"})
+
+    enc = tiktoken.get_encoding("gpt2", http_client=custom_session)
+    assert enc.encode("hello world") == [31373, 995]
+    assert enc.decode([31373, 995]) == "hello world"
+
+    enc = tiktoken.encoding_for_model("gpt-4", http_client=custom_session)
+    assert enc.name == "cl100k_base"
+    assert enc.encode("hello world") == [15339, 1917]
+
