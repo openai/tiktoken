@@ -107,7 +107,9 @@ def data_gym_to_mergeable_bpe_ranks(
 
     # vocab_bpe contains the merges along with associated ranks
     vocab_bpe_contents = read_file_cached(vocab_bpe_file, vocab_bpe_hash).decode()
-    bpe_merges = [tuple(merge_str.split()) for merge_str in vocab_bpe_contents.split("\n")[1:-1]]
+    bpe_merges = [
+        tuple(merge_str.split()) for merge_str in vocab_bpe_contents.splitlines()[1:]
+    ]
 
     def decode_data_gym(value: str) -> bytes:
         return bytes(data_gym_byte_to_byte[b] for b in value)
