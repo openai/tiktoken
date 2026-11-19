@@ -28,6 +28,18 @@ def test_simple():
             assert enc.encode_single_token(enc.decode_single_token_bytes(token)) == token
 
 
+@pytest.mark.parametrize("encoding_name", tiktoken.list_encoding_names())
+def test_token_byte_values(encoding_name: str):
+    enc = tiktoken.get_encoding(encoding_name)
+    token_bytes = enc.token_byte_values()
+    assert len(token_bytes) == len(enc._mergeable_ranks)
+    assert set(token_bytes) == set(enc._mergeable_ranks)
+    assert enc.decode_single_token_bytes(enc.eot_token) not in token_bytes
+    for special_token in enc.special_tokens_set:
+        token = enc.encode_single_token(special_token)
+        assert enc.decode_single_token_bytes(token) not in token_bytes
+
+
 def test_simple_repeated():
     enc = tiktoken.get_encoding("gpt2")
     assert enc.encode("0") == [15]
