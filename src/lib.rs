@@ -457,13 +457,8 @@ impl CoreBPE {
             let token_is_all_space = |token| {
                 self.decoder
                     .get(token)
-                    .map(|token_bytes| {
-                        token_bytes
-                            .iter()
-                            .rev()
-                            .all(|&b| [b' ', b'\n', b'\t'].contains(&b))
-                    })
-                    .unwrap_or(false)
+                    .and_then(|token_bytes| std::str::from_utf8(token_bytes).ok())
+                    .is_some_and(|text| text.chars().all(char::is_whitespace))
             };
             if last_piece_token_len > 0
                 && token_is_all_space(&tokens[tokens.len() - last_piece_token_len])

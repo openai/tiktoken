@@ -83,6 +83,19 @@ def test_encode_empty():
     assert enc.encode("") == []
 
 
+@pytest.mark.parametrize(
+    ("whitespace", "suffix"),
+    [("\r\n\t", "\r\n"), ("\n\n\u3000", "\n"), ("\u3000\n\t", "\n")],
+)
+def test_encode_with_unstable_whitespace(whitespace, suffix):
+    enc = tiktoken.get_encoding("o200k_base")
+    text = "a" + whitespace
+    stable, _ = enc.encode_with_unstable(text)
+
+    assert stable == enc.encode(text + suffix)[: len(stable)]
+    assert enc.decode(stable) == "a"
+
+
 def test_encode_bytes():
     enc = tiktoken.get_encoding("cl100k_base")
     assert enc._encode_bytes(b" \xec\x8b\xa4\xed") == [62085]
