@@ -1,4 +1,5 @@
 import argparse
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -45,8 +46,11 @@ def redact(dry_run: bool) -> None:
     assert (tiktoken_root / "pyproject.toml").exists()
 
     try:
-        output = subprocess.check_output(["git", "ls-files"], cwd=tiktoken_root, text=True)
-        paths = [Path(p) for p in output.splitlines()]
+        # Use -z so git emits raw, NUL-terminated paths. The default output
+        # C-style quotes non-ASCII names (core.quotePath), and the quoted
+        # string never matches the real file, silently skipping it.
+        output = subprocess.check_output(["git", "ls-files", "-z"], cwd=tiktoken_root)
+        paths = [Path(os.fsdecode(p)) for p in output.split(b"\0") if p]
     except subprocess.CalledProcessError:
         paths = list(tiktoken_root.glob("**/*"))
 
