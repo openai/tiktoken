@@ -623,8 +623,12 @@ impl CoreBPE {
         let regex = Regex::new(pattern)?;
 
         let special_regex = {
-            let parts = special_tokens_encoder
-                .keys()
+            // Regex alternation is leftmost-first, so put longer tokens first. Otherwise, if one
+            // special token is a prefix of another, which one matches depends on hash map order.
+            let mut keys = special_tokens_encoder.keys().collect::<Vec<_>>();
+            keys.sort_by_key(|s| std::cmp::Reverse(s.len()));
+            let parts = keys
+                .into_iter()
                 .map(|s| fancy_regex::escape(s))
                 .collect::<Vec<_>>();
             Regex::new(&parts.join("|"))?

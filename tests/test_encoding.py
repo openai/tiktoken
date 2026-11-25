@@ -1,5 +1,6 @@
 # Note that there are more actual tests, they're just not currently public :-)
 
+import itertools
 from typing import Callable
 
 import hypothesis
@@ -221,6 +222,27 @@ def test_special_token():
     assert eot not in tokens
     assert fip not in tokens
     assert fim in tokens
+
+
+def test_special_token_prefix_of_another():
+    # When one special token is a prefix of another, the longer one should win regardless of
+    # the order the special tokens were given in
+    gpt2 = tiktoken.get_encoding("gpt2")
+    names = ["<|tok|>", "<|tok|>_a", "<|tok|>_ab"]
+    for perm in itertools.permutations(names):
+        special_tokens = {name: gpt2.n_vocab + i for i, name in enumerate(perm)}
+        enc = tiktoken.Encoding(
+            "test_special_prefix",
+            pat_str=gpt2._pat_str,
+            mergeable_ranks=gpt2._mergeable_ranks,
+            special_tokens=special_tokens,
+        )
+        for name in names:
+            assert enc.encode(name, allowed_special="all") == [special_tokens[name]]
+        assert enc.encode("<|tok|>_abc", allowed_special="all") == [
+            special_tokens["<|tok|>_ab"],
+            *gpt2.encode_ordinary("c"),
+        ]
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
