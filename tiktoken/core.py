@@ -120,8 +120,7 @@ class Encoding:
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            self._check_disallowed_special(text, allowed_special, disallowed_special)
 
         try:
             return self._core_bpe.encode(text, allowed_special)
@@ -153,8 +152,7 @@ class Encoding:
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            self._check_disallowed_special(text, allowed_special, disallowed_special)
 
         import numpy as np
 
@@ -237,8 +235,7 @@ class Encoding:
         if disallowed_special:
             if not isinstance(disallowed_special, frozenset):
                 disallowed_special = frozenset(disallowed_special)
-            if match := _special_token_regex(disallowed_special).search(text):
-                raise_disallowed_special_token(match.group())
+            self._check_disallowed_special(text, allowed_special, disallowed_special)
 
         return self._core_bpe.encode_with_unstable(text, allowed_special)
 
@@ -378,6 +375,36 @@ class Encoding:
     # Private
     # ====================
 
+    def _check_disallowed_special(
+        self,
+        text: str,
+        allowed_special: AbstractSet[str],
+        disallowed_special: frozenset[str],
+    ) -> None:
+        if allowed_special:
+            effective_allowed = frozenset(
+                self.special_tokens_set.intersection(allowed_special) - disallowed_special
+            )
+            if effective_allowed and _special_tokens_overlap(
+                effective_allowed, disallowed_special
+            ):
+                maskable_allowed = frozenset(
+                    t
+                    for t in effective_allowed
+                    if not any(t.startswith(d) for d in disallowed_special)
+                    or self._core_bpe.encode(t, {t}) == [self._special_tokens[t]]
+                )
+                if maskable_allowed:
+                    for match in _combined_special_token_regex(
+                        maskable_allowed, disallowed_special
+                    ).finditer(text):
+                        tok = match.group()
+                        if tok in disallowed_special:
+                            raise_disallowed_special_token(tok)
+                    return
+        if match := _special_token_regex(disallowed_special).search(text):
+            raise_disallowed_special_token(match.group())
+
     def _encode_single_piece(self, text_or_bytes: str | bytes) -> list[int]:
         """Encodes text corresponding to bytes without a regex split.
 
@@ -435,6 +462,28 @@ def _special_token_regex(tokens: frozenset[str]) -> re.Pattern[str]:
     except ImportError:
         import re
     inner = "|".join(re.escape(token) for token in tokens)
+    return re.compile(f"({inner})")
+
+
+@functools.lru_cache(maxsize=128)
+def _special_tokens_overlap(allowed: frozenset[str], disallowed: frozenset[str]) -> bool:
+    for a in allowed:
+        for d in disallowed:
+            if d in a or any(d.startswith(a[i:]) for i in range(1, len(a))):
+                return True
+    return False
+
+
+@functools.lru_cache(maxsize=128)
+def _combined_special_token_regex(
+    allowed: frozenset[str], disallowed: frozenset[str]
+) -> re.Pattern[str]:
+    try:
+        import regex as re
+    except ImportError:
+        import re
+    ordered = sorted(allowed | disallowed, key=lambda t: (-len(t), t))
+    inner = "|".join(re.escape(token) for token in ordered)
     return re.compile(f"({inner})")
 
 

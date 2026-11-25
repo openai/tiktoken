@@ -223,6 +223,76 @@ def test_special_token():
     assert fim in tokens
 
 
+def test_special_token_allowed_superset_with_disallowed_substring():
+    ranks = {bytes([i]): i for i in range(256)}
+    enc = tiktoken.Encoding(
+        name="overlap_special_test",
+        pat_str=r".+",
+        mergeable_ranks=ranks,
+        special_tokens={
+            "<|endoftext|>": 256,
+            "pre<|endoftext|>": 257,
+            "mid<|endoftext|>post": 258,
+        },
+    )
+
+    assert enc.encode("pre<|endoftext|>", allowed_special={"pre<|endoftext|>"}) == [257]
+    assert enc.encode("mid<|endoftext|>post", allowed_special={"mid<|endoftext|>post"}) == [258]
+    assert (
+        enc.encode_to_numpy("pre<|endoftext|>", allowed_special={"pre<|endoftext|>"}).tolist()
+        == [257]
+    )
+    assert enc.encode_batch(["pre<|endoftext|>"], allowed_special={"pre<|endoftext|>"}) == [[257]]
+    stable, completions = enc.encode_with_unstable(
+        "pre<|endoftext|>", allowed_special={"pre<|endoftext|>"}
+    )
+    assert stable == [257]
+    assert not completions
+
+    # Standalone disallowed occurrences alongside an allowed superset must still raise.
+    with pytest.raises(ValueError):
+        enc.encode("pre<|endoftext|> <|endoftext|>", allowed_special={"pre<|endoftext|>"})
+    with pytest.raises(ValueError):
+        enc.encode_to_numpy("pre<|endoftext|> <|endoftext|>", allowed_special={"pre<|endoftext|>"})
+    with pytest.raises(ValueError):
+        enc.encode_batch(["pre<|endoftext|> <|endoftext|>"], allowed_special={"pre<|endoftext|>"})
+    with pytest.raises(ValueError):
+        enc.encode_with_unstable(
+            "pre<|endoftext|> <|endoftext|>", allowed_special={"pre<|endoftext|>"}
+        )
+
+    # Partial overlap: allowed token consumes its own span before checking disallowed tokens.
+    enc_overlap = tiktoken.Encoding(
+        name="partial_overlap_special_test",
+        pat_str=r".+",
+        mergeable_ranks=ranks,
+        special_tokens={"<|a|><|b|>": 256, "<|b|><|c|>": 257},
+    )
+    assert enc_overlap.encode("<|a|><|b|><|c|>", allowed_special={"<|a|><|b|>"}) == (
+        [256] + [ord(c) for c in "<|c|>"]
+    )
+    with pytest.raises(ValueError):
+        enc_overlap.encode("<|a|><|b|><|b|><|c|>", allowed_special={"<|a|><|b|>"})
+
+    # Unknown strings in allowed_special must not bypass disallowed_special checks.
+    enc_plain = tiktoken.Encoding(
+        name="plain_special_test",
+        pat_str=r".+",
+        mergeable_ranks=ranks,
+        special_tokens={"<|endoftext|>": 256},
+    )
+    with pytest.raises(ValueError):
+        enc_plain.encode("pre<|endoftext|>", allowed_special={"pre<|endoftext|>"})
+
+    # Explicitly disallowing a token that is also in allowed_special still raises.
+    with pytest.raises(ValueError):
+        enc.encode(
+            "pre<|endoftext|>",
+            allowed_special={"pre<|endoftext|>"},
+            disallowed_special={"pre<|endoftext|>"},
+        )
+
+
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(text=st.text())
 @hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
