@@ -404,6 +404,19 @@ class Encoding:
         return ret
 
     def _encode_bytes(self, text: bytes) -> list[int]:
+        """Encode bytes without replacing invalid UTF-8.
+
+        Valid UTF-8 follows ordinary text encoding. Otherwise the tokenizer
+        applies its Unicode regex to the valid prefix and re-encodes the last
+        potentially unstable piece together with the remaining bytes. This
+        permits merges across a truncated UTF-8 character at the end of a
+        token stream. Later valid Unicode sequences are not split separately:
+        the suffix is a best-effort byte encoding, not a reconstruction of the
+        regex boundaries in an unknown original string.
+
+        For a vocabulary containing all single-byte tokens, decoding the
+        resulting tokens as bytes preserves the input.
+        """
         return self._core_bpe._encode_bytes(text)
 
     def __getstate__(self) -> object:
