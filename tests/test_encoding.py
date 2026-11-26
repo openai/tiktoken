@@ -91,6 +91,26 @@ def test_encode_bytes():
         assert enc.decode_bytes(enc._encode_bytes(bytestring)) == bytestring
 
 
+def test_encode_bytes_incomplete_utf8_boundary():
+    # A synthetic encoding whose regex splits individual Unicode characters.
+    # A truncated character can share a token with the preceding character.
+    ranks = {bytes([i]): i for i in range(256)}
+    ranks.update({b"a\xc3": 256, b"\xc3\xa9": 257, b"xy": 258})
+    enc = tiktoken.Encoding(
+        name="byte-boundary-test",
+        pat_str=r"(?s).",
+        mergeable_ranks=ranks,
+        special_tokens={},
+    )
+
+    assert enc._encode_bytes(b"za\xc3") == [ord("z"), 256]
+    assert enc._encode_bytes("zaé".encode()) == enc.encode_ordinary("zaé")
+    assert enc._encode_bytes(b"\xffxy") == [255, 258]
+    assert enc.encode_ordinary("xy") == [ord("x"), ord("y")]
+    for data in (b"za\xc3", "zaé".encode(), b"\xffxy"):
+        assert enc.decode_bytes(enc._encode_bytes(data)) == data
+
+
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
 @hypothesis.given(bytestring=st.binary())
 @hypothesis.settings(deadline=None, max_examples=MAX_EXAMPLES)
