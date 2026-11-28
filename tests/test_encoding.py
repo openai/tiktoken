@@ -152,7 +152,7 @@ def test_basic_roundtrip(make_enc):
 def test_hyp_roundtrip(make_enc: Callable[[], tiktoken.Encoding], text):
     enc = make_enc()
 
-    assert text == enc.decode(enc.encode(text))
+    assert text == enc.decode(enc.encode(text, disallowed_special=()))
 
 
 @pytest.mark.parametrize("make_enc", ENCODING_FACTORIES)
